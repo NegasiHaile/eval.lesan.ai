@@ -84,7 +84,7 @@ export default function DatasetsTable({
     return () => {
       cancelled = true;
     };
-  }, [user?.username, evalDataType.value, refreshKey]);
+  }, [user?.username, evalDataType.value, refreshKey, setBatchDetails, setLoading]);
 
   const handleDownload = async (
     batch_detail: BatchDetailTypes,

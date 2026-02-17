@@ -206,7 +206,7 @@ export default function Leaderboard() {
                     >
                       {currentColumns.map((item: columnType, j) => {
                         const key = item.key;
-                        const value = (model as any)[key];
+                        const value = (model as Record<string, unknown>)[key];
                         return (
                           <td key={`${i}_${j}`} className="p-3">
                             {item.key === "rank" ? (
@@ -218,7 +218,7 @@ export default function Leaderboard() {
                                 &#x2715; {/* Unicode for pushpin */}
                               </button>
                             ) : null}
-                            {value}
+                            {value != null ? String(value) : ""}
                           </td>
                         );
                       })}
@@ -240,7 +240,7 @@ export default function Leaderboard() {
                 >
                   {currentColumns.map((item: columnType, j) => {
                     const key = item.key;
-                    const value = (model as any)[key];
+                    const value = (model as Record<string, unknown>)[key];
                     const isRank = item.key === "rank";
                     return (
                       <td
@@ -256,7 +256,7 @@ export default function Leaderboard() {
                             &#128204; {/* Unicode for pushpin */}
                           </button>
                         ) : null}
-                        {value}
+                        {value != null ? String(value) : ""}
                       </td>
                     );
                   })}

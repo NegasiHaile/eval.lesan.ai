@@ -1,7 +1,6 @@
 // src/app/api/user/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 import { requireRole } from "@/lib/auth";
 
 const ADMIN_ROLES = ["root", "admin"];

@@ -1,6 +1,6 @@
 "use client";
 import DatasetsTable from "@/components/tables/DatasetsTable";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PrivateRoute from "@/components/PrivateRoute";
 import { BatchDetailTypes } from "@/types/data";
 import { useUser } from "@/context/UserContext";
@@ -21,14 +21,25 @@ const Datasets = () => {
     []
   );
   const [loading, setLoading] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<EvalTypeTypes>(
-    JSON.parse(localStorage.getItem("active_dataset_tab") ?? `null`) ??
-      evalTypes[0]
-  );
+  const [activeTab, setActiveTab] = useState<EvalTypeTypes>(evalTypes[0]);
   const [refreshKey, setRefreshKey] = useState(0);
   const { user } = useUser();
 
   const [showUploader, setShowUploader] = useState<boolean>(false);
+
+  // Restore active tab from localStorage (client-only; avoids SSR "localStorage is not defined")
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("active_dataset_tab");
+      if (stored) {
+        const parsed = JSON.parse(stored) as EvalTypeTypes | null;
+        if (parsed && evalTypes.some((t) => t.value === parsed.value))
+          setActiveTab(parsed);
+      }
+    } catch {
+      // ignore invalid stored value
+    }
+  }, []);
 
   return (
     <PrivateRoute>
@@ -93,7 +104,7 @@ const Datasets = () => {
           )} */}
 
           <div className="w-full space-y-1 my-5 overflow-x-auto">
-            <div className="w-full flex flex-wrap gap-2 justify-between items-start">
+            <div className="w-full flex gap-2 justify-between items-start">
               <h1 className="text-xl font-semibold mb-3 w-full text-left">
                 {activeTab.full_name || "Datasets"}
               </h1>
@@ -105,11 +116,11 @@ const Datasets = () => {
                   minimal
                   size="sm"
                   onClick={() => setRefreshKey((k) => k + 1)}
-                  disabled={loading}
+                  loading={loading}
                   title={`Refresh ${activeTab.name} datasets`}
                 >
                   <VscRefresh
-                    className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
+                    className={`w-5 h-5 `}
                   />
                   <span className="hidden sm:block">Refresh</span>
                 </Button>

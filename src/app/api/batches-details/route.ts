@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     }
 
     const role = auth.role;
-    const baseQuery: any = {
+    const baseQuery: { dataset_type: string; $or?: Array<Record<string, unknown>> } = {
       dataset_type: datasetType,
     };
 

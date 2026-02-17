@@ -39,7 +39,8 @@ export async function GET(
     req.nextUrl.searchParams.get("include_models_shuffles") === "true";
 
   if (!includeModelShuffles && "task_models_shuffles" in batch) {
-    delete (batch as any).task_models_shuffles;
+    const b = batch as Record<string, unknown>;
+    delete b.task_models_shuffles;
   }
 
   return NextResponse.json(batch);

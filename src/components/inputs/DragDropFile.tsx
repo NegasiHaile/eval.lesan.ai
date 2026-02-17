@@ -45,7 +45,7 @@ export default function DragDropFile({
     name.split(".").pop()?.toLowerCase();
 
   // Convert file content to JSON
-  const parseFileToJson = async (file: File): Promise<any> => {
+  const parseFileToJson = async (file: File): Promise<Record<string, unknown>> => {
     const ext = getFileExtension(file.name);
 
     return new Promise((resolve, reject) => {
@@ -60,7 +60,7 @@ export default function DragDropFile({
 
             // Ensure unique task IDs
             if (Array.isArray(parsed.tasks)) {
-              parsed.tasks = parsed.tasks.map((task: any, index: number) => ({
+              parsed.tasks = parsed.tasks.map((task: Record<string, unknown>, index: number) => ({
                 ...task,
                 id: (index + 1).toString(),
               }));
@@ -91,7 +91,7 @@ export default function DragDropFile({
             }
 
             const fieldsLower = result.meta.fields!.map((f) => f.toLowerCase());
-            const tasks = (result.data as any[]).map((row, i) => {
+            const tasks = (result.data as Record<string, unknown>[]).map((row, i) => {
               const inputIndex = fieldsLower.indexOf("input");
               return {
                 id: row.id || String(i + 1),
@@ -143,10 +143,10 @@ export default function DragDropFile({
             }
 
             const dataRows = rows.slice(1); // skip header
-            const tasks = (dataRows as any[]).map((row: any, i: number) => {
-              const rowArray = row as any[];
+            const tasks = (dataRows as unknown[][]).map((row: unknown[], i: number) => {
+              const rowArray = row;
               const inputIndex = headersLower.indexOf("input");
-              const task: any = {
+              const task: Record<string, unknown> = {
                 id: String(i + 1),
                 input: inputIndex >= 0 ? rowArray[inputIndex] || "" : "",
               };
@@ -202,9 +202,9 @@ export default function DragDropFile({
 
     parseFileToJson(file)
       .then((data) => {
-        const result = isValidBatchData(activeTab.value, data);
+        const result = isValidBatchData(activeTab.value, data as BatchTasksTypes);
         if (result.isValid) {
-          onChange(data);
+          onChange(data as ASRBatchTasksTypes | BatchTasksTypes);
           setStatus({
             isValid: true,
             message: `File "${file.name}" uploaded successfully.`,

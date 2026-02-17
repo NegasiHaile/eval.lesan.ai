@@ -110,7 +110,7 @@ const SelectOption = ({
     } else {
       setIsAdding(false);
     }
-  }, [search, allowAddLanguage]);
+  }, [search, allowAddLanguage, filteredOptions.length]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

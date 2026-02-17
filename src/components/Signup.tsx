@@ -41,7 +41,7 @@ type ModalProps = {
   setUser: Dispatch<SetStateAction<UserTypes | null>>;
 };
 
-export default function Signup({ isOpen, setIsOpen, setUser }: ModalProps) {
+export default function Signup({ isOpen, setIsOpen }: ModalProps) {
   const [loading, setLoading] = useState(false);
 
   const handleSignInWithGoogle = async () => {
