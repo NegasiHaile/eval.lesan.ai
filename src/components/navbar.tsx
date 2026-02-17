@@ -12,6 +12,7 @@ import { VscColorMode } from "react-icons/vsc";
 import { FaUserGroup } from "react-icons/fa6";
 import { MdOutlineTipsAndUpdates } from "react-icons/md";
 import { usePreferences } from "@/context/PreferencesContext";
+import { authClient } from "@/lib/auth-client";
 
 const NavBar = () => {
   const pathname = usePathname();
@@ -39,11 +40,12 @@ const NavBar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
-    localStorage.clear();
     setUser(null);
-    router.push("/");
-    router.refresh();
+    router.replace("/");
     setMenuOpen(false);
+    setDropdownOpen(false);
+    // Server sign-out in background; don't block UI
+    void authClient.signOut().catch(() => {});
   };
 
   const navItems = [

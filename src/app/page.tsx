@@ -157,13 +157,11 @@ export default function Home() {
   };
 
   const handleSubmitEvaluation = async () => {
-    const usr = JSON.parse(localStorage.getItem("user") || JSON.stringify(""));
-
-    // STEP 1. Check if there is logged in user
+    // STEP 1. Check if there is logged in user (use Better Auth session from context)
     if (!evalTask) return null;
 
-    // Comment this if you DO NOT NEED A USER TO SIGN IN TO SUBMIT REALTIME EVAL
-    if (!usr?.username && selectedBatchDetail.batch_name !== "realtime") {
+    // Same as existing: prompt sign-in when not logged in and submitting non-realtime evaluation
+    if (!user?.username && selectedBatchDetail.batch_name !== "realtime") {
       setIsSigninOpen(true);
       return null;
     }

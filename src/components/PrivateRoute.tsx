@@ -1,7 +1,8 @@
 // components/PrivateRoute.tsx
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useUser } from "@/context/UserContext";
 
 export default function PrivateRoute({
   children,
@@ -9,18 +10,13 @@ export default function PrivateRoute({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
+  const { user, isPending } = useUser();
 
   useEffect(() => {
-    const user = localStorage.getItem("user");
-    if (!user) {
-      router.push("/");
-    } else {
-      setIsChecking(false);
-    }
-  }, [router]);
+    if (isPending) return;
+    if (!user) router.replace("/");
+  }, [user, isPending, router]);
 
-  if (isChecking) return null; // or loading spinner
-
+  if (isPending || !user) return null;
   return <>{children}</>;
 }

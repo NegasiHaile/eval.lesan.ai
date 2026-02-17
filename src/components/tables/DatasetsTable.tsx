@@ -24,6 +24,8 @@ type DatasetsTableProps = {
   loading: boolean;
   setLoading: Dispatch<React.SetStateAction<boolean>>;
   evalDataType: EvalTypeTypes;
+  /** Increment to trigger a refetch (e.g. from Refresh button). */
+  refreshKey?: number;
 };
 
 export default function DatasetsTable({
@@ -32,6 +34,7 @@ export default function DatasetsTable({
   loading,
   setLoading,
   evalDataType,
+  refreshKey = 0,
 }: DatasetsTableProps) {
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
@@ -56,32 +59,32 @@ export default function DatasetsTable({
   );
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
 
+  // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
+    if (!user?.username) return;
+
+    let cancelled = false;
     const fetchBatchDetails = async () => {
-      if (user?.username) {
-        try {
-          setLoading(true);
-
-          const res = await fetch(
-            `/api/batches-details?username=${
-              user?.username ?? ""
-            }&dataset_type=${evalDataType.value}`
-          );
-          if (!res.ok) throw new Error("Failed to fetch batch details");
-
-          const data: BatchDetailTypes[] = await res.json();
-
-          setBatchDetails(data);
-        } catch (err) {
-          console.error("Error fetching batch details:", err);
-        } finally {
-          setLoading(false);
-        }
+      try {
+        setLoading(true);
+        const res = await fetch(
+          `/api/batches-details?username=${user.username}&dataset_type=${evalDataType.value}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch batch details");
+        const data: BatchDetailTypes[] = await res.json();
+        if (!cancelled) setBatchDetails(data);
+      } catch (err) {
+        if (!cancelled) console.error("Error fetching batch details:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchBatchDetails();
-  }, [setBatchDetails, setLoading, evalDataType, user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.username, evalDataType.value, refreshKey]);
 
   const handleDownload = async (
     batch_detail: BatchDetailTypes,
@@ -223,11 +226,7 @@ export default function DatasetsTable({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          annotator_id: anno_email,
-          sendEmail: true,
-          assigneeEmail: user?.email ?? user?.username,
-        }),
+        body: JSON.stringify({ annotator_id: anno_email }),
       });
 
       if (!res.ok) {

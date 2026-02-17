@@ -10,7 +10,7 @@ This is a full-stack **Next.js** application designed to support **leaderboard**
 - **TypeScript**
 - **Tailwind CSS**
 - **MongoDB** for database
-- **LocalStorage** for persistence
+- **[Better Auth](https://www.better-auth.com/)** for authentication (Google Sign-In only)
 - **Vercel** (for deployment)
 
 ---
@@ -27,7 +27,7 @@ This is a full-stack **Next.js** application designed to support **leaderboard**
 
 ```bash
 # 1. Clone and enter the project
-git clone https://github.com/lesan/horneval.git
+git clone https://github.com/lesanai/app-eval.git
 cd horneval
 
 # 2. Install dependencies
@@ -71,7 +71,7 @@ Then edit `.env.local` and replace placeholders with your real values.
 **Development tips:**
 
 - Use a **local MongoDB** (e.g. `MONGODB_URI=mongodb://localhost:27017/`) or a dedicated dev cluster on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
-- Set `ROOT_URI=http://localhost:3000` and `NEXT_PUBLIC_BASE_URL` to your production or staging URL if you need correct links in emails.
+- Set `NEXT_PUBLIC_BASE_URL` to your production URL when deploying.
 
 ### 3. Install dependencies and run
 
@@ -110,9 +110,9 @@ Runs the production server on port 3000.
 
 **Production checklist:**
 
-- Set `NEXT_PUBLIC_BASE_URL` to your production URL (e.g. `https://horneval.vercel.app`).
+- Set `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` to your production URL (e.g. `https://horneval.vercel.app`).
 - Use a production MongoDB database and a strong `MONGODB_URI`.
-- Use real SMTP or SendGrid credentials for password reset and confirmation emails.
+- Configure Google OAuth with your production redirect URI.
 - Never commit `.env` or `.env.local`; use Vercel (or your host) env UI for production secrets.
 
 ---
@@ -121,37 +121,34 @@ Runs the production server on port 3000.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `BETTER_AUTH_SECRET` | Yes | Secret for Better Auth (min 32 chars). Generate with `openssl rand -base64 32`. |
+| `BETTER_AUTH_URL` | Yes | Base URL of the app; must match the browser URL exactly (e.g. `http://localhost:3000` in dev, including port) so the session cookie works. |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID (required for sign-in). |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret. |
 | `APP_NAME` | Yes | App name (server-side). |
 | `NEXT_PUBLIC_APP_NAME` | Yes | App name (client-side). |
 | `APP_VERSION` | No | Application version. |
 | `APP_DESCRIPTION` | No | Short app description. |
-| `MONGODB_DB` | Yes | MongoDB database name. |
-| `MONGODB_URI` | Yes | MongoDB connection URI (e.g. `mongodb://localhost:27017/` or Atlas URI). |
+| `MONGODB_URI` | Yes | MongoDB connection URI (e.g. Atlas `mongodb+srv://...` or local `mongodb://localhost:27017/`). Data is stored in a database named `development` (dev) or `production` (prod). |
 | `LESAN_API_URL` | Yes | Lesan API base URL. |
 | `LESAN_API_KEY` | Yes | API key for Lesan services. |
 | `GEMINI_API_KEY` | Yes | API key for Gemini (if used). |
-| `SMTP_HOST` | Yes* | SMTP host (e.g. `smtp.gmail.com`). |
-| `SMTP_PORT` | Yes* | SMTP port (e.g. `587`). |
-| `SMTP_USER` | Yes* | SMTP login email. |
-| `SMTP_PASS` | Yes* | SMTP password (e.g. Gmail app password). |
-| `FROM_EMAIL` | Yes* | Sender email. |
-| `FROM_NAME` | No | Sender display name. |
-| `SMTP_SERVICE` | No | Nodemailer service (e.g. `gmail`). |
-| `SMTP_SECURE` | No | `true` for port 465, `false` for 587. |
-| `SENDGRID_API_KEY` | No | SendGrid API key (alternative to SMTP). |
-| `SENDGRID_SENDER_EMAIL` | No | Verified sender email for SendGrid. |
-| `FORGET_PASSWORD_TOKEN_EXPIRATION` | No | Reset token TTL in ms (default 30 min). |
-| `CONFIRM_EMAIL_TOKEN_EXPIRATION` | No | Confirm-email token TTL in ms. |
-| `NEXT_PUBLIC_BASE_URL` | Yes | Public app URL (emails, client). |
-| `ROOT_URI` | Yes | Base URL for server (e.g. `http://localhost:3000` in dev). |
-| `GCP_PROJECT_ID` | No | Google Cloud project (if using GCS). |
-| `GCP_CLIENT_EMAIL` | No | GCP service account email. |
-| `GCP_PRIVATE_KEY` | No | GCP service account private key. |
-| `GCS_BUCKET` | No | Google Cloud Storage bucket name. |
-
-\* Either SMTP or SendGrid must be configured for email (e.g. password reset).
+| `NEXT_PUBLIC_BASE_URL` | Yes | Public app URL (client). |
 
 Full example with comments: see **`.env.example`** in the repo.
+
+### Authentication (Better Auth)
+
+The app uses [Better Auth](https://www.better-auth.com/) with **Google Sign-In only**. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+
+To set up Google Sign-In:
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
+2. Create an **OAuth 2.0 Client ID** (Web application).
+3. Add authorized redirect URI: `https://your-domain.com/api/auth/callback/google` (and `http://localhost:3000/api/auth/callback/google` for dev).
+4. Put the Client ID and Client Secret in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+Better Auth stores users and sessions in MongoDB. In Atlas, use the database named **development** (when running `npm run dev`) or **production** (when running `npm start`). It creates collections such as `user`, `session`, and `account`. No migration is required.
 
 ---
 
@@ -166,9 +163,10 @@ src/
     datasets/             # Datasets UI
     asr/                  # ASR evaluation UI
     leaderboard/          # Leaderboard UI
-    users/                # User management
+    users/                # User management (admin)
     profile/              # User profile
-    reset-password/       # Password reset flow
+    reset-password/       # Redirect only (no email flow)
+    confirm-email/       # Redirect only
   components/             # Reusable UI components
   helpers/                # Utilities (e.g. leaderboard calculator)
   scripts/                # Data prep scripts (Python, etc.)
@@ -194,7 +192,7 @@ public/                   # Static assets (logo, etc.)
 
   ```json
   {
-    // "batch_id": "", # Batch ID will be gnerated on uploading by the system
+    // "batch_id": "", # Batch ID will be generated on upload by the system
     "dataset_name": "", // Required
     "dataset_domain": "", // Required
     // "dataset_type": "", // mt|asr|tts, this will be handled by the system on uploading the batch
@@ -232,7 +230,7 @@ public/                   # Static assets (logo, etc.)
       // ... more tasks here
     ],
 
-    // rating_guideline is the guidelines for rating 1-5. You should add five items, you can update the description based on your needs, or you can completly ignore this, its optional field
+    // rating_guideline: guidelines for rating 1-5. Add five items; optional.
     "rating_guideline": [
       {
         "scale": 1,
@@ -265,7 +263,7 @@ public/                   # Static assets (logo, etc.)
       }
     ],
 
-    //domains is for list of domains that your data should be annotated. You can update is with your own nees. Not only domains but even types of errors so your data can be annotated with it, or you can completly ignore this, its optional field
+    // domains: list of domains for annotation; optional. Customize or omit.
     "domains": [
       {
         "name": "Health",

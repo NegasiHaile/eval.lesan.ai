@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { EvalTaskTypes, EvalOutputTypes } from "@/types/data";
+import { requireAuth } from "@/lib/auth";
 
 type RouteParams = {
   datasetType: string;
@@ -12,6 +13,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<RouteParams> }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   const { datasetType, batchId } = await params;
 
   if (!datasetType) {
@@ -47,6 +50,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<RouteParams> }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   const { datasetType, batchId } = await params;
 
   if (!datasetType) {
@@ -97,9 +102,11 @@ export async function PUT(
 
 /* ===================== DELETE ===================== */
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<RouteParams> }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   const { datasetType, batchId } = await params;
 
   if (!datasetType) {

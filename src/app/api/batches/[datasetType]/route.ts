@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { BatchDetailTypes, BatchTasksTypes } from "@/types/data";
+import { requireAuth } from "@/lib/auth";
 
 // GET: Fetch all batch details by [Dataset type]
 export async function GET(
@@ -12,6 +13,8 @@ export async function GET(
     params: Promise<{ datasetType: string }>;
   }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   try {
     const client = await clientPromise;
     const { datasetType } = await params;
@@ -44,6 +47,8 @@ export async function GET(
 
 // POST: Save new batch detail and its tasks batch
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   try {
     const body = await req.json();
     const {
@@ -82,6 +87,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE: Delete batch detail and tasks batch by batch_id
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   try {
     const { batch_id, dataset_type } = await req.json();
     const client = await clientPromise;
@@ -106,6 +113,8 @@ export async function DELETE(req: NextRequest) {
 
 // PUT: Update batch detail and/or task by batch_id
 export async function PUT(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
   try {
     const body = await req.json();
     const {

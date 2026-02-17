@@ -1,81 +1,66 @@
 // src/app/api/user/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { requireRole } from "@/lib/auth";
 
-export async function GET() {
+const ADMIN_ROLES = ["root", "admin"];
+const BETTER_AUTH_USER_COLLECTION = "user";
+
+function toAppUser(doc: { _id?: unknown; email: string; name?: string; role?: string; active?: boolean }) {
+  return {
+    username: doc.email,
+    email: doc.email,
+    fullName: doc.name ?? "",
+    role: doc.role ?? "user",
+    active: doc.active ?? true,
+    password: "",
+  };
+}
+
+export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, ADMIN_ROLES);
+  if (auth instanceof Response) return auth;
   try {
     const client = await clientPromise;
     const db = client.db();
-    const users = await db.collection("users").find().toArray();
+    const docs = await db
+      .collection(BETTER_AUTH_USER_COLLECTION)
+      .find({})
+      .toArray();
+    const users = docs.map((d) => toAppUser(d as Parameters<typeof toAppUser>[0]));
     return NextResponse.json(users);
   } catch (error) {
     return NextResponse.json({ error: error }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    const body = await request.json();
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-
-    const newUser = {
-      ...body,
-      password: hashedPassword,
-      createdAt: new Date(),
-    };
-
-    const result = await db.collection("users").insertOne(newUser);
-    return NextResponse.json({ insertedId: result.insertedId });
-  } catch (error) {
-    return NextResponse.json({ error: error }, { status: 500 });
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    const body = await request.json();
-
-    const { id, ...updates } = body;
-
-    // Optionally hash password if updating
-    if (updates.password) {
-      updates.password = await bcrypt.hash(updates.password, 10);
-    }
-
-    const result = await db
-      .collection("users")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updates });
-
-    return NextResponse.json({ modifiedCount: result.modifiedCount });
-  } catch (error) {
-    return NextResponse.json(
-      { message: "Failed to update user", error: String(error) },
-      { status: 500 }
-    );
-  }
-}
-
 export async function DELETE(request: NextRequest) {
+  const auth = await requireRole(request, ADMIN_ROLES);
+  if (auth instanceof Response) return auth;
   try {
     const client = await clientPromise;
     const db = client.db();
 
     const body = await request.json();
-    const username = body?.username;
+    const username = body?.username; // email in Better Auth
 
     if (!username) {
       return NextResponse.json({ error: "Missing username" }, { status: 400 });
     }
 
-    const result = await db.collection("users").deleteOne({ username });
+    const userColl = db.collection(BETTER_AUTH_USER_COLLECTION);
+    const user = await userColl.findOne({ email: username });
+    if (!user) {
+      return NextResponse.json({ deletedCount: 0 });
+    }
+
+    const userId = (user as { _id?: unknown })._id?.toString?.() ?? (user as { id?: string }).id;
+    if (userId) {
+      await db.collection("session").deleteMany({ userId });
+      await db.collection("account").deleteMany({ userId });
+    }
+    const result = await userColl.deleteOne({ email: username });
 
     return NextResponse.json({ deletedCount: result.deletedCount });
   } catch (error) {
@@ -84,6 +69,8 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = await requireRole(request, ADMIN_ROLES);
+  if (auth instanceof Response) return auth;
   try {
     const client = await clientPromise;
     const db = client.db();
@@ -95,24 +82,24 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Missing username" }, { status: 400 });
     }
 
-    if (Object.keys(updates).length === 0) {
+    const allowed = new Set(["role", "active"]);
+    const set: Record<string, unknown> = {};
+    if (updates.role !== undefined && allowed.has("role")) set.role = updates.role;
+    if (updates.active !== undefined && allowed.has("active")) set.active = updates.active;
+    if (Object.keys(set).length === 0) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
 
-    const tokenCollection = db.collection("user_tokens");
-
     const result = await db
-      .collection("users")
-      .updateOne({ username }, { $set: updates });
+      .collection(BETTER_AUTH_USER_COLLECTION)
+      .updateOne({ email: username }, { $set: set });
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    await tokenCollection.deleteOne({ email: username });
 
     return NextResponse.json({ message: "User updated successfully" });
   } catch (error) {

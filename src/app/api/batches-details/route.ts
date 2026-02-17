@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { BatchDetailTypes } from "@/types/data";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
+  const username = auth.username;
+
   try {
     const client = await clientPromise;
     const db = client.db();
 
-    const username = req.nextUrl.searchParams.get("username")?.toLowerCase();
     const datasetType = req.nextUrl.searchParams
       .get("dataset_type")
       ?.toLowerCase();
-
-    if (!username) {
-      return NextResponse.json(
-        { message: "Unauthorized: username is required." },
-        { status: 400 }
-      );
-    }
 
     if (!datasetType) {
       return NextResponse.json(
@@ -26,17 +23,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 🔍 Fetch user's role from the `users` collection
-    const user = await db.collection("users").findOne({ username });
-
-    if (!user) {
-      return NextResponse.json(
-        { message: `User '${username}' not found.` },
-        { status: 404 }
-      );
-    }
-
-    const role = user.role?.toLowerCase();
+    const role = auth.role;
     const baseQuery: any = {
       dataset_type: datasetType,
     };

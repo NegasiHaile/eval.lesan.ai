@@ -3,38 +3,47 @@
 import { UserTypes } from "@/types/user";
 import { useState, useContext, ReactNode, useEffect } from "react";
 import { Dispatch, SetStateAction, createContext } from "react";
+import { authClient } from "@/lib/auth-client";
 
 type UserContextType = {
   user: UserTypes | null;
   setUser: Dispatch<SetStateAction<UserTypes | null>>;
+  isPending: boolean;
 };
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+function sessionToUser(session: { user: { email: string; name?: string; role?: string } } | null): UserTypes | null {
+  if (!session?.user) return null;
+  const u = session.user;
+  return {
+    username: u.email,
+    role: (u as { role?: string }).role ?? "user",
+    password: "",
+    fullName: u.name,
+    email: u.email,
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserTypes | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, isPending } = authClient.useSession();
+  const [overrideUser, setOverrideUser] = useState<UserTypes | null | undefined>(undefined);
+
+  const user = overrideUser !== undefined ? overrideUser : sessionToUser(session);
+
+  const setUser: Dispatch<SetStateAction<UserTypes | null>> = (value) => {
+    setOverrideUser(typeof value === "function" ? value(user ?? null) : value);
+  };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser?.username) {
-          // HERE PLEASE CHECK IF THE USER NAME IN LOCALSTORAGE IS REAL USER
-          // MAY BE BETTER TO USER JWT
-          setUser(parsedUser);
-        }
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-      }
+    if (user) {
+      localStorage.setItem("user", JSON.stringify({ username: user.username, role: user.role }));
+    } else {
+      localStorage.removeItem("user");
     }
-    setLoading(false);
-  }, []);
-
-  if (loading) return <></>;
+  }, [user]);
 
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user: user ?? null, setUser, isPending }}>
       {children}
     </UserContext.Provider>
   );
