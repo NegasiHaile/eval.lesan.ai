@@ -1,96 +1,86 @@
 # 🧠 Machine Translation Systems Human Evaluation
 
-This is a full-stack **Next.js** application designed to support **leaderboard** for **human evaluation of machine translation systems**. It allows uploading datasets (JSON), managing translation tasks, and evaluating (rating and ranking) models performance from multiple machine translation models.
+Full-stack **Next.js** app for **human evaluation and leaderboard** of machine translation (MT) and automatic speech recognition (ASR) systems. Upload datasets, manage tasks, and rate/rank model outputs. Authentication is **Google Sign-In only** via [Better Auth](https://www.better-auth.com/).
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Next.js (App Router)**
-- **TypeScript**
-- **Tailwind CSS**
-- **MongoDB** for database
-- **[Better Auth](https://www.better-auth.com/)** for authentication (Google Sign-In only)
-- **Vercel** (for deployment)
+- **Next.js** (App Router), **TypeScript**, **Tailwind CSS**
+- **MongoDB** — app data and Better Auth (users, sessions, accounts)
+- **Better Auth** — Google OAuth only; no email/password
+- **Vercel** — recommended for deployment
 
 ---
 
 ## 📦 Prerequisites
 
-- [Node.js](https://nodejs.org/) v20 or higher
-- [MongoDB](https://www.mongodb.com/try/download/community) (local or Atlas) for data persistence
-- Package manager: `npm`
+- **Node.js** v20+
+- **MongoDB** (local or [Atlas](https://www.mongodb.com/cloud/atlas))
+- **npm**
 
 ---
 
 ## 🚀 Quick Start (Development)
 
 ```bash
-# 1. Clone and enter the project
 git clone https://github.com/lesanai/app-eval.git
 cd horneval
 
-# 2. Install dependencies
 npm install
-
-# 3. Set up environment (see Environment Variables below)
 cp .env.example .env.local
-# Edit .env.local with your values (MongoDB, API keys, etc.)
+# Edit .env.local: MONGODB_URI, BETTER_AUTH_*, GOOGLE_*, etc.
 
-# 4. Run the dev server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 🔧 Development Setup
+## 🔧 Environment Variables
 
-### 1. Clone the repository
+Create `.env` or `.env.local` (see `.env.example`). Next.js loads both; `.env.local` overrides and is gitignored.
 
-```bash
-git clone https://github.com/lesan/horneval.git
-cd horneval
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BETTER_AUTH_SECRET` | Yes | Secret for signing (min 32 chars). Use `openssl rand -base64 32`. |
+| `BETTER_AUTH_URL` | Yes | Full app URL with no trailing slash. Must match the URL in the browser so the session cookie works (e.g. `http://localhost:3000` in dev, `https://your-app.vercel.app` in prod). |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID. |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret. |
+| `APP_NAME` | Yes | App name (server). |
+| `NEXT_PUBLIC_APP_NAME` | Yes | App name (client). |
+| `NEXT_PUBLIC_BASE_URL` | Yes | Same as `BETTER_AUTH_URL` in most cases (used by client). |
+| `MONGODB_URI` | Yes | MongoDB connection string (e.g. Atlas `mongodb+srv://...` or local `mongodb://localhost:27017/`). |
+| `LESAN_API_URL` | Yes | Lesan API base URL. |
+| `LESAN_API_KEY` | Yes | Lesan API key. |
+| `GEMINI_API_KEY` | Yes | Gemini API key (if used). |
+| `APP_VERSION` | No | App version. |
+| `APP_DESCRIPTION` | No | Short description. |
 
-### 2. Environment variables
-
-Create a `.env` or `.env.local` file at the project root. Next.js loads both; `.env.local` overrides `.env` and is typically used for local secrets (both are gitignored).
-
-**Option A — Copy from example (recommended):**
-
-```bash
-cp .env.example .env.local
-```
-
-Then edit `.env.local` and replace placeholders with your real values.
-
-**Option B — Manual:** Ensure these variables are set (see [Environment Variables](#-environment-variables) below for full list and descriptions).
-
-**Development tips:**
-
-- Use a **local MongoDB** (e.g. `MONGODB_URI=mongodb://localhost:27017/`) or a dedicated dev cluster on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
-- Set `NEXT_PUBLIC_BASE_URL` to your production URL when deploying.
-
-### 3. Install dependencies and run
-
-```bash
-npm install
-npm run dev
-```
-
-Dev server runs at [http://localhost:3000](http://localhost:3000) with hot reload.
-
-### 4. Lint
-
-```bash
-npm run lint
-```
+Better Auth uses the same MongoDB as the app. The DB name is `development` when `NODE_ENV=development` and `production` when `NODE_ENV=production`. It creates collections: `user`, `session`, `account`. No migrations needed.
 
 ---
 
-## 🧱 Production Setup
+### Production checklist
+
+- [ ] `BETTER_AUTH_SECRET` set (32+ chars), never committed.
+- [ ] `BETTER_AUTH_URL` and `NEXT_PUBLIC_BASE_URL` set to your production URL (https, no trailing slash).
+- [ ] Google OAuth client has production origin and redirect URI `https://<your-domain>/api/auth/callback/google`.
+- [ ] `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set in production.
+- [ ] `MONGODB_URI` points to production MongoDB; app runs with `NODE_ENV=production` so the `production` DB is used.
+- [ ] No `.env` / `.env.local` with secrets committed; use the host’s env UI for production.
+
+### First admin user (optional)
+
+Better Auth does not create a “root” or “admin” by default. To make a user an admin:
+
+1. Sign in once with Google so a document is created in the `user` collection.
+2. In MongoDB, set that user’s `role` to `"root"` (the app uses these for protected routes and the Users page).
+
+---
+
+## 🧱 Production Build and Deploy
 
 ### Build and run locally (production mode)
 
@@ -99,56 +89,7 @@ npm run build
 npm start
 ```
 
-Runs the production server on port 3000.
-
-### Deploy on Vercel
-
-1. Push your code to GitHub/GitLab/Bitbucket.
-2. [Import the repo](https://vercel.com/new) on Vercel.
-3. **Add environment variables** in the Vercel project: **Settings → Environment Variables**. Use the same names as in [Environment Variables](#-environment-variables); you can paste from `.env.example` and fill values.
-4. Deploy. Vercel will run `npm run build` and host the app.
-
-**Production checklist:**
-
-- Set `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` to your production URL (e.g. `https://horneval.vercel.app`).
-- Use a production MongoDB database and a strong `MONGODB_URI`.
-- Configure Google OAuth with your production redirect URI.
-- Never commit `.env` or `.env.local`; use Vercel (or your host) env UI for production secrets.
-
----
-
-## 📋 Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `BETTER_AUTH_SECRET` | Yes | Secret for Better Auth (min 32 chars). Generate with `openssl rand -base64 32`. |
-| `BETTER_AUTH_URL` | Yes | Base URL of the app; must match the browser URL exactly (e.g. `http://localhost:3000` in dev, including port) so the session cookie works. |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID (required for sign-in). |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret. |
-| `APP_NAME` | Yes | App name (server-side). |
-| `NEXT_PUBLIC_APP_NAME` | Yes | App name (client-side). |
-| `APP_VERSION` | No | Application version. |
-| `APP_DESCRIPTION` | No | Short app description. |
-| `MONGODB_URI` | Yes | MongoDB connection URI (e.g. Atlas `mongodb+srv://...` or local `mongodb://localhost:27017/`). Data is stored in a database named `development` (dev) or `production` (prod). |
-| `LESAN_API_URL` | Yes | Lesan API base URL. |
-| `LESAN_API_KEY` | Yes | API key for Lesan services. |
-| `GEMINI_API_KEY` | Yes | API key for Gemini (if used). |
-| `NEXT_PUBLIC_BASE_URL` | Yes | Public app URL (client). |
-
-Full example with comments: see **`.env.example`** in the repo.
-
-### Authentication (Better Auth)
-
-The app uses [Better Auth](https://www.better-auth.com/) with **Google Sign-In only**. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
-
-To set up Google Sign-In:
-
-1. Open [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
-2. Create an **OAuth 2.0 Client ID** (Web application).
-3. Add authorized redirect URI: `https://your-domain.com/api/auth/callback/google` (and `http://localhost:3000/api/auth/callback/google` for dev).
-4. Put the Client ID and Client Secret in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-
-Better Auth stores users and sessions in MongoDB. In Atlas, use the database named **development** (when running `npm run dev`) or **production** (when running `npm start`). It creates collections such as `user`, `session`, and `account`. No migration is required.
+Runs on port 3000 with `NODE_ENV=production`.
 
 ---
 
@@ -156,486 +97,29 @@ Better Auth stores users and sessions in MongoDB. In Atlas, use the database nam
 
 ```
 src/
-  app/                    # Next.js App Router
-    api/                  # API routes (auth, batches, etc.)
-    page.tsx              # Home
+  app/                 # Next.js App Router
+    api/               # API routes (auth, batches, user, etc.)
+    page.tsx           # Home (MT)
     layout.tsx
-    datasets/             # Datasets UI
-    asr/                  # ASR evaluation UI
-    leaderboard/          # Leaderboard UI
-    users/                # User management (admin)
-    profile/              # User profile
-    reset-password/       # Redirect only (no email flow)
-    confirm-email/       # Redirect only
-  components/             # Reusable UI components
-  helpers/                # Utilities (e.g. leaderboard calculator)
-  scripts/                # Data prep scripts (Python, etc.)
-  dataset/                # Sample/example datasets (optional)
-
-public/                   # Static assets (logo, etc.)
+    datasets/          # Datasets UI (MT/ASR)
+    asr/               # ASR evaluation UI
+    leaderboard/       # Leaderboard
+    users/             # User management (admin)
+    profile/           # User profile
+    auth/              # Sign-in page
+  components/          # UI (navbar, Signup, tables, etc.)
+  context/             # UserContext, PreferencesContext
+  helpers/             # Validation, leaderboard logic
+  lib/                 # auth, auth-client, mongodb
+  scripts/             # Data prep (Python, etc.)
+public/                # Static assets
 ```
-
-**Client persistence (browser):**
-
-- `batches` — translation task batches
-- `batches_details` — batch metadata
-- `user` — current user info
-
----
-
-## 📄 File Upload Format
-
-### 🈸 Machine Translation (MT) evaluation batch schema
-
-- **Supported types**: `.json`
-- JSON structure should include:
-
-  ```json
-  {
-    // "batch_id": "", # Batch ID will be generated on upload by the system
-    "dataset_name": "", // Required
-    "dataset_domain": "", // Required
-    // "dataset_type": "", // mt|asr|tts, this will be handled by the system on uploading the batch
-    "batch_name": "", // Required
-    "source_language": {
-      "iso_name": "", // Required
-      "iso_639_1": "", // Required
-      "iso_639_3": "" // Required
-    },
-    "target_language": {
-      "iso_name": "", // Required
-      "iso_639_1": "", // Required
-      "iso_639_3": "" // Required
-    },
-    "tasks": [
-      {
-        "id": "", // Required
-        "input": "", // Required
-        "models": [
-          {
-            "output": "", // Required
-            "model": "A", // Required
-            "rate": 0, // Required
-            "rank": 0 // Required
-          },
-          {
-            "output": "",
-            "model": "B",
-            "rate": 0,
-            "rank": 0
-          }
-          // ... more models here
-        ]
-      }
-      // ... more tasks here
-    ],
-
-    // rating_guideline: guidelines for rating 1-5. Add five items; optional.
-    "rating_guideline": [
-      {
-        "scale": 1,
-        "value": "Critical",
-        "description": "This is for a completely wrong output. The output does not make sense given the source.",
-        "example": []
-      },
-      {
-        "scale": 2,
-        "value": "Major",
-        "description": "There is a serious problem in the output. For example, there is addition of content not in source, some parts of the source are missing or misinterpreted. It would be hard to match output with source without major modifications.",
-        "example": []
-      },
-      {
-        "scale": 3,
-        "value": "Minor",
-        "description": "The translation has minor problems given the source but requires some minor changes, e.g, changing a word or two to make it fully describe the source.",
-        "example": []
-      },
-      {
-        "scale": 4,
-        "value": "Neutral",
-        "description": "The output describes the source; however, there may be some problems with style such as punctuation, word order."
-      },
-      {
-        "scale": 5,
-        "value": "Kudos",
-        "description": "Great job! The output correctly describes the source. It’s both accurate and fluent.",
-        "example": []
-      }
-    ],
-
-    // domains: list of domains for annotation; optional. Customize or omit.
-    "domains": [
-      {
-        "name": "Health",
-        "description": "Covers topics related to physical and mental well-being, healthcare systems, and lifestyle practices that promote health.",
-        "subdomains": [
-          "Medical Care",
-          "Wellness",
-          "Nutrition",
-          "Mental Health",
-          "Public Health"
-        ]
-      },
-      {
-        "name": "Culture",
-        "description": "Explores the creative, intellectual, and social expressions that define communities and societies.",
-        "subdomains": [
-          "Arts",
-          "History",
-          "Literature",
-          "Philosophy",
-          "Traditions"
-        ]
-      },
-      {
-        "name": "Agriculture",
-        "description": "Encompasses food production, farming practices, and innovations in cultivating plants and animals.",
-        "subdomains": [
-          "Farming",
-          "Livestock",
-          "Agri-technology",
-          "Sustainability",
-          "Food Systems"
-        ]
-      },
-      {
-        "name": "Sport",
-        "description": "Relates to physical competition, athletic performance, and the broader sports industry.",
-        "subdomains": [
-          "Athletics",
-          "Training",
-          "Esports",
-          "Sports Media",
-          "Sports Business"
-        ]
-      },
-      {
-        "name": "News",
-        "description": "Focuses on current events, reporting, and developments around the world.",
-        "subdomains": [
-          "Global News",
-          "Local News",
-          "Investigative Journalism",
-          "Breaking Events",
-          "Sports Coverage"
-        ]
-      },
-      {
-        "name": "Politics",
-        "description": "Involves governance, public policy, political systems, and civic discourse.",
-        "subdomains": [
-          "Elections",
-          "Public Policy",
-          "International Affairs",
-          "Governance",
-          "Political Commentary"
-        ]
-      },
-      {
-        "name": "Tech",
-        "description": "Centers on technological advancements, digital innovation, and the impact of emerging tools.",
-        "subdomains": [
-          "Artificial Intelligence",
-          "Software",
-          "Cybersecurity",
-          "Hardware",
-          "Tech Startups"
-        ]
-      },
-      {
-        "name": "Construction",
-        "description": "Covers building design, infrastructure development, and industry practices in construction.",
-        "subdomains": [
-          "Architecture",
-          "Engineering",
-          "Urban Development",
-          "Sustainable Building",
-          "Construction Safety"
-        ]
-      },
-      {
-        "name": "Business",
-        "description": "Focuses on commerce, finance, markets, and economic activity at various scales.",
-        "subdomains": [
-          "Finance",
-          "Banking",
-          "Investments",
-          "Cryptocurrency",
-          "Market Trends"
-        ]
-      },
-      {
-        "name": "Environment",
-        "description": "Addresses ecological systems, sustainability, and the human impact on nature.",
-        "subdomains": [
-          "Climate",
-          "Conservation",
-          "Renewables",
-          "Pollution",
-          "Environmental Policy"
-        ]
-      },
-      {
-        "name": "Education",
-        "description": "Covers learning methods, academic institutions, and the evolving landscape of education.",
-        "subdomains": [
-          "Primary & Secondary Education",
-          "Higher Education",
-          "Digital Learning",
-          "Research",
-          "Education Technology"
-        ]
-      },
-      {
-        "name": "Entertainment",
-        "description": "Focuses on media, performance arts, and industries that produce popular content and experiences.",
-        "subdomains": ["Film", "Music", "Gaming", "Television", "Pop Culture"]
-      },
-      {
-        "name": "Religion",
-        "description": "Explores belief systems, spiritual practices, and religious traditions across cultures.",
-        "subdomains": [
-          "Faith Systems",
-          "Spirituality",
-          "Theology",
-          "Religious Studies",
-          "Ethics"
-        ]
-      }
-    ]
-  }
-  ```
-
-  ### 🗣️ Automatic Speech Recognition (ASR) evaluation batch schema
-
-- **Supported types**: `.json`
-- JSON structure should include:
-
-  ```json
-  {
-    "batch_id": "",
-    "dataset_name": "HornASR",
-    "dataset_domain": "Health",
-    "batch_name": "HornASR-Health-01",
-    "language": {
-      "iso_name": "Tigrinya",
-      "iso_639_1": "ti",
-      "iso_639_3": "tig"
-    },
-    "tasks": [
-      {
-        "id": "1",
-        "input": "/datasets/xxx-yyy-zzz-0001.mp3",
-
-        "models": [
-          {
-            "output": "We believe every human should be able to consume the webs content in their native language. We want to make sure that everyone has equal access to information to help them understand the world.",
-            "model": "A",
-            "rate": 0,
-            "rank": 0
-          },
-          {
-            "output": "We believe every human should be able to consume the webs content in their native language. We want to make sure that everyone has equal access to information to help them understand the world.",
-            "model": "B",
-            "rate": 0,
-            "rank": 0
-          }
-          // ... more models outputs here
-        ],
-        "reference": "",
-        "domain": [] // list of domains ["health", "news"] of the content
-      }
-      // ... more tasks here
-    ],
-    "rating_guideline": [
-      {
-        "scale": 1,
-        "value": "Critical",
-        "description": "This is for a completely wrong output. The output does not make sense given the source.",
-        "example": []
-      },
-      {
-        "scale": 2,
-        "value": "Major",
-        "description": "There is a serious problem in the output. For example, there is addition of content not in source, some parts of the source are missing or misinterpreted. It would be hard to match output with source without major modifications.",
-        "example": []
-      },
-      {
-        "scale": 3,
-        "value": "Minor",
-        "description": "The translation has minor problems given the source but requires some minor changes, e.g, changing a word or two to make it fully describe the source.",
-        "example": []
-      },
-      {
-        "scale": 4,
-        "value": "Neutral",
-        "description": "The output describes the source; however, there may be some problems with style such as punctuation, word order."
-      },
-      {
-        "scale": 5,
-        "value": "Kudos",
-        "description": "Great job! The output correctly describes the source. It’s both accurate and fluent.",
-        "example": []
-      }
-    ],
-    "domains": [
-      {
-        "name": "Health",
-        "description": "Covers topics related to physical and mental well-being, healthcare systems, and lifestyle practices that promote health.",
-        "subdomains": [
-          "Medical Care",
-          "Wellness",
-          "Nutrition",
-          "Mental Health",
-          "Public Health"
-        ]
-      },
-      {
-        "name": "Culture",
-        "description": "Explores the creative, intellectual, and social expressions that define communities and societies.",
-        "subdomains": [
-          "Arts",
-          "History",
-          "Literature",
-          "Philosophy",
-          "Traditions"
-        ]
-      },
-      {
-        "name": "Agriculture",
-        "description": "Encompasses food production, farming practices, and innovations in cultivating plants and animals.",
-        "subdomains": [
-          "Farming",
-          "Livestock",
-          "Agri-technology",
-          "Sustainability",
-          "Food Systems"
-        ]
-      },
-      {
-        "name": "Sport",
-        "description": "Relates to physical competition, athletic performance, and the broader sports industry.",
-        "subdomains": [
-          "Athletics",
-          "Training",
-          "Esports",
-          "Sports Media",
-          "Sports Business"
-        ]
-      },
-      {
-        "name": "News",
-        "description": "Focuses on current events, reporting, and developments around the world.",
-        "subdomains": [
-          "Global News",
-          "Local News",
-          "Investigative Journalism",
-          "Breaking Events",
-          "Sports Coverage"
-        ]
-      },
-      {
-        "name": "Politics",
-        "description": "Involves governance, public policy, political systems, and civic discourse.",
-        "subdomains": [
-          "Elections",
-          "Public Policy",
-          "International Affairs",
-          "Governance",
-          "Political Commentary"
-        ]
-      },
-      {
-        "name": "Tech",
-        "description": "Centers on technological advancements, digital innovation, and the impact of emerging tools.",
-        "subdomains": [
-          "Artificial Intelligence",
-          "Software",
-          "Cybersecurity",
-          "Hardware",
-          "Tech Startups"
-        ]
-      },
-      {
-        "name": "Construction",
-        "description": "Covers building design, infrastructure development, and industry practices in construction.",
-        "subdomains": [
-          "Architecture",
-          "Engineering",
-          "Urban Development",
-          "Sustainable Building",
-          "Construction Safety"
-        ]
-      },
-      {
-        "name": "Business",
-        "description": "Focuses on commerce, finance, markets, and economic activity at various scales.",
-        "subdomains": [
-          "Finance",
-          "Banking",
-          "Investments",
-          "Cryptocurrency",
-          "Market Trends"
-        ]
-      },
-      {
-        "name": "Environment",
-        "description": "Addresses ecological systems, sustainability, and the human impact on nature.",
-        "subdomains": [
-          "Climate",
-          "Conservation",
-          "Renewables",
-          "Pollution",
-          "Environmental Policy"
-        ]
-      },
-      {
-        "name": "Education",
-        "description": "Covers learning methods, academic institutions, and the evolving landscape of education.",
-        "subdomains": [
-          "Primary & Secondary Education",
-          "Higher Education",
-          "Digital Learning",
-          "Research",
-          "Education Technology"
-        ]
-      },
-      {
-        "name": "Entertainment",
-        "description": "Focuses on media, performance arts, and industries that produce popular content and experiences.",
-        "subdomains": ["Film", "Music", "Gaming", "Television", "Pop Culture"]
-      },
-      {
-        "name": "Religion",
-        "description": "Explores belief systems, spiritual practices, and religious traditions across cultures.",
-        "subdomains": [
-          "Faith Systems",
-          "Spirituality",
-          "Theology",
-          "Religious Studies",
-          "Ethics"
-        ]
-      }
-    ]
-  }
-  ```
 
 ---
 
 ## 🎓 Learn More
 
-### Dev Tools
-
-- [Next.js Documentation](https://nextjs.org/docs) — Learn about Next.js features and API
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs) — Utility-first CSS framework
-- [Vercel Deployment Docs](https://nextjs.org/docs/app/building-your-application/deploying)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-
-### About Language Models
-
-- [The Leaderboard Illusion](https://arxiv.org/pdf/2504.20879) — We show with real-world experiments and simulations that the ability to select the best-scoring variant from N models enables systematic gaming.
-- [Comparing MT System Performance](https://blog.modernmt.com/comparing-mt-system-performance/)
-- [The Illusion of Thinking](https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf) — Understanding the Strengths and Limitations of Reasoning Models
-  via the Lens of Problem Complexity
-
----
+- [Next.js Docs](https://nextjs.org/docs)
+- [Better Auth](https://www.better-auth.com/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [Vercel Deployment](https://nextjs.org/docs/app/building-your-application/deploying)
