@@ -1,0 +1,52 @@
+{
+  "batch_id": "",
+  "dataset_name": "HornASR",
+  "dataset_domain": "Health",
+  "batch_name": "HornASR-Health-01",
+  "language": {
+    "iso_name": "Tigrinya",
+    "iso_639_1": "ti",
+    "iso_639_3": "tig"
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "input": "/datasets/sample-tts01-model-A.mp3",
+
+      "models": [
+        {
+          "output": "We believe every human should be able to consume the webs content in their native language. We want to make sure that everyone has equal access to information to help them understand the world.",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "We believe every human should be able to consume the webs content in their native language. We want to make sure that everyone has equal access to information to help them understand the world.",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ],
+      "reference": ""
+    },
+    {
+      "id": "2",
+      "input": "/datasets/amh-tts-01.m4a",
+      "models": [
+        {
+          "output": "አዲስ አበባ ወይም በረራ ገነት ወይም በተለምዶ ሸገር የኢትዮጵያ ዋና ከተማ በተጨማሪ የአፍሪካ ህብረት መቀመጫ እንዲሁም የብዙ የተባበሩት መንግስታት ድርጅት ቅርንጫፎችና ሌሎችም የአለም የዲፕሎማቲክ ውካን መሰብሰቢያ ከተማ ናት",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "አዲስ አበባ ወይም በረራ ገነት ወይም በተለምዶ ሸገር የኢትዮጵያ ዋና ከተማ አስተምህሮ በተጨማሪ የአፍሪካ ህብረት መቀመጫ እንዲሁም የብዙ የተባበሩት መንግታት ድርጅት ቅርንጫፎችና ሌሎችም የአለም የዲፕሎማት መሰብሰቢያ ከተማ",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ],
+      "reference": ""
+    }
+  ]
+}

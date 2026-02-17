@@ -1,0 +1,132 @@
+"use client";
+import DatasetsTable from "@/components/tables/DatasetsTable";
+import React, { useState } from "react";
+import PrivateRoute from "@/components/PrivateRoute";
+import { BatchDetailTypes } from "@/types/data";
+import { useUser } from "@/context/UserContext";
+import Container from "@/components/utils/Container";
+import TabButton from "@/components/utils/TabButton";
+
+import { evalTypes } from "@/constants/others";
+import { EvalTypeTypes } from "@/types/others";
+
+import { AiOutlineInfoCircle } from "react-icons/ai";
+import BatchUploaderForm from "./BatchUploaderForm";
+import Modal from "@/components/utils/Modal";
+import Button from "@/components/utils/Button";
+import { VscAdd } from "react-icons/vsc";
+
+const Datasets = () => {
+  const [batchesDetails, setBatchesDetailTable] = useState<BatchDetailTypes[]>(
+    []
+  );
+  const [loading, setLoading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<EvalTypeTypes>(
+    JSON.parse(localStorage.getItem("active_dataset_tab") ?? `null`) ??
+      evalTypes[0]
+  );
+  const { user } = useUser();
+
+  const [showUploader, setShowUploader] = useState<boolean>(false);
+
+  return (
+    <PrivateRoute>
+      <Container className={`${loading ? "cursor-progress" : ""}`}>
+        {/* TABS */}
+        <div className="w-full flex flex-wrap space-x-2 font-bold">
+          {evalTypes.map((tab, i) => {
+            return (
+              <TabButton
+                key={i}
+                text={tab.name}
+                onClick={() => {
+                  localStorage.setItem(
+                    "active_dataset_tab",
+                    JSON.stringify(tab)
+                  );
+                  setActiveTab(tab);
+                }}
+                active={
+                  activeTab.value.toLowerCase() === tab.value.toLowerCase()
+                }
+                className="px-5"
+              />
+            );
+          })}
+        </div>
+
+        <Modal
+          isOpen={showUploader && user?.role !== "user"}
+          setIsOpen={() => setShowUploader(!showUploader)}
+          key={1}
+          className="!w-full md:!max-w-4xl"
+        >
+          <BatchUploaderForm
+            setBatchesDetailTable={setBatchesDetailTable}
+            activeTab={activeTab}
+            loading={loading}
+            setLoading={setLoading}
+            setShowUploader={setShowUploader}
+          />
+        </Modal>
+
+        <div className="w-full flex flex-col items-center justify-center space-y-5 mt-5">
+          {user?.role === "user" && (
+            <div className="flex items-center justify-center w-fit gap-3 p-4 rounded-md border border-blue-500 bg-blue-100/50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">
+              <AiOutlineInfoCircle className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+              <p className="text-sm">
+                Please ask your Admin for permission if you need to upload a
+                dataset for evaluation.
+              </p>
+            </div>
+          )}
+
+          {/* DRAG AND DROP UPLOAD BATCH */}
+          {/* {user?.role !== "user" && (
+            <NativeDragDrop
+              setBatchDetails={setBatchesDetailTable}
+              loading={loading}
+              setLoading={setLoading}
+              datasetType={activeTab}
+            />
+          )} */}
+
+          <div className="w-full space-y-1 my-5 overflow-x-auto">
+            <div className="w-full flex gap-5 justify-between items-start">
+              <h1 className="text-xl font-semibold mb-3 w-full text-left">
+                {activeTab.full_name || "Datasets"}
+              </h1>
+
+              {user?.role !== "user" && (
+                <Button
+                  className="!w-fit !text-nowrap text-center font-mono"
+                  outline={true}
+                  minimal
+                  size="sm"
+                  onClick={() => {
+                    setShowUploader(true);
+                  }}
+                  title={`Upload batch based ${activeTab.name} data for evaluation`}
+                >
+                  <VscAdd className="w-5 h-5" />
+                  <span className="hidden sm:block">
+                    Upload {activeTab.name} tasks
+                  </span>
+                </Button>
+              )}
+            </div>
+            <DatasetsTable
+              batches_details={batchesDetails}
+              setBatchDetails={setBatchesDetailTable}
+              loading={loading}
+              setLoading={setLoading}
+              evalDataType={activeTab}
+            />
+          </div>
+        </div>
+      </Container>
+    </PrivateRoute>
+  );
+};
+
+export default Datasets;

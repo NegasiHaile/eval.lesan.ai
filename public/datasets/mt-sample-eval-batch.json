@@ -1,0 +1,287 @@
+{
+  "batch_id": "",
+  "dataset_name": "HornMT-eng-amh",
+  "dataset_domain": "General",
+  "source_language": {
+    "iso_name": "",
+    "iso_639_1": "",
+    "iso_639_3": ""
+  },
+  "target_language": {
+    "iso_name": "",
+    "iso_639_1": "",
+    "iso_639_3": ""
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "input": "Hermon Haily’s Price of Love will be featured at the Lincoln Center this week at the New York African Film Festival as well as Director Yared Zeleke’s award winning drama Lamb: Red Leaves by Bazi Gere starring Debebe Eshetu; Afripedia X New York by Ethiopian and Eritrean filmmakers Teddy Goitom and Senay Berhe of Sweden; and the Dance of King David by Axel Baumann exploring the Ark of covenant.",
+      "models": [
+        {
+          "output": "በዚህ ሳምንት በኒው ዮርክ የአፍሪካ የፊልም ፌስቲቫል ላይ የሄርሞን ሂሌይ የፍቅር ዋጋ ሊንከን ማዕከል እንዲሁም የዳይሬክተር ያሬድ ዘለቀ የአሸናፊነት ድራማ ላምባ: - ቀይ በባዚ ገር መሪ ደበበ እሸቱ ፤ አፍሪኤዥያ X ኒው ዮርክ በኢትዮጵያና በኤርትራ የፊልም ሰሪዎች ቴዲ ጎይቶም እና የስዊድን ሰናይ በርሄ ፤ እንዲሁም የአክሰስ ዳዊት ጭፈራ የቃል ኪዳን ታቦቱን በመመርመር ላይ ይገኛል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "የሄርሞን ሀይሊ የፍቅር ዋጋ በዚህ ሳምንት በሊንከን ሴንተር በኒውዮርክ አፍሪካ ፊልም ፌስቲቫል እንዲሁም ዳይሬክተር ያሬድ ዘለቀ ተሸላሚ ድራማ በግ: ቀይ ቅጠሎች በደበበ እሸቱ; አፍሪፔዲያ X ኒውዮርክ በኢትዮጵያውያን እና ኤርትራዊያን ፊልም ሰሪዎች ቴዲ ጎይትኦም እና ሰናይ በርሄ በስዊድን; እና የንጉሥ ዳዊት ዳንስ በአክስኤል ባውማን የቃል ኪዳኑን ታቦት ሲመረምር።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "input": "The European Parliament adopted a resolution that demands an “immediate cessation of hostilities by all parties” and calls for an Ethiopian-led inclusive national dialogue including representatives from Tigray, Amhara, Benishangul-Gumuz, Afar, Oromia, Sidama, Somali, Southern Nations, Nationalities and Peoples’ Region (SNNPR), and Gambella to find a lasting solution to the ongoing crisis in the country, The Reporter learnt.",
+      "models": [
+        {
+          "output": "የአውሮፓ ፓርላማ \"የሁሉንም ወገኖች ቁጣ የሚገድብ ውሳኔ\" በማፅደቅ ከትግራይ ፣ ከአማራ ፣ ከቤኒሻንጉል-ጉሙዝ ፣ ከአፋር ፣ ከኦሮሚያ ፣ ከሲዳማ ፣ ከሶማሌ ፣ ከደቡብ ብሔር ብሔረሰቦችና ሕዝቦች ክልል (ደቡብ) እና ጋምቤላ ለተከሰተው ቀውስ ዘላቂ መፍትሔ እንዲገኝ የኢትዮጵያ ሁሉን አቀፍ ብሔራዊ ውይይት የሚጠይቅ ውሳኔ ማፅደቁን ዘጋቢው ዘገበ ፡ ፡",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "የአውሮፓ ፓርላማ “ሁሉም አካላት ጦርነቱ በአስቸኳይ እንዲቆም” የሚጠይቅ የውሳኔ ሃሳብ አጽድቆ በኢትዮጵያውያን የሚመራ ሁሉን አቀፍ ብሔራዊ ውይይት የትግራይ፣ የአማራ፣ የቤንሻንጉል ጉሙዝ፣ የአፋር፣ የኦሮሚያ፣ የሲዳማ፣ የሶማሌ፣ የደቡብ ብሔር ብሔረሰቦችና ህዝቦች ክልል (ደቡብ ክልል) እና የጋምቤላ ክልል ተወካዮችን ያካተተ ሁሉን አቀፍ ውይይት እንዲደረግ ጠይቋል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "input": "Yeshiwas Assefa, the newly elected president of Semayawi (Blue) Party, who assumed the leadership at the general assembly held at the headquarters of the All Ethiopian Union Party (AEUP) a few weeks ago, has announced the establishment of a new executive committee during the National Council meeting that was held last Saturday.",
+      "models": [
+        {
+          "output": "ከጥቂት ሳምንታት በፊት የመላው ኢትዮጵያ አንድነት ፓርቲ (መኢአድ) ዋና መሥሪያ ቤት ባደረገው ጠቅላላ ጉባኤ ላይ አመራርን የመሠረቱት በቅርቡ የተመረጡት የሰማያዊ (የሰማያዊ) ፓርቲ ፕሬዚዳንት የሺዋስ አሰፋ ፣ ባለፈው ቅዳሜ በተካሄደው ብሔራዊ ምክር ቤት ስብሰባ አዲስ የሥራ አስፈጻሚ ኮሚቴ መመስረታቸውን አስታውቀዋል ፡ ፡",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "የመላው ኢትዮጵያ አንድነት ፓርቲ (መኢአድ) ዋና ፅህፈት ቤት ከሳምንታት በፊት በተካሄደው ጠቅላላ ጉባኤ የመሪነቱን ቦታ የተረከቡት የሰማያዊ (ሰማያዊ) ፓርቲ ፕሬዝዳንት ሆነው የተመረጡት የሺዋስ አሰፋ ባለፈው ቅዳሜ በተካሄደው የብሄራዊ ምክር ቤት ስብሰባ አዲስ ስራ አስፈፃሚ ኮሚቴ ማቋቋሙን አስታውቀዋል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "input": "At the opening ceremony, Minister of Environment and Forestry Belete Tafere said strong institutional work was necessary to benefit from forest resources and the institute would play a pivotal role in sustaining the continued building of the green economy for which the country has gained recognition internationally.",
+      "models": [
+        {
+          "output": "የአካባቢና ደን ሚኒስትር በለጠ ታፈረ በመክፈቻ ስነ ስርዓቱ ላይ እንዳሉት የደን ሀብት ተጠቃሚ ለመሆን ጠንካራ ተቋማዊ ስራ አስፈላጊ በመሆኑ ሀገሪቱ በአለም አቀፍ ደረጃ እውቅና ያተረፈችበትን የአረንጓዴ ኢኮኖሚ ግንባታ ለማስቀጠል ተቋሙ ጉልህ ሚና ይጫወታል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "በመክፈቻ ስነ ስርዓቱ ላይ የአካባቢና ደን ጥበቃ ሚኒስትሩ አቶ በለጠ ታፈረ እንደተናገሩት ከደን ሃብት ተጠቃሚ ለመሆን ጠንካራ ተቋማዊ ስራ እንደሚያስፈልግ እና ሀገሪቱ በአለም አቀፍ ደረጃ እውቅና ያገኘችበትን ቀጣይ የአረንጓዴ ኢኮኖሚ ግንባታ ለማስቀጠል ተቋሙ አይነተኛ ሚና ይጫወታል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "input": "We do this in four ways: by creating new learning opportunities so that young people can enjoy access to better education; by using our technical expertise to develop and provide access to new healthcare solutions; by supporting youth employment through vocational training and skills development; and by reducing our impact on the environment.”",
+      "models": [
+        {
+          "output": "ይህንን የምናደርገው ወጣቶች የተሻለ ትምህርት እንዲያገኙ አዳዲስ የትምህርት ዕድሎችን በመፍጠር ፣ በቴክኒክ ሙያ ያለንን ችሎታ ተጠቅመን አዳዲስ የጤና ተቋማትን በማስፋፋትና ተደራሽ በማድረግ ፣ የወጣቶችን ሥራ በሙያ ስልጠናና ሙያ ልማት በመደገፍ እንዲሁም በአካባቢያችን ላይ የሚያሳድረውን ተጽዕኖ በመቀነስ ነው ። \"",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "ይህንን የምናደርገው በአራት መንገዶች ነው፡ አዲስ የትምህርት እድሎችን በመፍጠር ወጣቶች የተሻለ ትምህርት እንዲያገኙ; አዳዲስ የጤና አጠባበቅ መፍትሄዎችን ለማዳበር እና ለማቅረብ የእኛን ቴክኒካዊ እውቀቶች በመጠቀም; የወጣቶችን የስራ ስምሪት በሙያ ስልጠና እና በክህሎት ልማት በመደገፍ; እና በአካባቢ ላይ ያለንን ተጽእኖ በመቀነስ&quot;",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "input": "In her opening remark, Dr Lia Tadesse, State Minister of Health, noted that TB is one of the priority diseases closely supported in the Ministry of Health and the MoH continues to work very closely with partners, private sectors, civic societies, universities and other important stakeholders in order to identify missed TB cases, abort TB transmission to familiies, and public as well.",
+      "models": [
+        {
+          "output": "የጤና ጥበቃ ሚኒስትር ዴኤታ ዶክተር ሊያ ታደሰ በመክፈቻ ንግግራቸው እንደገለጹት በጤና ጥበቃ ሚኒስቴር የቅርብ ድጋፍ ከተደረገላቸው በሽታዎች መካከል የሳንባ ነቀርሳ በሽታ አንዱ ሲሆን አሁንም ፎረሙ የሳንባ ነቀርሳ ሕመሞችን ፣ ልጆችን ፣ ዩኒቨርሲቲዎችንና ሌሎች ጠቃሚ ባለድርሻ አካላትን ለይቶ ለማወቅ የሳንባ ነቀርሳ በሽታ ህዋሳትን ማዛባት ፣ ለቤተሰቦችና ለሕዝብም ጭምር ማሰራጨቱን ቀጥሏል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "የጤና ጥበቃ ሚኒስትር ዴኤታ ዶ/ር ሊያ ታደሰ በመክፈቻ ንግግራቸው እንደተናገሩት በጤና ጥበቃ ሚኒስቴር በቅርበት ከሚደገፉ በሽታዎች መካከል ቲቢ አንዱ መሆኑን ጠቁመዋል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "input": "The Council, comprising of Ethiopians from a variety of civic and development associations, religious groups, artist groups, professional associations, business organizations, renowned personalities, academics, youth and women associations and other pertinent groups, was launched on 8th October during its first meeting at the Ethiopian Embassy in London.",
+      "models": [
+        {
+          "output": "ከተለያዩ የሲቪክና የልማት ማህበራት ፣ የሃይማኖት ቡድኖች ፣ የሰዓሊ ቡድኖች ፣ የሙያ ማህበራት ፣ የንግድ ድርጅቶች ፣ ታዋቂ ግለሰቦች ፣ አካዳሚዎች ፣ የወጣቶችና ሴቶች ማህበራትና ሌሎች ጉዳዩ የሚመለከታቸው አካላት የተውጣጡ ኢትዮጵያውያን የተካተቱበት ምክር ቤቱ ጥቅምት 8 ቀን 2009 ዓ.ም በለንደን የኢትዮጵያ ኤምባሲ ባደረገው የመጀመሪያ ስብሰባ ተነስቷል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "ከተለያዩ የሲቪክ እና የልማት ማህበራት የተውጣጡ ኢትዮጵያውያን፣ የሀይማኖት ቡድኖች፣ የአርቲስት ቡድኖች፣ የሙያ ማህበራት፣ የንግድ ድርጅቶች፣ ታዋቂ ግለሰቦች፣ ምሁራን፣ ወጣቶች እና ሴቶች ማህበራት እና ሌሎች ተያያዥ ቡድኖች የተውጣጣው ምክር ቤቱ ጥቅምት 8 ቀን ለንደን በሚገኘው የኢትዮጵያ ኤምባሲ ባደረገው የመጀመሪያ ስብሰባ ተጀመረ።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "input": "“When we look at the past two years GTP-II performance, expected and unexpected things have happened such as drought and unrest which were unexpected, but if the prevailing peaceful situation remains unchanged and we do more in the two and half years left, the planned economic growth will be achieved,” the Commissioner said.",
+      "models": [
+        {
+          "output": "ኮሚሽነሩ \"ያለፉትን ሁለት ዓመታት የእድገትና ትራንስፎርሜሽን እቅድ አፈፃፀም ስንመለከት ያልተጠበቁና ያልተጠበቁ ነገሮች አጋጥመውናል ፤ ሆኖም አሁን ያለው የሰላም ሁኔታ ሳይለወጥ ከቀጠለና በተቀረፉ ሁለት ዓመታት ተኩል የበለጠ ከሰራን የታቀደው የኢኮኖሚ እድገት ይመጣል\" ብለዋል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "&quot;ባለፉት ሁለት ዓመታት የዕድገትና ትራንስፎርሜሽን ዕቅድ አፈጻጸምን ስንመለከት የሚጠበቁና ያልተጠበቁ እንደ ድርቅና አለመረጋጋት ያሉ ያልተጠበቁ ነገሮች ተከስተዋል ነገርግን አሁን ያለው ሰላማዊ ሁኔታ ሳይለወጥ ከቀጠለና በቀሩት ሁለት ዓመታት ተኩል ውስጥ ብዙ ብንሠራ የታቀደው የኢኮኖሚ ዕድገት እውን ይሆናል&quot; ብለዋል ኮሚሽነሩ።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "input": "In an unprecedented move, Members of Parliaments (MPs), the 100 percent Ethiopian Peoples’ Revolutionary Democratic Front (EPRDF) and affiliates controlled Ethiopian Parliament, demanded to ascertain the country's external debt repayment capacity, before ratifying new concessional loan agreements recently entered into with the Government of China.",
+      "models": [
+        {
+          "output": "ፓርላማዎች (የሕዝብ ተወካዮች ምክር ቤት) አባላት 100 በመቶ የኢትዮጵያ ሕዝቦች አብዮታዊ ዴሞክራሲያዊ ግንባር (ኢሕአዴግ) እና የኢትዮጵያን ፓርላማ የተቆጣጠሩ ድርጅቶች በቅርቡ ከቻይና መንግሥት ጋር የገቡ አዳዲስ ስምምነቶች ከማጽደቃቸው በፊት የአገሪቱን የውጭ ዕዳ የመክፈል አቅም እንዲያረጋግጡ ጠይቀዋል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "ከዚህ ቀደም ታይቶ በማይታወቅ ሁኔታ የፓርላማ አባላት፣ 100 በመቶው የኢትዮጵያ ህዝቦች አብዮታዊ ዴሞክራሲያዊ ግንባር (ኢህአዴግ) እና አጋር ድርጅቶች ከቻይና መንግስት ጋር በቅርቡ የተፈራረሙትን አዲስ የብድር ስምምነቶች ከማፅደቃቸው በፊት የአገሪቱን የውጭ ብድር የመክፈል አቅም ለማረጋገጥ ጠይቀዋል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "input": "The loan agreements in question are signed recently with the Chinese Export-Import (EXIM) Bank, which agreed to avail an aggregate outlay of USD 332.7 million for a highway road construction and power transmission projects envisaged to relieve the traffic congestions as well the fluctuating electric power supply in parts of Addis Ababa.",
+      "models": [
+        {
+          "output": "የብድር ስምምነቶቹ በቅርቡ ከቻይናው ኤግዚም ባንክ ጋር የተፈረሙ ሲሆን ይህም የትራፊክ መጨናነቁን ለማቃለል ለተቋቋመው የመንገድ ግንባታና የኃይል ማስተላለፊያ ፕሮጀክቶች የሚውል 332.7 ሚሊዮን የአሜሪካን ዶላር ወጪ ለመደጎም ስምምነት ላይ ተደርሷል ፡ ፡",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "በጥያቄ ውስጥ ያሉት የብድር ስምምነቶች በቅርቡ ከቻይና ኤክስፖርት-ኢምፖርት (ኤግዚም) ባንክ ጋር የተፈራረሙ ሲሆን፥ አጠቃላይ የመንገድ ግንባታና የሃይል ማስተላለፊያ ፕሮጀክቶች 332.7 ሚሊዮን ዶላር ወጪ በአዲስ አበባ ከተማ አንዳንድ አካባቢዎች ያለውን የትራፊክ መጨናነቅ እንዲሁም ተለዋዋጭ የኤሌትሪክ ሃይል አቅርቦት ለማዳረስ ተስማምቷል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "input": "The main materials being procured internationally, according to Soleyana, are voter registration book (voter list books), voter cards book, and plastic boxes with seals, to be used in the transport of materials to a secured storage facility at polling stations for overnight stays, voter registration forms, and voter registration stationary kits.",
+      "models": [
+        {
+          "output": "እንደ ሶሊያና ገለፃ በዓለም አቀፍ ደረጃ የሚፈለሰፉት ዋና ዋና ቁሳቁሶች የተገልጋዮች መመዝገቢያ መጽሐፍ (የተገልጋይ ዝርዝር መጻሕፍት) ፣ የተገልጋዮች ካርዶች መጽሐፍ እና ማኅተም ያለባቸው የፕላስቲክ ሳጥኖች በምርጫ ጣቢያዎች ለተወሰነ ጊዜ ማቆያ ፣ የተገልጋዮች መመዝገቢያ ቅጽ እና የተገልጋዮች መመዝገቢያ ጣቢያ ኪቶች ናቸው ፡ ፡",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "በአለም አቀፍ ደረጃ እየተገዙ ያሉት ዋና ዋና ቁሳቁሶች የመራጮች መመዝገቢያ ደብተር (የመራጮች ዝርዝር ደብተር)፣ የመራጮች ካርድ ደብተር እና ማህተም የያዙ የፕላስቲክ ሳጥኖች በምርጫ ጣቢያዎች ለአዳር ማረፊያ፣ የመራጮች ምዝገባ ቅፆች እና የመራጮች ምዝገባ ቋሚ እቃዎች ወደተጠበቀ ማከማቻ ቦታ ለማጓጓዝ የሚያገለግሉ ናቸው።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "input": "“It will not create a problem on crops in Ethiopia for now,” the state minister noted, adding that “The dispersed locusts in Tigray region will go to the coast of the Red Sea for breeding; and the other swarms of locusts dispersed in Afar and central parts of the country will go to the coasts of Somalia.”",
+      "models": [
+        {
+          "output": "\"በአሁኑ ወቅት በኢትዮጵያ በሰብል ላይ ችግር አይፈጥርም\" ያሉት ሚኒስትር ዴኤታው \"በትግራይ ክልል ተበታትነው የሚገኙ አንበጣዎች ለመራባት ወደ ቀይ ባህር ዳርቻዎች ይሄዳሉ ፤ በአፋርና በመካከለኛው የአገሪቱ ክፍሎች ተበታትነው የሚገኙት የአንበጣ መንጋዎች ወደ ሶማሊያ የባሕር ዳርቻዎች ይሄዳሉ\" ብለዋል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "&quot;በአሁኑ ጊዜ በኢትዮጵያ በሰብል ላይ ችግር አይፈጥርም&quot; ያሉት ሚኒስትር ዴኤታው &quot;በትግራይ ክልል የተበተኑ አንበጣዎች ለመራባት ወደ ቀይ ባህር ዳርቻ እንደሚሄዱ እና በአፋር እና በመካከለኛው የሀገሪቱ ክፍሎች የተበተኑት የአንበጣ መንጋዎች ወደ ሶማሊያ የባህር ዳርቻዎች ይሄዳሉ&quot; ብለዋል ።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "input": "The WHO Representative to Ethiopia, Dr. Boureima Hama Sambo, thanked Canada for the available funding to support the continuity of essential health services. He said, “The grant will not only strengthen the provision of quality, gender-responsive essential health services at primary care level but also boost health system resilience by building the capacity of regional and city health authorities to deal with current and future crises.”",
+      "models": [
+        {
+          "output": "በኢትዮጵያ የዓለም ጤና ድርጅት ተወካይ ዶክተር ቡሪማ ሀማ ሳምቦ አስፈላጊ የሆኑ የጤና አገልግሎቶችን ቀጣይነት ለማረጋገጥ ለተገኘው የገንዘብ ድጋፍ ካናዳ ምስጋና አቅርበዋል ። \"ብድሩ ጥራት ያለው ፣ ፆታዊ ምላሽ የሚሰጡ አስፈላጊ የጤና አገልግሎቶችን በአንደኛ ደረጃ የሚሰጥ እንዲሆን ከማድረጉም በላይ የየክልሎችንና የከተማ የጤና ባለሙያዎችን ወቅታዊና ወደፊት የሚከሰቱ ችግሮችን ለመቋቋም የሚያስችል አቅም በመገንባት የጤና ሥርዓቱን የመቋቋም አቅምን ያሳድጋል\" ብለዋል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "በኢትዮጵያ የዓለም ጤና ድርጅት ተወካይ ዶ/ር ቡሬይማ ሃማ ሳምቦ አስፈላጊ የጤና አገልግሎቶችን ቀጣይነት ለመደገፍ ካናዳ ላደረገችው የገንዘብ ድጋፍ አመስግነዋል። “ስጦታው ጥራት ያለውና ሥርዓተ-ፆታ ምላሽ ሰጪ አስፈላጊ የጤና አገልግሎትን በመጀመሪያ ደረጃ አገልግሎት ከማጠናከር ባለፈ የክልልና የከተማ ጤና ባለሥልጣናትን አቅም በማሳደግ ወቅታዊና ወደፊት የሚፈጠሩ ቀውሶችን ለመቋቋም የጤና ሥርዓትን የመቋቋም አቅምን ያሳድጋል” ብለዋል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "input": "Following the qualification of the Ethiopian men's national team (Walias) to the 2022 African Cup of Nations (AFCON) in Cameroon after an eight year absence from the tournament, over 500 fans and 25 sports journalists are set to attend the event to be held from January 9 – February 6, 2022 in Cameroon.",
+      "models": [
+        {
+          "output": "የኢትዮጵያ ወንዶች ብሔራዊ ቡድን (ዋልያዎቹ) ለ2022ቱ የአፍሪካ ዋንጫ በካሜሩን ለሚያደርገው የማጣሪያ ጨዋታ አንድ ዓመት ከስምንት ቆይታ በኋላ ከ500 በላይ ደጋፊዎችና 25 የስፖርት ጋዜጠኞች ከጥር 9 - የካቲት 6 ቀን 2022 በካሜሩን በሚካሄደው በዚህ ውድድር ላይ ለመገኘት ተዘጋጅተዋል ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "የኢትዮጵያ ወንዶች ብሄራዊ ቡድን (ዋሊያስ) ለ2022 የካሜሩን የአፍሪካ ዋንጫ ማለፉን ተከትሎ ከ500 በላይ ደጋፊዎች እና 25 የስፖርት ጋዜጠኞች በካሜሩን ከጥር 9 እስከ የካቲት 6 ቀን 2022 በሚካሄደው ዝግጅት ላይ ይገኛሉ።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "input": "“Passing decision on who makes the cut is the responsibility of the Athletics Federation. Our main demand is to achieve results that will raise the flag of our country. So, we can’t stand by and watch when athletes who have one of the best times are left out of the competition due to improper practices,” Ashebir said.",
+      "models": [
+        {
+          "output": "\"ማንን ቆርጦ እንደሚጥል ውሳኔ ማሳለፍ የአትሌቲክስ ፌዴሬሽን ኃላፊነት ነው ። ዋናው ፍላጎታችን የሀገራችንን ሰንደቅ ዓላማ ከፍ የሚያደርግ ውጤት ማምጣት ነው ። ስለዚህ የተሻለ ጊዜ ያላቸው አትሌቶች ተገቢ ባልሆኑ ድርጊቶች ምክንያት ከውድድሩ ሲቀሩ ከጎናችን በመቆም መመልከት አንችልም \"ብለዋል አሸብር ።",
+          "model": "A",
+          "rate": 0,
+          "rank": 0
+        },
+        {
+          "output": "&quot;በማን ላይ ውሳኔ ማሳለፉ የአትሌቲክስ ፌዴሬሽኑ ኃላፊነት ነው፣ ዋናው ጥያቄያችን የሀገራችንን ሰንደቅ ዓላማ ከፍ የሚያደርግ ውጤት ማስመዝገብ ነው፣ ስለዚህ ጥሩ ጊዜ ያሳለፉ አትሌቶች ተገቢ ባልሆነ አሰራር ከውድድር ሲወጡ በትዕግስት መቆም አንችልም&quot; ሲል ተናግሯል።",
+          "model": "B",
+          "rate": 0,
+          "rank": 0
+        }
+      ]
+    }
+  ]
+}
