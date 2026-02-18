@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
     // 🔐 Apply filtering only if not root
     if (role !== "root") {
       baseQuery.$or = [
-        { created_by: { $regex: new RegExp(`^${username}$`, "i") } },
-        { annotator_id: { $regex: new RegExp(`^${username}$`, "i") } },
-        { qa_id: { $regex: new RegExp(`^${username}$`, "i") } },
+        { created_by: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+        { annotator_id: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+        { qa_id: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
       ];
     }
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Error fetching batch details:", error);
     return NextResponse.json(
-      { message: "Failed to fetch data", error },
+      { message: "Failed to fetch data", error: String(error) },
       { status: 500 }
     );
   }

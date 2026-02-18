@@ -20,7 +20,7 @@ export async function GET(
   if (!datasetType) {
     return NextResponse.json(
       { message: "Dataset type (mt|asr|tts) is not defined!" },
-      { status: 500 }
+      { status: 400 }
     );
   }
 
@@ -58,7 +58,7 @@ export async function PUT(
   if (!datasetType) {
     return NextResponse.json(
       { message: "Dataset type (mt|asr|tts) is not defined!" },
-      { status: 500 }
+      { status: 400 }
     );
   }
 
@@ -113,7 +113,7 @@ export async function DELETE(
   if (!datasetType) {
     return NextResponse.json(
       { message: "Dataset type (mt|asr|tts) is not defined!" },
-      { status: 500 }
+      { status: 400 }
     );
   }
 

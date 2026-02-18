@@ -8,7 +8,7 @@ export async function GET() {
     const users = await db.collection("realtime_evals").find().toArray();
     return NextResponse.json(users);
   } catch (error) {
-    return NextResponse.json({ error: error }, { status: 500 });
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 
@@ -23,6 +23,6 @@ export async function POST(request: NextRequest) {
     const result = await db.collection("realtime_evals").insertOne(newEval);
     return NextResponse.json({ insertedId: result.insertedId });
   } catch (error) {
-    return NextResponse.json({ error: error }, { status: 500 });
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

@@ -203,7 +203,7 @@ const NavBar = () => {
             <Lightbulb className="size-4 shrink-0" />
             <p className="">Tooltips</p>
           </div>
-          <div className="flex w-full items-centerspace-x-2">
+          <div className="flex w-full items-center space-x-2">
             <button
               onClick={() => {
                 setShowTooltips(!showTooltips);

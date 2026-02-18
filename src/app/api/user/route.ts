@@ -13,7 +13,6 @@ function toAppUser(doc: { _id?: unknown; email: string; name?: string; role?: st
     fullName: doc.name ?? "",
     role: doc.role ?? "user",
     active: doc.active ?? true,
-    password: "",
   };
 }
 
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
     const users = docs.map((d) => toAppUser(d as Parameters<typeof toAppUser>[0]));
     return NextResponse.json(users);
   } catch (error) {
-    return NextResponse.json({ error: error }, { status: 500 });
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 

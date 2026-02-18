@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { requireAuth } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,13 +10,14 @@ export async function PATCH(
     params: Promise<{ datasetType: string; batchId: string; taskId: string }>;
   }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
+
   const client = await clientPromise;
   const db = client.db();
   const { datasetType, batchId, taskId } = await params;
 
   const updatedTask = await req.json(); // The updated task object
-
-  console.log("`${datasetType}_batches`:", `${datasetType}_batches`);
 
   try {
     const result = await db.collection(`${datasetType}_batches`).updateOne(
@@ -35,8 +37,6 @@ export async function PATCH(
       }
     );
 
-    console.log(`${datasetType}_result:`, result);
-
     if (result.modifiedCount === 0) {
       return NextResponse.json(
         { message: "Task not found or not updated" },
@@ -48,7 +48,7 @@ export async function PATCH(
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { message: "Failed to update task", error },
+      { message: "Failed to update task", error: String(error) },
       { status: 500 }
     );
   }
@@ -62,6 +62,9 @@ export async function GET(
     params: Promise<{ datasetType: string; batchId: string; taskId: string }>;
   }
 ) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
+
   const client = await clientPromise;
   const db = client.db();
 
@@ -88,8 +91,6 @@ export async function GET(
       }
     );
 
-    // console.log(task);
-
     if (!task) {
       return NextResponse.json({ message: "Task not found" }, { status: 404 });
     }
@@ -98,7 +99,7 @@ export async function GET(
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { message: "Failed to fetch task", error },
+      { message: "Failed to fetch task", error: String(error) },
       { status: 500 }
     );
   }

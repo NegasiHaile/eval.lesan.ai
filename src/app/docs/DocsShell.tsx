@@ -37,7 +37,7 @@ export default function DocsShell({ children }: { children: ReactNode }) {
             href="/"
             className="font-semibold text-foreground hover:text-primary"
           >
-            ← HornEval
+            ← {process.env.NEXT_PUBLIC_APP_NAME}
           </Link>
           <span className="text-muted-foreground">·</span>
           {DOCS_SIDEBAR_LINKS.slice(0, 4).map(({ href, label, id }) => (
