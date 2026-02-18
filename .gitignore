@@ -37,6 +37,9 @@ yarn-error.log*
 
 dataset/
 
+# local docs and assets (not tracked)
+/docs/
+
 # vercel
 .vercel
 
