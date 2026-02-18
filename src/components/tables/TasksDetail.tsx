@@ -1,7 +1,7 @@
 import { calculateLeaderboard } from "@/helpers/batch_leaderboard_calculator";
 import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
 import React, { useState } from "react";
-import { VscFoldDown, VscFoldUp } from "react-icons/vsc";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type SummaryType = {
   rates: Record<number | "unevaluated", number>;
@@ -210,9 +210,9 @@ const TasksDetail = ({ data }: PropsTypes) => {
                     aria-label="Toggle expand"
                   >
                     {isExpanded ? (
-                      <VscFoldUp className="w-4 h-4 inline" />
+                      <ChevronUp className="size-4 inline" />
                     ) : (
-                      <VscFoldDown className="w-4 h-4 inline" />
+                      <ChevronDown className="size-4 inline" />
                     )}
                   </button>
                 </td>

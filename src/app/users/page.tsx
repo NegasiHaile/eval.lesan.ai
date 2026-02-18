@@ -5,7 +5,7 @@ import CopyText from "@/components/utils/CopyText";
 import { userDefaultValues } from "@/constants/initial_values";
 import { UserTypes } from "@/types/user";
 import { useEffect, useState } from "react";
-import { VscClose, VscEdit, VscLoading, VscTrash } from "react-icons/vsc";
+import { Loader2, Pencil, Trash2, X } from "lucide-react";
 
 const roles = ["root", "admin", "user"];
 
@@ -157,7 +157,7 @@ export default function Page() {
 
                       {loading === "role" &&
                       activeDropdown === user.username ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
                       ) : (
                         <button
                           onClick={() =>
@@ -170,14 +170,12 @@ export default function Page() {
                           className="p-1 ml-2 bg-transparent hover:bg-gray-300 hover:dark:bg-gray-900/80 rounded cursor-pointer"
                         >
                           {activeDropdown === user.username ? (
-                            <VscClose
-                              className="w-5 h-6"
-                              title="Close upadting"
+                            <X
+                              className="size-5"
                             />
                           ) : (
-                            <VscEdit
-                              className="w-5 h-5"
-                              title={`Update ${user.fullName}'s role.`}
+                            <Pencil
+                              className="size-5"
                             />
                           )}
                         </button>
@@ -225,7 +223,7 @@ export default function Page() {
                     >
                       {loading === "account" &&
                       editUser.email === user.email ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="size-5 animate-spin text-gray-500" />
                       ) : (
                         <span>{user.active ? "On" : "Off"}</span>
                       )}
@@ -243,9 +241,9 @@ export default function Page() {
                       title={`Delete ${user.fullName}'s account`}
                     >
                       {loading === "delete" && editUser.email === user.email ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="size-5 animate-spin text-gray-500" />
                       ) : (
-                        <VscTrash className="w-5 h-5" />
+                        <Trash2 className="size-5" />
                       )}
                     </button>
                   </td>

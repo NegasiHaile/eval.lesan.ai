@@ -2,13 +2,11 @@
 
 import React, { useRef } from "react";
 
-import { IoCheckmarkOutline } from "react-icons/io5";
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
+import { Check, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 
 import { domainsList } from "@/constants/others";
 import Tooltip from "./utils/Tooltip";
 import { DomainTypes } from "@/types/others";
-import { VscClose, VscEdit } from "react-icons/vsc";
 
 type DomainsListProps = {
   domains?: DomainTypes[] | [] | undefined;
@@ -58,7 +56,7 @@ const DomainsList = ({
         aria-label="Scroll left"
         type="button"
       >
-        <HiChevronLeft className="w-6 h-6" />
+        <ChevronLeft className="size-6" />
       </button>
 
       {/* Right Scroll Button */}
@@ -68,7 +66,7 @@ const DomainsList = ({
         aria-label="Scroll right"
         type="button"
       >
-        <HiChevronRight className="w-6 h-6" />
+        <ChevronRight className="size-6" />
       </button>
 
       {/* Scrollable Container */}
@@ -127,7 +125,7 @@ const DomainsList = ({
                 </span>
                 {selectedDomains.includes(domain.name) && (
                   <span>
-                    <IoCheckmarkOutline className="text-lg" />
+                    <Check className="size-4" />
                   </span>
                 )}
 
@@ -137,7 +135,7 @@ const DomainsList = ({
                     onClick={() => onEdit(domain.name)}
                     title={`Edit ${domain.name} category`}
                   >
-                    <VscEdit />
+                    <Pencil className="size-4" />
                   </label>
                 )}
 
@@ -147,7 +145,7 @@ const DomainsList = ({
                     onClick={() => onRemove(domain.name)}
                     title={`Delete ${domain.name} category`}
                   >
-                    <VscClose />
+                    <X className="size-4" />
                   </label>
                 )}
               </button>

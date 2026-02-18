@@ -22,7 +22,7 @@ import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
 import { TaskEvalErrorTypes } from "@/types/others";
 import Button from "@/components/utils/Button";
 import DomainsList from "@/components/DomainsList";
-import { VscAdd, VscDiffRemoved } from "react-icons/vsc";
+import { Minus, Plus } from "lucide-react";
 
 export default function ASR() {
   const { user } = useUser();
@@ -528,7 +528,7 @@ export default function ASR() {
                   onClick={() => setShowReference(!showReference)}
                   className="!font-semibold"
                 >
-                   {showReference? <><VscDiffRemoved className="w-4 h-4" /> Hide</> : <><VscAdd className="w-4 h-4" /> Add </>} Reference
+                   {showReference ? <><Minus className="size-4" /> Hide</> : <><Plus className="size-4" /> Add </>} Reference
                 </Button>
               </div>
               <div className="flex items-center justify-end space-x-2 text-right">

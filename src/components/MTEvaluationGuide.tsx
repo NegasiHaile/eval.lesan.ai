@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { VscChevronDown, VscChevronUp } from "react-icons/vsc";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type PropTypes = {
   isRealtime: boolean;
@@ -185,12 +185,12 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
           {expanded ? (
             <>
               <span>Show less</span>
-              <VscChevronUp className="w-4 h-4" />
+              <ChevronUp className="size-4" />
             </>
           ) : (
             <>
               <span>Read more</span>
-              <VscChevronDown className="w-4 h-4" />
+              <ChevronDown className="size-4" />
             </>
           )}
         </button>

@@ -5,13 +5,13 @@ export const evalTypes: EvalTypeTypes[] = [
   {
     name: "MT",
     value: "mt",
-    full_name: "🈸 Machine Translation (MT) Datasets",
+    full_name: "Machine Translation (MT) Datasets",
     sample_batch: "/datasets/mt-sample-eval-batch.json",
   },
   {
     name: "ASR",
     value: "asr",
-    full_name: "🗣️ Automatic Speech Recognition (ASR) Datasets",
+    full_name: "Automatic Speech Recognition (ASR) Datasets",
     sample_batch: "/datasets/asr-sample-eval-batch.json",
   },
   // {

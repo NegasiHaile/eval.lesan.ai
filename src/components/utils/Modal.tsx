@@ -1,5 +1,5 @@
 import { Dispatch, ReactNode, SetStateAction } from "react";
-import { VscClose } from "react-icons/vsc";
+import { X } from "lucide-react";
 
 type ModalProps = {
   isOpen: boolean;
@@ -30,7 +30,7 @@ export default function Modal({
               onClick={() => setIsOpen(false)}
               className="p-1 cursor-pointer absolute top-2 right-2 rounded-full transition-all duration-300 dark:hover:bg-gray-800/50 hover:scale-110 focus:outline-none"
             >
-              <VscClose className="w-5 h-5 transition-all duration-300" />
+              <X className="size-5 transition-all duration-300" />
             </button>
           </div>
         </div>

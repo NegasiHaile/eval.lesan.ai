@@ -1,5 +1,5 @@
 import React from "react";
-import { FaSpinner } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 
 type ButtonTypes = {
   type?: "button" | "submit" | "reset";
@@ -92,7 +92,7 @@ const Button = ({
       title={title}
     >
       {children}
-      {loading && <FaSpinner className="animate-spin text-lg" />}
+      {loading && <Loader2 className="size-5 shrink-0 animate-spin" />}
       <p>{text}</p>
     </button>
   );

@@ -4,7 +4,7 @@ import { Dispatch, useState, SetStateAction } from "react";
 import Modal from "./utils/Modal";
 import { UserTypes } from "@/types/user";
 import { authClient } from "@/lib/auth-client";
-import { FaSpinner } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 import Image from "next/image";
 
 type SocialProvider = "google" | "github" | "huggingface";
@@ -60,7 +60,7 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
               className={`w-full flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-medium border border-gray-300 dark:border-gray-600 bg-gray-200/80 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition ${loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
             >
               {loading === id ? (
-                <FaSpinner className="shrink-0 size-5 animate-spin" aria-hidden />
+                <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />
               ) : (
                 <Image
                   src={iconSrc}

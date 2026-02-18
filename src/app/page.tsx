@@ -28,7 +28,7 @@ import { languages } from "@/constants/languages";
 import Container from "@/components/utils/Container";
 import DomainsList from "@/components/DomainsList";
 import Button from "@/components/utils/Button";
-import { VscAdd, VscDiffRemoved } from "react-icons/vsc";
+import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
 
 export default function Home() {
@@ -750,11 +750,11 @@ export default function Home() {
                 >
                   {showReference ? (
                     <>
-                      <VscDiffRemoved className="w-4 h-4" /> Hide
+                      <Minus className="size-4" /> Hide
                     </>
                   ) : (
                     <>
-                      <VscAdd className="w-4 h-4" /> Add{" "}
+                      <Plus className="size-4" /> Add{" "}
                     </>
                   )}{" "}
                   Reference

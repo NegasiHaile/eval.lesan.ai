@@ -9,8 +9,7 @@ import { EvalTypeTypes } from "@/types/others";
 import { useState, useEffect, Dispatch } from "react";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { VscClose, VscCloudDownload } from "react-icons/vsc";
-import { BiExpand } from "react-icons/bi";
+import { Download, Expand, X } from "lucide-react";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -514,7 +513,7 @@ export default function DatasetsTable({
                       className="text-blue-600 dark:text-blue-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                       title="Download"
                     >
-                      <VscCloudDownload className="w-6 h-6" />
+                      <Download className="size-6" />
                     </button> */}
                       <button
                         onClick={() => {
@@ -527,7 +526,7 @@ export default function DatasetsTable({
                         className="text-blue-600 dark:text-blue-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                         title="Download"
                       >
-                        <VscCloudDownload className="w-6 h-6" />
+                        <Download className="size-6" />
                       </button>
                       {downloadMenuIndex === index && (
                         <div className="absolute overflow-hidden z-50 mt-9 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700">
@@ -590,7 +589,7 @@ export default function DatasetsTable({
                           className="text-red-600 dark:text-red-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                           title="Delete"
                         >
-                          <VscClose className="w-6 h-6" />
+                          <X className="size-6" />
                         </button>
                       )}
 
@@ -599,7 +598,7 @@ export default function DatasetsTable({
                         className="text-gray-800 dark:text-gray-200 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                         title="See detail"
                       >
-                        <BiExpand className="w-6 h-6" />
+                        <Expand className="size-6" />
                       </button>
                     </td>
                   </tr>

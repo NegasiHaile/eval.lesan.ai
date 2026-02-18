@@ -2,8 +2,12 @@
 import { EvalOutputTypes } from "@/types/data";
 import React, { useRef, useState } from "react";
 import Button from "../utils/Button";
-import { VscMic, VscStopCircle } from "react-icons/vsc";
-import { LuArrowDownFromLine, LuArrowUpFromLine } from "react-icons/lu";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Mic,
+  Square,
+} from "lucide-react";
 
 interface AudioCardProps {
   index?: number;
@@ -124,7 +128,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                   {/* Pulse ring effect */}
 
                   {/* Microphone Icon */}
-                  <VscMic className="w-6 h-6" />
+                  <Mic className="size-6" />
                 </button>
               ) : (
                 <button
@@ -137,7 +141,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                     aria-hidden="true"
                   ></span>
                   {/* Stop Icon (circle with square) */}
-                  <VscStopCircle className="w-6 h-6 text-white" />
+                  <Square className="size-6 text-white" />
                 </button>
               )}
             </>
@@ -161,7 +165,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                 className="cursor-pointer opacity-80 hover:opacity-50 group"
               >
                 {/* Up Arrow SVG */}
-                <LuArrowUpFromLine
+                <ArrowUpFromLine
                   strokeWidth={1.5}
                   className="size-5 md:size-7 transition-transform duration-200 group-hover:-translate-y-1"
                 />
@@ -172,7 +176,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                 className="cursor-pointer opacity-80 hover:opacity-50 group"
               >
                 {/* Down Arrow SVG */}
-                <LuArrowDownFromLine
+                <ArrowDownToLine
                   strokeWidth={1.5}
                   className="size-5 md:size-7 transition-transform duration-200 group-hover:translate-y-1"
                 />

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as XLSX from "xlsx";
-import { VscCloudDownload } from "react-icons/vsc";
+import { Download } from "lucide-react";
 import { TEMPLATES } from "@/constants/templates";
 
 const FILE_EXTENSIONS = {
@@ -278,7 +278,7 @@ const DatasetUploadGuidelines = ({
           onClick={handleDownload}
           className="flex items-center bg-indigo-600 hover:bg-indigo-700 cursor-pointer text-white px-6 py-2 rounded font-semibold"
         >
-          <VscCloudDownload className="w-5 h-5" /> Download {activeFormat}{" "}
+          <Download className="size-5" /> Download {activeFormat}{" "}
           Template for {activeTask}
         </button>
       </section>
