@@ -8,5 +8,4 @@ node_modules
 Dockerfile
 .dockerignore
 README.md
-plan.md
-AUDIO_STREAMING_IMPLEMENTATION.md
+docs/

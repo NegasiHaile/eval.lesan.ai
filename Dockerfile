@@ -12,6 +12,14 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Next.js bakes NEXT_PUBLIC_* vars into the client bundle at build time.
+# Pass them via --build-arg during docker build.
+ARG NEXT_PUBLIC_APP_NAME
+ARG NEXT_PUBLIC_BASE_URL
+ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+
 RUN npm run build
 
 # --- Production ---
