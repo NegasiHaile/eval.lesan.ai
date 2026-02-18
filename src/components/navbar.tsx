@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
 import {
+  BookOpen,
   Check,
   FolderOpen,
   Languages,
@@ -106,6 +107,16 @@ const NavBar = () => {
       ),
       href: "/datasets",
       public: false,
+    },
+    {
+      id: 6,
+      title: (
+        <span className="flex items-center gap-1.5">
+          <BookOpen className="size-4 shrink-0" /> Docs
+        </span>
+      ),
+      href: "/docs",
+      public: true,
     },
   ];
 

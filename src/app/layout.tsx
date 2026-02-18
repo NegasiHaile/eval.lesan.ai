@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import NavBar from "@/components/navbar";
-import Footer from "@/components/footer";
+import AppChrome from "@/components/AppChrome";
 import { UserProvider } from "@/context/UserContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
@@ -100,11 +99,7 @@ export default function RootLayout({
         <ThemeProvider>
           <UserProvider>
             <PreferencesProvider>
-              <NavBar />
-              <main className="flex-grow pt-18 md:pt-12 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300">
-                {children}
-              </main>
-              <Footer />
+              <AppChrome>{children}</AppChrome>
             </PreferencesProvider>
           </UserProvider>
         </ThemeProvider>
