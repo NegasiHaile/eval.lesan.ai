@@ -22,6 +22,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { usePreferences } from "@/context/PreferencesContext";
 import { authClient } from "@/lib/auth-client";
 
@@ -29,11 +30,17 @@ const NavBar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, setUser } = useUser();
-  const { theme, setTheme, showTooltips, setShowTooltips } = usePreferences();
+  const { theme, setTheme } = useTheme();
+  const { showTooltips, setShowTooltips } = usePreferences();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -132,6 +139,17 @@ const NavBar = () => {
   if (excludeNavebar.includes(pathname)) return null;
 
   const UserPreferences = () => {
+    if (!mounted) {
+      return (
+        <div className="w-full px-4 py-2 border-y border-gray-300 dark:border-gray-700">
+          <div className="flex items-center space-x-1">
+            <Palette className="size-4 shrink-0" />
+            <p className="">Theme</p>
+          </div>
+          <div className="h-8 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700 mt-1" />
+        </div>
+      );
+    }
     return (
       <div className="w-full px-4 py-2 border-y border-gray-300 dark:border-gray-700">
         <div className="flex items-center space-x-1">
@@ -140,16 +158,14 @@ const NavBar = () => {
         </div>
 
         <div className="flex w-full items-center space-x-2">
-          {["system", "dark", "light"].map((item) => {
+          {(["system", "dark", "light"] as const).map((item) => {
             return (
               <button
                 key={item}
-                onClick={() => {
-                  setTheme(item.toLowerCase() as "system" | "dark" | "light");
-                }}
+                onClick={() => setTheme(item)}
                 className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ease-in-out transform hover:scale-105
                                     ${
-                                      theme.toLowerCase() === item.toLowerCase()
+                                      theme === item
                                         ? "bg-gray-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
                                         : "bg-gray-200 dark:bg-gray-900/80 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
                                     }
@@ -158,7 +174,7 @@ const NavBar = () => {
                 <span className="font-mono capitalize whitespace-nowrap">
                   {item}
                 </span>
-                {theme.toLowerCase() === item.toLowerCase() && (
+                {theme === item && (
                   <span>
                     <Check
                       strokeWidth={4}
