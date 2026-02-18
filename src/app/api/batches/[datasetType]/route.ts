@@ -28,8 +28,6 @@ export async function GET(
 
     const db = client.db();
 
-    console.log("Table-name:", `${datasetType}_batches`);
-
     const batchDetails = await db
       .collection<BatchDetailTypes>(`${datasetType}_batches`)
       .find({})
@@ -39,7 +37,7 @@ export async function GET(
     return NextResponse.json(batchDetails);
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to fetch data", error },
+      { message: "Failed to fetch data", error: String(error) },
       { status: 500 }
     );
   }
@@ -79,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Batch data saved successfully" });
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to save data", error },
+      { message: "Failed to save data", error: String(error) },
       { status: 500 }
     );
   }
@@ -105,7 +103,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to delete data", error },
+      { message: "Failed to delete data", error: String(error) },
       { status: 500 }
     );
   }
@@ -147,7 +145,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ message: "Updated successfully" });
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to update data", error },
+      { message: "Failed to update data", error: String(error) },
       { status: 500 }
     );
   }

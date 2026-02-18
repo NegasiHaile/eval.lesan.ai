@@ -32,7 +32,7 @@ export async function PATCH(
   } catch (error) {
     console.error("PATCH /batches/[id] error:", error);
     return NextResponse.json(
-      { message: "Failed to update annotator_id", error },
+      { message: "Failed to update annotator_id", error: String(error) },
       { status: 500 }
     );
   }
@@ -77,7 +77,7 @@ export async function PUT(
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { message: "Failed to update batch", error },
+      { message: "Failed to update batch", error: String(error) },
       { status: 500 }
     );
   }

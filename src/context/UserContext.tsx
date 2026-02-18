@@ -18,7 +18,6 @@ function sessionToUser(session: { user: { email: string; name?: string; role?: s
   return {
     username: u.email,
     role: (u as { role?: string }).role ?? "user",
-    password: "",
     fullName: u.name,
     email: u.email,
   };

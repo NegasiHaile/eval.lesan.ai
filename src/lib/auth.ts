@@ -7,32 +7,47 @@ import { nextCookies } from "better-auth/next-js";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import clientPromise from "@/lib/mongodb";
 
+// Fail loudly if the auth secret is missing
+const secret = process.env.BETTER_AUTH_SECRET;
+if (!secret) {
+  throw new Error("BETTER_AUTH_SECRET environment variable is required.");
+}
+
 const client = await clientPromise;
 const db = client.db();
-// Do not pass { client } if you wantto avoid transactions which require a replica set.
 
 export const auth = betterAuth({
-  database: mongodbAdapter(db, {
-    // Optional: if you don't provide a client, database transactions won't be enabled.
-    client
-  }),
-  secret: process.env.BETTER_AUTH_SECRET,
+  database: mongodbAdapter(db, { client }),
+  secret,
   baseURL: process.env.BETTER_AUTH_URL,
 
   socialProviders: {
-    google: {
-      prompt: "select_account",
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID ?? "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
-    },
-    huggingface: {
-      clientId: process.env.HUGGINGFACE_CLIENT_ID ?? "",
-      clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET ?? "",
-    },
+    // Only register providers whose credentials are configured
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            prompt: "select_account",
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        }
+      : {}),
+    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? {
+          github: {
+            clientId: process.env.GITHUB_CLIENT_ID,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET,
+          },
+        }
+      : {}),
+    ...(process.env.HUGGINGFACE_CLIENT_ID && process.env.HUGGINGFACE_CLIENT_SECRET
+      ? {
+          huggingface: {
+            clientId: process.env.HUGGINGFACE_CLIENT_ID,
+            clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET,
+          },
+        }
+      : {}),
   },
   user: {
     additionalFields: {
@@ -57,7 +72,11 @@ export type SessionUser = { username: string; role: string };
 export async function getSessionFromRequest(req: Request): Promise<SessionUser | null> {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return null;
-  const u = session.user as { email: string; role?: string };
+  const u = session.user as { email: string; role?: string; active?: boolean };
+
+  // Block deactivated users
+  if (u.active === false) return null;
+
   return {
     username: u.email,
     role: (u.role as string) ?? "user",

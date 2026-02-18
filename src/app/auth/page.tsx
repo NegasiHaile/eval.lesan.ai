@@ -9,10 +9,9 @@ import { VscLoading } from "react-icons/vsc";
 
 const Page = () => {
   const router = useRouter();
-  const { user, setUser } = useUser();
+  const { user } = useUser();
 
   useEffect(() => {
-    console.log("user:", user);
     if (user) {
       router.push("/");
     }
@@ -32,7 +31,6 @@ const Page = () => {
         setIsOpen={() => {
           router.push("/");
         }}
-        setUser={setUser}
       />
     </div>
   );
