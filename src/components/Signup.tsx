@@ -42,7 +42,7 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+    <Modal isOpen={isOpen} setIsOpen={()=> {setIsOpen(false); setLoading(null);}}>
       <div className="p-6 rounded w-full md:min-w-lg text-center">
         <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-white">
           Sign in
