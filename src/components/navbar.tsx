@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import Signup from "./Signup";
@@ -185,7 +186,8 @@ const NavBar = () => {
   return (
     <nav className="w-full text-gray-600 dark:text-gray-300 fixed z-40 bg-gradient-to-b from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-800 px-3">
       <div className="flex justify-between items-center h-16">
-        <Link href="/" className="text-2xl font-extrabold">
+        <Link href="/" className="flex items-center gap-2 text-2xl font-extrabold text-gray-800 dark:text-gray-100">
+          <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0 object-contain" priority />
           {process.env.NEXT_PUBLIC_APP_NAME}
         </Link>
 

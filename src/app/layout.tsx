@@ -19,6 +19,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Language Models Leaderboard | HornEval",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
   description:
     "A language models evaluation dataset benchmarking and leaderboard platform for African languages Machine Translation (MT), Automatic Speech Recognition (ASR), and Text-to-Speech (TTS). Includes tools for crowdsourced data collection and performance analysis.",
   openGraph: {
@@ -29,9 +33,9 @@ export const metadata: Metadata = {
     siteName: "HornEval",
     images: [
       {
-        url: "/public/file.svg",
-        width: 1200,
-        height: 630,
+        url: "/logo.svg",
+        width: 512,
+        height: 512,
         alt: "HornEval Language Models Leaderboard",
       },
     ],
@@ -46,7 +50,7 @@ export const metadata: Metadata = {
       "A language models evaluation dataset benchmarking and leaderboard platform for African languages Machine Translation (MT), Automatic Speech Recognition (ASR), and Text-to-Speech (TTS). Includes tools for crowdsourced data collection and performance analysis.",
     images: [
       {
-        url: "/public/file.svg",
+        url: "/logo.svg",
         alt: "HornEval Language Models Leaderboard",
       },
     ],
