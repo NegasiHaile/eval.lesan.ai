@@ -45,7 +45,7 @@ const CopyText: React.FC<CopyTextProps> = ({ textToCopy }) => {
       className={`p-1 bg-transparent rounded opacity-70 font-light text-xs md:text-sm ${
         copied
           ? ""
-          : "cursor-pointer hover:bg-gray-300 hover:dark:bg-gray-900/80"
+          : "cursor-pointer hover:bg-neutral-300 hover:dark:bg-neutral-900/80"
       }`}
       onClick={handleCopy}
       title={`Copy "${`${textToCopy.slice(0, 25)} ${

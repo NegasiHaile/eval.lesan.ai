@@ -36,7 +36,7 @@ const TextInput = ({
       required={required}
       placeholder={placeholder}
       onChange={onChange}
-      className={`w-full bg-transparent rounded border-[0.5px] border-gray-300 dark:border-gray-800 dark:bg-gray-900 focus:border-blue-500 focus:outline-none ${sizeStyle}`}
+      className={`w-full bg-transparent rounded border-[0.5px] border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 focus:border-blue-500 focus:outline-none ${sizeStyle}`}
     />
   );
 };

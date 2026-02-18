@@ -243,7 +243,7 @@ const BatchUploaderForm = ({
 
   return (
     <div className="w-full p-5 space-y-3">
-      <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800">
+      <div className="flex justify-between items-center border-b border-neutral-200 dark:border-neutral-800">
         <p className="text-xl font-mono">
           Create <span className="uppercase font-bold">{activeTab.name}</span>{" "}
           task

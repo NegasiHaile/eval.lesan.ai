@@ -74,7 +74,7 @@ const TranslationOutputArea = ({
         error && error.errorTitles?.includes(translation.model)
           ? "border-red-500"
           : "border-transparent"
-      } ${disabled ? "select-none" : ""} bg-gray-200/80 dark:bg-gray-800/80`}
+      } ${disabled ? "select-none" : ""} bg-neutral-200/80 dark:bg-neutral-800/80`}
       onCopy={disabled ? (e) => e.preventDefault() : undefined}
       onCut={disabled ? (e) => e.preventDefault() : undefined}
       onContextMenu={disabled ? (e) => e.preventDefault() : undefined}
@@ -124,7 +124,7 @@ const TranslationOutputArea = ({
             </circle>
           </svg>
         ) : (
-          <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+          <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
             {translation.output}
           </p>
         )}
@@ -132,7 +132,7 @@ const TranslationOutputArea = ({
 
       <div className="w-full flex justify-between rounded-b-md items-center space-x-1">
         <div className="flex items-center space-x-3">
-          <div className="w-fit flex space-x-1 items-center p-1 bg-gray-200 dark:bg-gray-800 rounded-bl-md rounded-tr-xl">
+          <div className="w-fit flex space-x-1 items-center p-1 bg-neutral-200 dark:bg-neutral-800 rounded-bl-md rounded-tr-xl">
             {modelIcon()}
             <p className="font-mono text-sm">
               Model{" "}
@@ -179,14 +179,14 @@ const TranslationOutputArea = ({
             {ratingGuideline.map((item) => (
               <Tooltip
                 key={item?.scale}
-                pointerStyle="border-t-gray-100 dark:border-t-gray-900"
+                pointerStyle="border-t-neutral-100 dark:border-t-neutral-900"
                 tooltipContent={
                   <div className="space-y-3">
-                    <p className=" text-lg font-mono text-nowrap px-3 py-1 border-b border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-400">
+                    <p className=" text-lg font-mono text-nowrap px-3 py-1 border-b border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-400">
                       Rate-Value: {item?.value} ({item?.scale})
                     </p>
 
-                    <p className="px-3 pb-3 text-sm font-mono text-gray-700 dark:text-gray-400">
+                    <p className="px-3 pb-3 text-sm font-mono text-neutral-700 dark:text-neutral-400">
                       {item?.description}
                     </p>
 

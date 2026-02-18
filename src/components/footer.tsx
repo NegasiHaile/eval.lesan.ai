@@ -2,7 +2,7 @@ import React from "react";
 
 const Footer = () => {
   return (
-    <footer className="flex flex-wrap items-center justify-center gap-2 p-4 border-t border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-400/80">
+    <footer className="flex flex-wrap items-center justify-center gap-2 p-4 border-t border-neutral-200 bg-white dark:bg-neutral-900 dark:border-neutral-800 text-sm text-neutral-700 dark:text-neutral-400/80">
       <span className="inline-flex items-center gap-1.5">
         <span className="flex h-4 w-4 shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full" aria-hidden>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor">

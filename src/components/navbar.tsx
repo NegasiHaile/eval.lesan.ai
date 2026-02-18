@@ -141,17 +141,17 @@ const NavBar = () => {
   const UserPreferences = () => {
     if (!mounted) {
       return (
-        <div className="w-full px-4 py-2 border-y border-gray-300 dark:border-gray-700">
+        <div className="w-full px-4 py-2 border-y border-neutral-300 dark:border-neutral-700">
           <div className="flex items-center space-x-1">
             <Palette className="size-4 shrink-0" />
             <p className="">Theme</p>
           </div>
-          <div className="h-8 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700 mt-1" />
+          <div className="h-8 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700 mt-1" />
         </div>
       );
     }
     return (
-      <div className="w-full px-4 py-2 border-y border-gray-300 dark:border-gray-700">
+      <div className="w-full px-4 py-2 border-y border-neutral-300 dark:border-neutral-700">
         <div className="flex items-center space-x-1">
           <Palette className="size-4 shrink-0" />
           <p className="">Theme</p>
@@ -166,8 +166,8 @@ const NavBar = () => {
                 className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ease-in-out transform hover:scale-105
                                     ${
                                       theme === item
-                                        ? "bg-gray-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
-                                        : "bg-gray-200 dark:bg-gray-900/80 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
+                                        ? "bg-neutral-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
+                                        : "bg-neutral-200 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 shadow-md"
                                     }
                                     focus:outline-none focus:ring-opacity-50 cursor-pointer`}
               >
@@ -200,8 +200,8 @@ const NavBar = () => {
               className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ease-in-out transform hover:scale-105
                                     ${
                                       !showTooltips
-                                        ? "bg-gray-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
-                                        : "bg-gray-200 dark:bg-gray-900/80 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
+                                        ? "bg-neutral-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
+                                        : "bg-neutral-200 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 shadow-md"
                                     }
                                     focus:outline-none focus:ring-opacity-50 cursor-pointer`}
             >
@@ -224,9 +224,9 @@ const NavBar = () => {
   };
 
   return (
-    <nav className="w-full text-gray-600 dark:text-gray-300 fixed z-40 bg-gradient-to-b from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-800 px-3">
+    <nav className="w-full text-neutral-600 dark:text-neutral-300 fixed z-40 bg-gradient-to-b from-neutral-200 to-neutral-100 dark:from-neutral-800 dark:to-neutral-800 px-3">
       <div className="flex justify-between items-center h-16">
-        <Link href="/" className="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-gray-100">
+        <Link href="/" className="flex items-center gap-2 text-xl font-bold text-neutral-800 dark:text-neutral-100">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full" aria-hidden>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor">
               <path d="M8 6h18v3H8V6zm0 6h14v3H8v-3zm0 9h18v3H8v-3zM8 6v20h3V6H8z"/>
@@ -237,7 +237,7 @@ const NavBar = () => {
 
         {/* Hamburger menu button (mobile) */}
         <button
-          className="md:hidden p-2 cursor-pointer rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+          className="md:hidden p-2 cursor-pointer rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
@@ -257,8 +257,8 @@ const NavBar = () => {
                   href={item.href}
                   className={`px-3 py-3 rounded-t-md ${
                     pathname === item.href
-                      ? "bg-white dark:bg-gray-900"
-                      : "hover:bg-white dark:hover:bg-gray-900"
+                      ? "bg-white dark:bg-neutral-900"
+                      : "hover:bg-white dark:hover:bg-neutral-900"
                   }`}
                 >
                   {item.title}
@@ -270,14 +270,14 @@ const NavBar = () => {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center cursor-pointer px-2 py-3 rounded-md text-gray-800 hover:text-black dark:text-white dark:hover:text-gray-200"
+                className="flex items-center cursor-pointer px-2 py-3 rounded-md text-neutral-800 hover:text-black dark:text-white dark:hover:text-neutral-200"
                 aria-label="Account menu"
               >
-                <User className="size-8 text-gray-900 dark:text-white" />
+                <User className="size-8 text-neutral-900 dark:text-white" />
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-0 w-fit rounded-b-md shadow-lg bg-gray-200 dark:bg-gray-800 z-40 overflow-hidden">
-                  <div className="text-sm text-gray-800 dark:text-gray-200">
+                <div className="absolute right-0 mt-0 w-fit rounded-b-md shadow-lg bg-neutral-200 dark:bg-neutral-800 z-40 overflow-hidden">
+                  <div className="text-sm text-neutral-800 dark:text-neutral-200">
                     {userNavItems.map((item, i) => {
                       if (!item.display) return null;
                       return (
@@ -285,7 +285,7 @@ const NavBar = () => {
                           key={i}
                           href={item.href}
                           onClick={() => setDropdownOpen(false)}
-                          className="flex flex-col px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-900/80"
+                          className="flex flex-col px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900/80"
                         >
                           <span>{item.title}</span>
                           {item.subTitle && (
@@ -302,7 +302,7 @@ const NavBar = () => {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 hover:bg-gray-100 cursor-pointer dark:hover:bg-gray-900/80"
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 hover:bg-neutral-100 cursor-pointer dark:hover:bg-neutral-900/80"
                     >
                       <LogOut className="size-4 shrink-0" /> Logout
                     </button>
@@ -324,7 +324,7 @@ const NavBar = () => {
 
       {/* Mobile Dropdown Menu */}
       {menuOpen && (
-        <div className="md:hidden mt-2 flex flex-col space-y-2 bg-gray-100 dark:bg-gray-800 rounded-md text-lg z-30">
+        <div className="md:hidden mt-2 flex flex-col space-y-2 bg-neutral-100 dark:bg-neutral-800 rounded-md text-lg z-30">
           {navItems.map((item, i) => {
             // If nav item is not public (is private) and there is no loggedin user, return nothing
             // Else display it
@@ -334,8 +334,8 @@ const NavBar = () => {
                 key={i}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className={`px-2 py-2 rounded hover:bg-white dark:hover:bg-gray-900 ${
-                  pathname === item.href ? "bg-white dark:bg-gray-900" : ""
+                className={`px-2 py-2 rounded hover:bg-white dark:hover:bg-neutral-900 ${
+                  pathname === item.href ? "bg-white dark:bg-neutral-900" : ""
                 }`}
               >
                 {item.title}
@@ -354,7 +354,7 @@ const NavBar = () => {
                     key={i}
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className="px-2 py-2 rounded hover:bg-white dark:hover:bg-gray-900"
+                    className="px-2 py-2 rounded hover:bg-white dark:hover:bg-neutral-900"
                   >
                     <span>{item.title}</span>
                     {item.subTitle && (
@@ -369,7 +369,7 @@ const NavBar = () => {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-left px-2 py-2 cursor-pointer rounded hover:bg-white dark:hover:bg-gray-900"
+                className="flex items-center gap-2 text-left px-2 py-2 cursor-pointer rounded hover:bg-white dark:hover:bg-neutral-900"
               >
                 <LogOut className="size-4 shrink-0" /> Logout
               </button>
@@ -381,7 +381,7 @@ const NavBar = () => {
                 setIsOpen(true);
                 setMenuOpen(false);
               }}
-              className="flex items-center gap-2 px-2 py-2 text-left cursor-pointer hover:bg-white dark:hover:bg-gray-900"
+              className="flex items-center gap-2 px-2 py-2 text-left cursor-pointer hover:bg-white dark:hover:bg-neutral-900"
             >
               <LogIn className="size-4 shrink-0" /> Sign In
             </button>

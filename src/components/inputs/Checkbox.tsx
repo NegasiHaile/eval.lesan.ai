@@ -18,7 +18,7 @@ const Checkbox = ({
     >
       <div
         className={`flex items-center justify-center w-5 h-5 border-2 rounded ${
-          checked ? "bg-blue-500 text-white border-blue-500" : "border-gray-300"
+          checked ? "bg-blue-500 text-white border-blue-500" : "border-neutral-300"
         }`}
       >
         {checked && "✔"}

@@ -236,10 +236,10 @@ export default function NativeDragDrop({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`relative border-1 border-dashed border-gray-300 dark:border-gray-800 rounded-lg p-6 text-center transition ${
+        className={`relative border-1 border-dashed border-neutral-300 dark:border-neutral-800 rounded-lg p-6 text-center transition ${
           isDragging
             ? "bg-blue-100 border-blue-500"
-            : "bg-white dark:bg-gray-900"
+            : "bg-white dark:bg-neutral-900"
         }
             ${loading ? "cursor-not-allowed" : "cursor-pointer"}
         `}
@@ -252,7 +252,7 @@ export default function NativeDragDrop({
           onChange={handleFileChange}
           disabled={loading}
         />
-        <p className="text-gray-700 dark:text-gray-300">
+        <p className="text-neutral-700 dark:text-neutral-300">
           {isDragging
             ? "Drop the file here..."
             : "Click or drag a JSON file to upload an evaluation dataset."}
@@ -267,7 +267,7 @@ export default function NativeDragDrop({
                 <strong>Selected File:</strong> {file.name}
               </p>
             )}
-            {/* <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded text-xs max-h-48 overflow-auto">
+            {/* <pre className="bg-neutral-100 dark:bg-neutral-900 p-2 rounded text-xs max-h-48 overflow-auto">
               {fileContent || "No content available"}
             </pre> */}
           </div>

@@ -12,7 +12,7 @@ const TabButton = ({ text, onClick, active, className }: TabButtonProps) => {
     <button
       onClick={onClick}
       className={`border-t-1 border-x-1 ${
-        active ? "border-gray-300 dark:border-gray-800" : "border-transparent"
+        active ? "border-neutral-300 dark:border-neutral-800" : "border-transparent"
       } rounded-t p-2 cursor-pointer ${className}`}
     >
       {text}

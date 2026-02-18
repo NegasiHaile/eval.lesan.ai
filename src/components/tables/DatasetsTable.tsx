@@ -326,9 +326,9 @@ export default function DatasetsTable({
 
   return (
     <div className="relative min-h-[55lvh]">
-      <div className="overflow-x-auto border-1 rounded-md border-gray-300 dark:border-gray-800 bg-gray-200/30 dark:bg-gray-800/30">
+      <div className="overflow-x-auto border-1 rounded-md border-neutral-300 dark:border-neutral-800 bg-neutral-200/30 dark:bg-neutral-800/30">
         <table className="min-w-full px-2 py-4 text-left border-spacing-y-2">
-          <thead className="border-b-1 rounded-3xl font-mono border-gray-300 dark:border-gray-800 py-5">
+          <thead className="border-b-1 rounded-3xl font-mono border-neutral-300 dark:border-neutral-800 py-5">
             <tr>
               <th className="px-4 py-4 text-left">#</th>
               <th className="px-4 py-4 text-left">Dataset</th>
@@ -341,7 +341,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Progress</th>
               <th className="px-4 py-4 text-left">Actions</th>
             </tr>
-            <tr className="bg-gray-100 dark:bg-gray-900 text-xs">
+            <tr className="bg-neutral-100 dark:bg-neutral-900 text-xs">
               <th> {/* Serial column */} </th>
               {filterFields.map((field, idx) => {
                 if (field.type === "spacer") return <th key={idx} />;
@@ -404,7 +404,7 @@ export default function DatasetsTable({
                 return (
                   <tr
                     key={`${batch_detail.batch_id}, ${index}`}
-                    className="border-t border-gray-200 dark:border-gray-700"
+                    className="border-t border-neutral-200 dark:border-neutral-700"
                   >
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
@@ -473,7 +473,7 @@ export default function DatasetsTable({
                           {editFile === index && (
                             <p className="flex items-center space-x-2">
                               <span
-                                className="w-full p-1 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                                className="w-full p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                                 onClick={() => {
                                   handleAssignAnnotator(batch_detail);
                                 }}
@@ -482,7 +482,7 @@ export default function DatasetsTable({
                                 ✔
                               </span>
                               <span
-                                className="w-full p-1 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700"
+                                className="w-full p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                                 onClick={() => {
                                   setEditFile(null);
                                   setEditedAnnotatorId("");
@@ -497,13 +497,13 @@ export default function DatasetsTable({
                       )}
                     </td>
                     <td className="px-3 py-2 w-56">
-                      <div className="w-full bg-gray-200 dark:bg-gray-600 h-3 rounded-full">
+                      <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-3 rounded-full">
                         <div
                           className={`h-3 rounded-full ${progressColor}`}
                           style={{ width: `${percent}%` }}
                         />
                       </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 font-mono">
+                      <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1 font-mono">
                         {annotatedItems}/{batch_detail.number_of_tasks}
                       </div>
                     </td>
@@ -529,17 +529,17 @@ export default function DatasetsTable({
                         <Download className="size-6" />
                       </button>
                       {downloadMenuIndex === index && (
-                        <div className="absolute overflow-hidden z-50 mt-9 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700">
+                        <div className="absolute overflow-hidden z-50 mt-9 bg-white dark:bg-neutral-800 shadow-lg rounded-md border border-neutral-200 dark:border-neutral-700">
                           <p className="text-[10px] font-mono p-2 opacity-65">
                             Select the data that you want to download
                           </p>
-                          <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-gray-300 dark:dark:border-gray-700 space-y-1 text-xs">
+                          <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-neutral-300 dark:dark:border-neutral-700 space-y-1 text-xs">
                             <button
                               // minimal={!dwnldOriginalData}
                               onClick={() => setDwnldOriginalData(true)}
-                              className={`text-current border px-2 py-1 rounded border-gray-300 dark:border-gray-700 cursor-pointer ${
+                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
                                 dwnldOriginalData
-                                  ? "bg-gray-300 dark:bg-gray-700"
+                                  ? "bg-neutral-300 dark:bg-neutral-700"
                                   : ""
                               }`}
                             >
@@ -547,9 +547,9 @@ export default function DatasetsTable({
                             </button>
                             <button
                               onClick={() => setDwnldOriginalData(false)}
-                              className={`text-current border px-2 py-1 rounded border-gray-300 dark:border-gray-700 cursor-pointer ${
+                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
                                 !dwnldOriginalData
-                                  ? "bg-gray-300 dark:bg-gray-700"
+                                  ? "bg-neutral-300 dark:bg-neutral-700"
                                   : ""
                               }`}
                             >
@@ -564,7 +564,7 @@ export default function DatasetsTable({
                           {["JSON"].map((format) => (
                             <div
                               key={format}
-                              className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer text-sm"
+                              className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
                               onClick={() => {
                                 handleDownload(
                                   batch_detail,
@@ -595,7 +595,7 @@ export default function DatasetsTable({
 
                       <button
                         onClick={() => handleShowTasksDetail(batch_detail)}
-                        className="text-gray-800 dark:text-gray-200 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
+                        className="text-neutral-800 dark:text-neutral-200 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                         title="See detail"
                       >
                         <Expand className="size-6" />
@@ -608,11 +608,11 @@ export default function DatasetsTable({
               <tr key={"no-data"}>
                 <td
                   colSpan={10}
-                  className="text-center py-6 text-gray-600 dark:text-gray-300"
+                  className="text-center py-6 text-neutral-600 dark:text-neutral-300"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <svg
-                      className="w-10 h-10 text-gray-400 dark:text-gray-600"
+                      className="w-10 h-10 text-neutral-400 dark:text-neutral-600"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -646,7 +646,7 @@ export default function DatasetsTable({
             {loading && (
               <tr
                 key={"laoding-popup"}
-                className="absolute w-full h-full flex py-6 items-center justify-center top-0 bottom-0 left-0 bg-gray-200/80 dark:bg-gray-900/70"
+                className="absolute w-full h-full flex py-6 items-center justify-center top-0 bottom-0 left-0 bg-neutral-200/80 dark:bg-neutral-900/70"
               >
                 <td colSpan={10} className="text-center py-6">
                   <svg

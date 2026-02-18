@@ -10,7 +10,7 @@ export default function ResetPasswordPage() {
   }, [router]);
   return (
     <div className="h-full flex items-center justify-center">
-      <p className="text-gray-600 dark:text-gray-400">Redirecting...</p>
+      <p className="text-neutral-600 dark:text-neutral-400">Redirecting...</p>
     </div>
   );
 }

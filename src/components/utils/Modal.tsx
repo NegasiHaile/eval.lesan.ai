@@ -18,17 +18,17 @@ export default function Modal({
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800/80"
+          className="fixed inset-0 flex items-center justify-center z-50 bg-neutral-800/80"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className={`relative w-fit bg-white dark:bg-gray-900 rounded-lg md:p-6 mx-4 md:mx-5 shadow-lg ${className}`}
+            className={`relative w-fit bg-white dark:bg-neutral-900 rounded-lg md:p-6 mx-4 md:mx-5 shadow-lg ${className}`}
             onClick={(e) => e.stopPropagation()}
           >
             {children}
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 cursor-pointer absolute top-2 right-2 rounded-full transition-all duration-300 dark:hover:bg-gray-800/50 hover:scale-110 focus:outline-none"
+              className="p-1 cursor-pointer absolute top-2 right-2 rounded-full transition-all duration-300 dark:hover:bg-neutral-800/50 hover:scale-110 focus:outline-none"
             >
               <X className="size-5 transition-all duration-300" />
             </button>

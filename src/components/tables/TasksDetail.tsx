@@ -99,10 +99,10 @@ const TasksDetail = ({ data }: PropsTypes) => {
     : [];
 
   return (
-    <div className="overflow-auto !max-h-[90vh] p-3 mt-5 text-gray-800 dark:text-gray-200 dark:bg-gray-900">
+    <div className="overflow-auto !max-h-[90vh] p-3 mt-5 text-neutral-800 dark:text-neutral-200 dark:bg-neutral-900">
       {/* Summary Section */}
-      <div className="mb-4 p-4 bg-gray-200/50 dark:bg-gray-800/50 rounded text-sm border border-gray-200 dark:border-gray-700">
-        <div className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
+      <div className="mb-4 p-4 bg-neutral-200/50 dark:bg-neutral-800/50 rounded text-sm border border-neutral-200 dark:border-neutral-700">
+        <div className="font-semibold text-neutral-700 dark:text-neutral-200 mb-2">
           Evaluation Summary
         </div>
         <div className="flex flex-wrap gap-6">
@@ -153,11 +153,11 @@ const TasksDetail = ({ data }: PropsTypes) => {
                   <span>
                     {item.overall_rank} ➝ {item.model}
                   </span>
-                  <span className="text-xs opacity-70 bg-gray-300 dark:bg-gray-700 px-2 py-[1px] rounded-full">
+                  <span className="text-xs opacity-70 bg-neutral-300 dark:bg-neutral-700 px-2 py-[1px] rounded-full">
                     Rank: <strong>{JSON.stringify(item.rank)}</strong>
                     {/* <strong>{Number(item.avg_rank.toFixed(3))}</strong> */}
                   </span>
-                  <span className="text-xs opacity-70 bg-gray-300 dark:bg-gray-700 px-2 py-[1px] rounded-full">
+                  <span className="text-xs opacity-70 bg-neutral-300 dark:bg-neutral-700 px-2 py-[1px] rounded-full">
                     Avg Rate:{" "}
                     <strong>{Number(item.avg_rate.toFixed(3))}</strong>
                   </span>
@@ -169,27 +169,27 @@ const TasksDetail = ({ data }: PropsTypes) => {
       </div>
 
       {/* Table Section */}
-      <table className="min-w-full rounded text-sm border border-gray-300 dark:border-gray-800">
-        <thead className="bg-gray-100 dark:bg-gray-800">
+      <table className="min-w-full rounded text-sm border border-neutral-300 dark:border-neutral-800">
+        <thead className="bg-neutral-100 dark:bg-neutral-800">
           <tr>
-            <th className="p-2 border border-gray-300 dark:border-gray-800 text-left w-10">
+            <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left w-10">
               #
             </th>
-            <th className="p-2 border border-gray-300 dark:border-gray-800 text-left">
+            <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left">
               Input
             </th>
             {modelKeys.map((model) => (
               <th
                 key={model}
-                className="p-2 border border-gray-300 dark:border-gray-800 text-left"
+                className="p-2 border border-neutral-300 dark:border-neutral-800 text-left"
               >
                 Model {model}
               </th>
             ))}
-            <th className="p-2 border border-gray-300 dark:border-gray-800 text-left">
+            <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left">
               Reference
             </th>
-            <th className="p-2 border border-gray-300 dark:border-gray-800 text-left">
+            <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left">
               Domain
             </th>
           </tr>
@@ -200,13 +200,13 @@ const TasksDetail = ({ data }: PropsTypes) => {
             return (
               <tr
                 key={task.id}
-                className="border-t border-gray-300 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/20"
+                className="border-t border-neutral-300 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700/20"
               >
                 <td className="p-2 items-center space-x-1 text-center align-top">
                   <span>{task.id}</span>
                   <button
                     onClick={() => toggleExpand(`${task.id}`)}
-                    className="ml-1 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white cursor-pointer"
+                    className="ml-1 text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white cursor-pointer"
                     aria-label="Toggle expand"
                   >
                     {isExpanded ? (
@@ -217,7 +217,7 @@ const TasksDetail = ({ data }: PropsTypes) => {
                   </button>
                 </td>
 
-                <td className="p-2 border align-top max-w-sm border-gray-300 dark:border-gray-800">
+                <td className="p-2 border align-top max-w-sm border-neutral-300 dark:border-neutral-800">
                   {isExpanded ? task.input : truncate(task.input)}
                 </td>
 
@@ -228,30 +228,30 @@ const TasksDetail = ({ data }: PropsTypes) => {
                   return (
                     <td
                       key={modelKey}
-                      className="p-2 border align-top border-gray-300 dark:border-gray-800"
+                      className="p-2 border align-top border-neutral-300 dark:border-neutral-800"
                     >
                       {model ? (
                         <>
-                          <div className="font-medium text-gray-700 dark:text-gray-200 mb-1">
+                          <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">
                             {isExpanded ? model.output : truncate(model.output)}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="text-sm text-neutral-500 dark:text-neutral-400">
                             <strong>Rank:</strong> {model.rank ?? "N/A"},{" "}
                             <strong>Rate:</strong> {model.rate ?? "N/A"}
                           </div>
                         </>
                       ) : (
-                        <span className="italic text-gray-400">N/A</span>
+                        <span className="italic text-neutral-400">N/A</span>
                       )}
                     </td>
                   );
                 })}
 
-                <td className="p-2 border align-top max-w-sm border-gray-300 dark:border-gray-800">
+                <td className="p-2 border align-top max-w-sm border-neutral-300 dark:border-neutral-800">
                   {isExpanded ? task.reference : truncate(task.reference || "")}
                 </td>
 
-                <td className="p-2 border align-top border-gray-300 dark:border-gray-800">
+                <td className="p-2 border align-top border-neutral-300 dark:border-neutral-800">
                   <div className="flex flex-wrap gap-1">
                     {Array.isArray(task.domain) && task.domain.length > 0 &&
                       task.domain.map((tag) => (

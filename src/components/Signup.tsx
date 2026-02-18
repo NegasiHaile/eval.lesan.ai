@@ -44,10 +44,10 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
   return (
     <Modal isOpen={isOpen} setIsOpen={()=> {setIsOpen(false); setLoading(null);}}>
       <div className="p-6 rounded w-full md:min-w-lg text-center">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-semibold mb-2 text-neutral-900 dark:text-white">
           Sign in
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+        <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
           Use one of the following to continue.
         </p>
         <div className="flex flex-col gap-2">
@@ -57,7 +57,7 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
               type="button"
               disabled={!!loading}
               onClick={() => handleSignIn(id)}
-              className={`w-full flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-medium border border-gray-300 dark:border-gray-600 bg-gray-200/80 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition ${loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
+              className={`w-full flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-medium border border-neutral-300 dark:border-neutral-600 bg-neutral-200/80 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition ${loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
             >
               {loading === id ? (
                 <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />

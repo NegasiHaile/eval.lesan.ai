@@ -155,7 +155,7 @@ const DatasetUploadGuidelines = ({
   const renderTemplate = () => {
     if (activeFormat === "JSON") {
       return (
-        <pre className="bg-gray-100 dark:bg-gray-800 text-xs rounded p-4 whitespace-pre-wrap">
+        <pre className="bg-neutral-100 dark:bg-neutral-800 text-xs rounded p-4 whitespace-pre-wrap">
           {generateContent(activeTask, "JSON")}
         </pre>
       );
@@ -167,32 +167,32 @@ const DatasetUploadGuidelines = ({
     return (
       <div className="overflow-auto max-h-64 py-3">
         <table className="w-full min-w-xl table-auto text-xs rounded">
-          <thead className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-semibold tracking-wider">
+          <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 font-semibold tracking-wider">
             <tr>
               {headers.map((header, idx) => (
                 <th
                   key={idx}
-                  className={`border border-gray-300 dark:border-gray-700 px-4 py-2 text-left`}
+                  className={`border border-neutral-300 dark:border-neutral-700 px-4 py-2 text-left`}
                 >
                   {header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="text-gray-900 dark:text-gray-200">
+          <tbody className="text-neutral-900 dark:text-neutral-200">
             {rows.map((row, ridx) => (
               <tr
                 key={ridx}
                 className={
                   ridx % 2 === 0
-                    ? "bg-white dark:bg-gray-900"
-                    : "bg-gray-50 dark:bg-gray-800"
+                    ? "bg-white dark:bg-neutral-900"
+                    : "bg-neutral-50 dark:bg-neutral-800"
                 }
               >
                 {row.map((cell, cidx) => (
                   <td
                     key={cidx}
-                    className={`border border-gray-300 dark:border-gray-700 p-2`}
+                    className={`border border-neutral-300 dark:border-neutral-700 p-2`}
                   >
                     {cell}
                   </td>
@@ -235,7 +235,7 @@ const DatasetUploadGuidelines = ({
               className={`px-3 py-1 rounded border cursor-pointer ${
                 activeTask === taskKey
                   ? "border-blue-600 bg-blue-100 dark:bg-blue-900"
-                  : "border-gray-300 dark:border-gray-700"
+                  : "border-neutral-300 dark:border-neutral-700"
               }`}
             >
               {taskKey}
@@ -288,7 +288,7 @@ const DatasetUploadGuidelines = ({
           🧩 Task preparation code (Python)
         </h2>
 
-        <pre className="bg-gray-100 dark:bg-gray-800 text-xs rounded p-4 overflow-auto whitespace-pre-wrap">
+        <pre className="bg-neutral-100 dark:bg-neutral-800 text-xs rounded p-4 overflow-auto whitespace-pre-wrap">
           {`
           Coming soon!
           
@@ -296,7 +296,7 @@ const DatasetUploadGuidelines = ({
         </pre>
       </section>
 
-      <footer className="text-sm text-gray-500 text-center mt-8">
+      <footer className="text-sm text-neutral-500 text-center mt-8">
         Last updated: {new Date().toLocaleDateString()}
       </footer>
     </div>

@@ -68,7 +68,7 @@ const TranslationInputTextarea = ({
       <textarea
         ref={textareaRef}
         placeholder={placeholder}
-        className={`w-full p-3 h-fit min-h-85 md:min-h-115 rounded-md bg-gray-50 border border-gray-300 dark:bg-gray-800/50 dark:border-gray-800/80 text-gray-700 dark:text-gray-300 focus:outline-blue-500 ${
+        className={`w-full p-3 h-fit min-h-85 md:min-h-115 rounded-md bg-neutral-50 border border-neutral-300 dark:bg-neutral-800/50 dark:border-neutral-800/80 text-neutral-700 dark:text-neutral-300 focus:outline-blue-500 ${
           disabled ? "select-none" : ""
         }`}
         name={name}

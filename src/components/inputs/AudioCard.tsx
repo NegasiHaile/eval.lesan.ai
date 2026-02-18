@@ -86,7 +86,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
     <div className={`w-full flex flex-col ${className}`}>
       <div
         key={index}
-        className={`w-full bg-gray-200/70 dark:bg-gray-800/30 border border-gray-200/80 dark:border-gray-800/70 shadow-md rounded-lg ${
+        className={`w-full bg-neutral-200/70 dark:bg-neutral-800/30 border border-neutral-200/80 dark:border-neutral-800/70 shadow-md rounded-lg ${
           type === "input" ? "py-8" : ""
         }`}
       >
@@ -122,7 +122,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
               {!recording ? (
                 <button
                   onClick={startRecording}
-                  className="relative p-3 rounded-full text-red-500 hover:text-red-700 bg-gray-100/80 hover:bg-red-400/20 dark:bg-gray-900 transition duration-500 shadow-md cursor-pointer"
+                  className="relative p-3 rounded-full text-red-500 hover:text-red-700 bg-neutral-100/80 hover:bg-red-400/20 dark:bg-neutral-900 transition duration-500 shadow-md cursor-pointer"
                   title="Start Recording"
                 >
                   {/* Pulse ring effect */}
@@ -150,7 +150,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
 
         {type === "output" && task && (
           <div className="flex space-x-3 pr-4 items-center justify-between">
-            <div className="w-fit flex space-x-1 items-center p-2 bg-gray-100 dark:bg-gray-900/80 rounded-bl-md rounded-tr-xl">
+            <div className="w-fit flex space-x-1 items-center p-2 bg-neutral-100 dark:bg-neutral-900/80 rounded-bl-md rounded-tr-xl">
               🎙️
               <p className="font-mono text-sm">
                 Model

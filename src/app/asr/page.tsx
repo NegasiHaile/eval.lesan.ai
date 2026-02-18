@@ -484,7 +484,7 @@ export default function ASR() {
                 key={evalTask?.id}
                 id={`id_${evalTask?.id}`}
                 placeholder="Add the correct transcription for the audio."
-                className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-gray-50 border border-gray-300 dark:bg-gray-800/80 dark:border-gray-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
+                className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-50 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
                 name={"reference"}
                 value={evalTask?.reference ?? ""}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>

@@ -1,7 +1,6 @@
 "use client";
 import DatasetsTable from "@/components/tables/DatasetsTable";
 import React, { useState, useEffect } from "react";
-import PrivateRoute from "@/components/PrivateRoute";
 import { BatchDetailTypes } from "@/types/data";
 import { useUser } from "@/context/UserContext";
 import Container from "@/components/utils/Container";
@@ -41,8 +40,7 @@ const Datasets = () => {
   }, []);
 
   return (
-    <PrivateRoute>
-      <Container className={`${loading ? "cursor-progress" : ""}`}>
+    <Container className={`${loading ? "cursor-progress" : ""}`}>
         {/* TABS */}
         <div className="w-full flex flex-wrap space-x-2 font-bold">
           {evalTypes.map((tab, i) => {
@@ -154,7 +152,6 @@ const Datasets = () => {
           </div>
         </div>
       </Container>
-    </PrivateRoute>
   );
 };
 

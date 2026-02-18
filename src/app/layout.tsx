@@ -67,7 +67,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
         <link rel="canonical" href="https://eval.lesan.ai/" />
         <meta property="og:type" content="website" />
@@ -101,7 +101,7 @@ export default function RootLayout({
           <UserProvider>
             <PreferencesProvider>
               <NavBar />
-              <main className="flex-grow pt-18 md:pt-12 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+              <main className="flex-grow pt-18 md:pt-12 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300">
                 {children}
               </main>
               <Footer />
