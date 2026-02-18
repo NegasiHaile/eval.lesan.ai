@@ -1,5 +1,5 @@
 /**
- * Better Auth: Google Sign-In only, MongoDB, Next.js.
+ * Better Auth: Google, GitHub, Hugging Face sign-in, MongoDB, Next.js.
  * @see https://www.better-auth.com/docs
  */
 import { betterAuth } from "better-auth";
@@ -9,27 +9,30 @@ import clientPromise from "@/lib/mongodb";
 
 const client = await clientPromise;
 const db = client.db();
-// Do not pass { client } to avoid transactions; transactions require a replica set.
-
-const baseUrl =
-  process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+// Do not pass { client } if you wantto avoid transactions which require a replica set.
 
 export const auth = betterAuth({
-  database: mongodbAdapter(db),
-  basePath: "/api/auth",
-  secret: process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_SECRET,
-  baseURL: baseUrl,
-  trustedOrigins: [baseUrl],
+  database: mongodbAdapter(db, {
+    // Optional: if you don't provide a client, database transactions won't be enabled.
+    client
+  }),
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL,
+
   socialProviders: {
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? {
-          google: {
-            prompt: "select_account",
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          },
-        }
-      : {}),
+    google: {
+      prompt: "select_account",
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID ?? "",
+      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
+    },
+    huggingface: {
+      clientId: process.env.HUGGINGFACE_CLIENT_ID ?? "",
+      clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET ?? "",
+    },
   },
   user: {
     additionalFields: {
