@@ -2,7 +2,6 @@
 
 import { Dispatch, useState, SetStateAction } from "react";
 import Modal from "./utils/Modal";
-import { UserTypes } from "@/types/user";
 import { authClient } from "@/lib/auth-client";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
@@ -22,7 +21,6 @@ const PROVIDERS: {
 type ModalProps = {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
-  setUser: Dispatch<SetStateAction<UserTypes | null>>;
 };
 
 export default function Signup({ isOpen, setIsOpen }: ModalProps) {

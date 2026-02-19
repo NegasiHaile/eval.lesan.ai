@@ -32,7 +32,7 @@ import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
 
 export default function Home() {
-  const { user, setUser } = useUser();
+  const { user } = useUser();
 
   // BATCH DETAIL STATE
   const [selectedBatchDetail, setSelectedBatchDetail] =
@@ -803,7 +803,6 @@ export default function Home() {
       <Signup
         isOpen={isSigninOpen}
         setIsOpen={setIsSigninOpen}
-        setUser={setUser}
       />
     </Container>
   );

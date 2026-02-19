@@ -30,10 +30,13 @@ export async function GET(req: NextRequest) {
 
     // 🔐 Apply filtering only if not root
     if (role !== "root") {
+      // Escape regex-special characters in the email to prevent injection
+      const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^${escaped}$`, "i");
       baseQuery.$or = [
-        { created_by: { $regex: new RegExp(`^${username}$`, "i") } },
-        { annotator_id: { $regex: new RegExp(`^${username}$`, "i") } },
-        { qa_id: { $regex: new RegExp(`^${username}$`, "i") } },
+        { created_by: { $regex: pattern } },
+        { annotator_id: { $regex: pattern } },
+        { qa_id: { $regex: pattern } },
       ];
     }
 
@@ -46,7 +49,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Error fetching batch details:", error);
     return NextResponse.json(
-      { message: "Failed to fetch data", error },
+      { message: "Failed to fetch data", error: String(error) },
       { status: 500 }
     );
   }

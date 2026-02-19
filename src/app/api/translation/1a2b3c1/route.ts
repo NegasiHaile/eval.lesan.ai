@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Translation failed due to an internal server error.",
-        details: error,
+        details: String(error),
       },
       { status: 500 }
     );
