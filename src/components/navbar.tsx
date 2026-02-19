@@ -1,17 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import Signup from "./Signup";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
-import { IoCheckmarkOutline } from "react-icons/io5";
-import { VscColorMode } from "react-icons/vsc";
-import { FaUserGroup } from "react-icons/fa6";
-import { MdOutlineTipsAndUpdates } from "react-icons/md";
+import {
+  BookOpen,
+  Check,
+  FolderOpen,
+  Languages,
+  Lightbulb,
+  LogIn,
+  LogOut,
+  Menu,
+  Mic,
+  Palette,
+  Trophy,
+  User,
+  Users,
+  X,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 import { usePreferences } from "@/context/PreferencesContext";
 import { authClient } from "@/lib/auth-client";
 
@@ -19,11 +31,17 @@ const NavBar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, setUser } = useUser();
-  const { theme, setTheme, showTooltips, setShowTooltips } = usePreferences();
+  const { theme, setTheme } = useTheme();
+  const { showTooltips, setShowTooltips } = usePreferences();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -52,40 +70,64 @@ const NavBar = () => {
   const navItems = [
     {
       id: 0,
-      title: "🈸 MT",
+      title: (
+        <span className="flex items-center gap-1.5">
+          <Languages className="size-4 shrink-0" /> MT
+        </span>
+      ),
       href: "/",
       public: true,
     },
     {
       id: 2,
-      title: "🗣️ ASR",
+      title: (
+        <span className="flex items-center gap-1.5">
+          <Mic className="size-4 shrink-0" /> ASR
+        </span>
+      ),
       href: "/asr",
       public: true,
     },
-    // {
-    //   id: 3,
-    //   title: "✍️ TTS",
-    //   href: "/tts",
-    //   public: true,
-    // },
     {
       id: 4,
-      title: "🏆 Leaderboard",
+      title: (
+        <span className="flex items-center gap-1.5">
+          <Trophy className="size-4 shrink-0" /> Leaderboard
+        </span>
+      ),
       href: "/leaderboard",
       public: true,
     },
     {
       id: 5,
-      title: "🗂️ Datasets",
+      title: (
+        <span className="flex items-center gap-1.5">
+          <FolderOpen className="size-4 shrink-0" /> Datasets
+        </span>
+      ),
       href: "/datasets",
       public: false,
+    },
+    {
+      id: 6,
+      title: (
+        <span className="flex items-center gap-1.5">
+          <BookOpen className="size-4 shrink-0" /> Docs
+        </span>
+      ),
+      href: "/docs",
+      public: true,
     },
   ];
 
   const userNavItems = [
     {
       id: 1,
-      title: "🙎‍♂️ My account",
+      title: (
+        <span className="flex items-center gap-1.5">
+          <User className="size-4 shrink-0" /> My account
+        </span>
+      ),
       href: "/profile",
       display: !!user?.username,
       subTitle: user?.username,
@@ -93,9 +135,9 @@ const NavBar = () => {
     {
       id: 2,
       title: (
-        <div className="flex items-center space-x-1">
-          <FaUserGroup /> <p>All users</p>
-        </div>
+        <span className="flex items-center gap-1.5">
+          <Users className="size-4 shrink-0" /> All users
+        </span>
       ),
       href: "/users",
       display: user?.role === "root",
@@ -108,37 +150,46 @@ const NavBar = () => {
   if (excludeNavebar.includes(pathname)) return null;
 
   const UserPreferences = () => {
+    if (!mounted) {
+      return (
+        <div className="w-full px-4 py-2 border-y border-neutral-300 dark:border-neutral-700">
+          <div className="flex items-center space-x-1">
+            <Palette className="size-4 shrink-0" />
+            <p className="">Theme</p>
+          </div>
+          <div className="h-8 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700 mt-1" />
+        </div>
+      );
+    }
     return (
-      <div className="w-full px-4 py-2 border-y border-gray-300 dark:border-gray-700">
+      <div className="w-full px-4 py-2 border-y border-neutral-300 dark:border-neutral-700">
         <div className="flex items-center space-x-1">
-          <VscColorMode />
+          <Palette className="size-4 shrink-0" />
           <p className="">Theme</p>
         </div>
 
         <div className="flex w-full items-center space-x-2">
-          {["system", "dark", "light"].map((item) => {
+          {(["system", "dark", "light"] as const).map((item) => {
             return (
               <button
                 key={item}
-                onClick={() => {
-                  setTheme(item.toLowerCase() as "system" | "dark" | "light");
-                }}
+                onClick={() => setTheme(item)}
                 className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ease-in-out transform hover:scale-105
                                     ${
-                                      theme.toLowerCase() === item.toLowerCase()
-                                        ? "bg-gray-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
-                                        : "bg-gray-200 dark:bg-gray-900/80 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
+                                      theme === item
+                                        ? "bg-neutral-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
+                                        : "bg-neutral-200 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 shadow-md"
                                     }
                                     focus:outline-none focus:ring-opacity-50 cursor-pointer`}
               >
                 <span className="font-mono capitalize whitespace-nowrap">
                   {item}
                 </span>
-                {theme.toLowerCase() === item.toLowerCase() && (
+                {theme === item && (
                   <span>
-                    <IoCheckmarkOutline
+                    <Check
                       strokeWidth={4}
-                      className="text-lg p-1 bg-blue-500 rounded-full"
+                      className="size-4 p-0.5 bg-blue-500 rounded-full text-white"
                     />
                   </span>
                 )}
@@ -149,10 +200,10 @@ const NavBar = () => {
 
         <div className="flex items-center space-x-2 mt-3">
           <div className="flex items-center space-x-1">
-            <MdOutlineTipsAndUpdates className="text-lg" />
+            <Lightbulb className="size-4 shrink-0" />
             <p className="">Tooltips</p>
           </div>
-          <div className="flex w-full items-centerspace-x-2">
+          <div className="flex w-full items-center space-x-2">
             <button
               onClick={() => {
                 setShowTooltips(!showTooltips);
@@ -160,8 +211,8 @@ const NavBar = () => {
               className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ease-in-out transform hover:scale-105
                                     ${
                                       !showTooltips
-                                        ? "bg-gray-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
-                                        : "bg-gray-200 dark:bg-gray-900/80 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
+                                        ? "bg-neutral-600 dark:bg-blue-600/80 text-white shadow-lg scale-105"
+                                        : "bg-neutral-200 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 shadow-md"
                                     }
                                     focus:outline-none focus:ring-opacity-50 cursor-pointer`}
             >
@@ -170,9 +221,9 @@ const NavBar = () => {
               </span>
               {!showTooltips && (
                 <span>
-                  <IoCheckmarkOutline
+                  <Check
                     strokeWidth={4}
-                    className="text-lg p-1 bg-blue-500 rounded-full"
+                    className="size-4 p-0.5 bg-blue-500 rounded-full text-white"
                   />
                 </span>
               )}
@@ -184,19 +235,24 @@ const NavBar = () => {
   };
 
   return (
-    <nav className="w-full text-gray-600 dark:text-gray-300 fixed z-40 bg-gradient-to-b from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-800 px-3">
+    <nav className="w-full text-neutral-600 dark:text-neutral-300 fixed z-40 bg-gradient-to-b from-neutral-200 to-neutral-100 dark:from-neutral-800 dark:to-neutral-800 px-3">
       <div className="flex justify-between items-center h-16">
-        <Link href="/" className="flex items-center gap-2 text-2xl font-extrabold text-gray-800 dark:text-gray-100">
-          <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0 object-contain" priority />
+        <Link href="/" className="flex items-center gap-2 text-xl font-bold text-neutral-800 dark:text-neutral-100">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full" aria-hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor">
+              <path d="M8 6h18v3H8V6zm0 6h14v3H8v-3zm0 9h18v3H8v-3zM8 6v20h3V6H8z"/>
+            </svg>
+          </span>
           {process.env.NEXT_PUBLIC_APP_NAME}
         </Link>
 
         {/* Hamburger menu button (mobile) */}
         <button
-          className="md:hidden text-3xl py-5 cursor-pointer"
+          className="md:hidden p-2 cursor-pointer rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
-          {menuOpen ? `✕` : `☰`}
+          {menuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
         </button>
 
         {/* Desktop nav links */}
@@ -212,8 +268,8 @@ const NavBar = () => {
                   href={item.href}
                   className={`px-3 py-3 rounded-t-md ${
                     pathname === item.href
-                      ? "bg-white dark:bg-gray-900"
-                      : "hover:bg-white dark:hover:bg-gray-900"
+                      ? "bg-white dark:bg-neutral-900"
+                      : "hover:bg-white dark:hover:bg-neutral-900"
                   }`}
                 >
                   {item.title}
@@ -225,23 +281,14 @@ const NavBar = () => {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center cursor-pointer px-2 py-3 rounded-md text-gray-800 hover:text-black dark:text-white dark:hover:text-gray-200"
+                className="flex items-center cursor-pointer px-2 py-3 rounded-md text-neutral-800 hover:text-black dark:text-white dark:hover:text-neutral-200"
+                aria-label="Account menu"
               >
-                <svg
-                  className="w-8 h-8 text-gray-900 dark:text-white"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M17 10v1.126c.367.095.714.24 1.032.428l.796-.797 1.415 1.415-.797.796c.188.318.333.665.428 1.032H21v2h-1.126c-.095.367-.24.714-.428 1.032l.797.796-1.415 1.415-.796-.797a3.979 3.979 0 0 1-1.032.428V20h-2v-1.126a3.977 3.977 0 0 1-1.032-.428l-.796.797-1.415-1.415.797-.796A3.975 3.975 0 0 1 12.126 16H11v-2h1.126c.095-.367.24-.714.428-1.032l-.797-.796 1.415-1.415.796.797A3.977 3.977 0 0 1 15 11.126V10h2Zm.406 3.578.016.016c.354.358.574.85.578 1.392v.028a2 2 0 0 1-3.409 1.406l-.01-.012a2 2 0 0 1 2.826-2.83ZM5 8a4 4 0 1 1 7.938.703 7.029 7.029 0 0 0-3.235 3.235A4 4 0 0 1 5 8Zm4.29 5H7a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h6.101A6.979 6.979 0 0 1 9 15c0-.695.101-1.366.29-2Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <User className="size-8 text-neutral-900 dark:text-white" />
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-0 w-fit rounded-b-md shadow-lg bg-gray-200 dark:bg-gray-800 z-40 overflow-hidden">
-                  <div className="text-sm text-gray-800 dark:text-gray-200">
+                <div className="absolute right-0 mt-0 w-fit rounded-b-md shadow-lg bg-neutral-200 dark:bg-neutral-800 z-40 overflow-hidden">
+                  <div className="text-sm text-neutral-800 dark:text-neutral-200">
                     {userNavItems.map((item, i) => {
                       if (!item.display) return null;
                       return (
@@ -249,7 +296,7 @@ const NavBar = () => {
                           key={i}
                           href={item.href}
                           onClick={() => setDropdownOpen(false)}
-                          className="flex flex-col px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-900/80"
+                          className="flex flex-col px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900/80"
                         >
                           <span>{item.title}</span>
                           {item.subTitle && (
@@ -266,9 +313,9 @@ const NavBar = () => {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full text-left block px-4 py-2 hover:bg-gray-100 cursor-pointer dark:hover:bg-gray-900/80"
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 hover:bg-neutral-100 cursor-pointer dark:hover:bg-neutral-900/80"
                     >
-                      🔒 Logout
+                      <LogOut className="size-4 shrink-0" /> Logout
                     </button>
                   </div>
                 </div>
@@ -278,9 +325,9 @@ const NavBar = () => {
             <button
               type="button"
               onClick={() => setIsOpen(true)}
-              className="text-bold cursor-pointer text-center"
+              className="flex items-center gap-2 cursor-pointer font-semibold"
             >
-              🧑‍💻 Sign In
+              <LogIn className="size-4 shrink-0" /> Sign In
             </button>
           )}
         </div>
@@ -288,7 +335,7 @@ const NavBar = () => {
 
       {/* Mobile Dropdown Menu */}
       {menuOpen && (
-        <div className="md:hidden mt-2 flex flex-col space-y-2 bg-gray-100 dark:bg-gray-800 rounded-md text-lg z-30">
+        <div className="md:hidden mt-2 flex flex-col space-y-2 bg-neutral-100 dark:bg-neutral-800 rounded-md text-lg z-30">
           {navItems.map((item, i) => {
             // If nav item is not public (is private) and there is no loggedin user, return nothing
             // Else display it
@@ -298,8 +345,8 @@ const NavBar = () => {
                 key={i}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className={`px-2 py-2 rounded hover:bg-white dark:hover:bg-gray-900 ${
-                  pathname === item.href ? "bg-white dark:bg-gray-900" : ""
+                className={`px-2 py-2 rounded hover:bg-white dark:hover:bg-neutral-900 ${
+                  pathname === item.href ? "bg-white dark:bg-neutral-900" : ""
                 }`}
               >
                 {item.title}
@@ -318,7 +365,7 @@ const NavBar = () => {
                     key={i}
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className="px-2 py-2 rounded hover:bg-white dark:hover:bg-gray-900"
+                    className="px-2 py-2 rounded hover:bg-white dark:hover:bg-neutral-900"
                   >
                     <span>{item.title}</span>
                     {item.subTitle && (
@@ -333,9 +380,9 @@ const NavBar = () => {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-left px-2 py-2 cursor-pointer rounded hover:bg-white dark:hover:bg-gray-900"
+                className="flex items-center gap-2 text-left px-2 py-2 cursor-pointer rounded hover:bg-white dark:hover:bg-neutral-900"
               >
-                🚪 Logout
+                <LogOut className="size-4 shrink-0" /> Logout
               </button>
             </>
           ) : (
@@ -345,9 +392,9 @@ const NavBar = () => {
                 setIsOpen(true);
                 setMenuOpen(false);
               }}
-              className="px-2 py-2 text-left cursor-pointer hover:bg-white dark:hover:bg-gray-900"
+              className="flex items-center gap-2 px-2 py-2 text-left cursor-pointer hover:bg-white dark:hover:bg-neutral-900"
             >
-              🧑‍💻 Sign In
+              <LogIn className="size-4 shrink-0" /> Sign In
             </button>
           )}
         </div>

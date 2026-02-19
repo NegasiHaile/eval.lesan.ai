@@ -3,8 +3,8 @@ import SelectTransparent from "@/components/inputs/SelectTransparent";
 import TextInput from "@/components/inputs/TextInput";
 import React, { useState } from "react";
 
-import data from "../../dataset/leaderboard/09_06_2025.json";
-import bleu_data from "../../dataset/leaderboard/ranked_bleu_score_metrics.json";
+import data from "@/data/leaderboard/09_06_2025.json";
+import bleu_data from "@/data/leaderboard/ranked_bleu_score_metrics.json";
 import TabButton from "@/components/utils/TabButton";
 import Container from "@/components/utils/Container";
 
@@ -130,7 +130,7 @@ export default function Leaderboard() {
           </div>
         </div>
 
-        <div className="w-full flex justify-between items-center text-gray-400 space-x-3">
+        <div className="w-full flex justify-between items-center text-neutral-400 space-x-3">
           <SelectTransparent
             key={"eval_type"}
             id="eval_type"
@@ -173,9 +173,9 @@ export default function Leaderboard() {
           />
         </div>
 
-        <div className="overflow-x-auto border-1 rounded-md border-gray-300 dark:border-gray-800 bg-gray-200/30 dark:bg-gray-800/30">
+        <div className="overflow-x-auto border-1 rounded-md border-neutral-300 dark:border-neutral-800 bg-neutral-200/30 dark:bg-neutral-800/30">
           <table className="min-w-full px-2 py-4 text-left border-spacing-y-2">
-            <thead className="border-b-1 rounded-3xl font-mono border-gray-300 dark:border-gray-800 py-5">
+            <thead className="border-b-1 rounded-3xl font-mono border-neutral-300 dark:border-neutral-800 py-5">
               <tr>
                 <th className="p-3">Rank (UB)</th>
                 {currentColumns.slice(1).map((item: columnType, i) => {
@@ -236,7 +236,7 @@ export default function Leaderboard() {
               {filteredModels.map((model, i) => (
                 <tr
                   key={`main_${model.model}_${i}`}
-                  className="rounded-lg transition-all hover:bg-gray-200 hover:dark:bg-gray-800"
+                  className="rounded-lg transition-all hover:bg-neutral-200 hover:dark:bg-neutral-800"
                 >
                   {currentColumns.map((item: columnType, j) => {
                     const key = item.key;
@@ -250,7 +250,7 @@ export default function Leaderboard() {
                         {isRank && !isModelPinned(model) ? (
                           <button
                             onClick={() => togglePinModel(model)}
-                            className="mr-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+                            className="mr-2 text-neutral-600 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300 cursor-pointer"
                             title="Pin for comparison"
                           >
                             &#128204; {/* Unicode for pushpin */}
@@ -266,7 +266,7 @@ export default function Leaderboard() {
                 <tr>
                   <td
                     colSpan={currentColumns.length + 1}
-                    className="p-3 text-center text-gray-600"
+                    className="p-3 text-center text-neutral-600"
                   >
                     No models to display.
                   </td>

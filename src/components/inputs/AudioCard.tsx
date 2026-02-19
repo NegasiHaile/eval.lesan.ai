@@ -2,8 +2,12 @@
 import { EvalOutputTypes } from "@/types/data";
 import React, { useRef, useState } from "react";
 import Button from "../utils/Button";
-import { VscMic, VscStopCircle } from "react-icons/vsc";
-import { LuArrowDownFromLine, LuArrowUpFromLine } from "react-icons/lu";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Mic,
+  Square,
+} from "lucide-react";
 
 interface AudioCardProps {
   index?: number;
@@ -82,7 +86,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
     <div className={`w-full flex flex-col ${className}`}>
       <div
         key={index}
-        className={`w-full bg-gray-200/70 dark:bg-gray-800/30 border border-gray-200/80 dark:border-gray-800/70 shadow-md rounded-lg ${
+        className={`w-full bg-neutral-200/70 dark:bg-neutral-800/30 border border-neutral-200/80 dark:border-neutral-800/70 shadow-md rounded-lg ${
           type === "input" ? "py-8" : ""
         }`}
       >
@@ -118,13 +122,13 @@ const AudioCard: React.FC<AudioCardProps> = ({
               {!recording ? (
                 <button
                   onClick={startRecording}
-                  className="relative p-3 rounded-full text-red-500 hover:text-red-700 bg-gray-100/80 hover:bg-red-400/20 dark:bg-gray-900 transition duration-500 shadow-md cursor-pointer"
+                  className="relative p-3 rounded-full text-red-500 hover:text-red-700 bg-neutral-100/80 hover:bg-red-400/20 dark:bg-neutral-900 transition duration-500 shadow-md cursor-pointer"
                   title="Start Recording"
                 >
                   {/* Pulse ring effect */}
 
                   {/* Microphone Icon */}
-                  <VscMic className="w-6 h-6" />
+                  <Mic className="size-6" />
                 </button>
               ) : (
                 <button
@@ -137,7 +141,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                     aria-hidden="true"
                   ></span>
                   {/* Stop Icon (circle with square) */}
-                  <VscStopCircle className="w-6 h-6 text-white" />
+                  <Square className="size-6 text-white" />
                 </button>
               )}
             </>
@@ -146,7 +150,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
 
         {type === "output" && task && (
           <div className="flex space-x-3 pr-4 items-center justify-between">
-            <div className="w-fit flex space-x-1 items-center p-2 bg-gray-100 dark:bg-gray-900/80 rounded-bl-md rounded-tr-xl">
+            <div className="w-fit flex space-x-1 items-center p-2 bg-neutral-100 dark:bg-neutral-900/80 rounded-bl-md rounded-tr-xl">
               🎙️
               <p className="font-mono text-sm">
                 Model
@@ -161,7 +165,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                 className="cursor-pointer opacity-80 hover:opacity-50 group"
               >
                 {/* Up Arrow SVG */}
-                <LuArrowUpFromLine
+                <ArrowUpFromLine
                   strokeWidth={1.5}
                   className="size-5 md:size-7 transition-transform duration-200 group-hover:-translate-y-1"
                 />
@@ -172,7 +176,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                 className="cursor-pointer opacity-80 hover:opacity-50 group"
               >
                 {/* Down Arrow SVG */}
-                <LuArrowDownFromLine
+                <ArrowDownToLine
                   strokeWidth={1.5}
                   className="size-5 md:size-7 transition-transform duration-200 group-hover:translate-y-1"
                 />

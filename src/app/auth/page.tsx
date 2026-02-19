@@ -5,7 +5,7 @@ import Container from "@/components/utils/Container";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
-import { VscLoading } from "react-icons/vsc";
+import { Loader2 } from "lucide-react";
 
 const Page = () => {
   const router = useRouter();
@@ -20,7 +20,7 @@ const Page = () => {
   if (user)
     return (
       <Container className="h-full flex justify-center items-center mt-16">
-        <VscLoading className="w-10 h-10 animate-spin text-blue-500" />{" "}
+        <Loader2 className="size-10 animate-spin text-blue-500" />{" "}
       </Container>
     );
 

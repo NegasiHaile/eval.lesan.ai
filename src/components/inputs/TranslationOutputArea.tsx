@@ -4,7 +4,13 @@ import React from "react";
 import Tooltip from "../utils/Tooltip";
 import { tausRating } from "@/constants/others";
 
-import { LuArrowDownFromLine, LuArrowUpFromLine } from "react-icons/lu";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Languages,
+  Mic,
+  Volume2,
+} from "lucide-react";
 import CopyText from "../utils/CopyText";
 
 type OutputProps = {
@@ -52,26 +58,12 @@ const TranslationOutputArea = ({
 
   const modelIcon = () => {
     if (type === "asr") {
-      return "🎙️";
-    } else if (type === "tts") {
-      return "🗣️";
+      return <Mic className="size-5 shrink-0" />;
     }
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="size-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802"
-        />
-      </svg>
-    );
+    if (type === "tts") {
+      return <Volume2 className="size-5 shrink-0" />;
+    }
+    return <Languages className="size-5 shrink-0" />;
   };
 
   return (
@@ -82,7 +74,7 @@ const TranslationOutputArea = ({
         error && error.errorTitles?.includes(translation.model)
           ? "border-red-500"
           : "border-transparent"
-      } ${disabled ? "select-none" : ""} bg-gray-200/80 dark:bg-gray-800/80`}
+      } ${disabled ? "select-none" : ""} bg-neutral-200/80 dark:bg-neutral-800/80`}
       onCopy={disabled ? (e) => e.preventDefault() : undefined}
       onCut={disabled ? (e) => e.preventDefault() : undefined}
       onContextMenu={disabled ? (e) => e.preventDefault() : undefined}
@@ -132,7 +124,7 @@ const TranslationOutputArea = ({
             </circle>
           </svg>
         ) : (
-          <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+          <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
             {translation.output}
           </p>
         )}
@@ -140,7 +132,7 @@ const TranslationOutputArea = ({
 
       <div className="w-full flex justify-between rounded-b-md items-center space-x-1">
         <div className="flex items-center space-x-3">
-          <div className="w-fit flex space-x-1 items-center p-1 bg-gray-200 dark:bg-gray-800 rounded-bl-md rounded-tr-xl">
+          <div className="w-fit flex space-x-1 items-center p-1 bg-neutral-200 dark:bg-neutral-800 rounded-bl-md rounded-tr-xl">
             {modelIcon()}
             <p className="font-mono text-sm">
               Model{" "}
@@ -163,7 +155,7 @@ const TranslationOutputArea = ({
                   className="cursor-pointer opacity-80 hover:opacity-50 group"
                 >
                   {/* Up Arrow SVG */}
-                  <LuArrowUpFromLine
+                  <ArrowUpFromLine
                     strokeWidth={1.5}
                     className="size-5 md:size-7 transition-transform duration-200 group-hover:-translate-y-1"
                   />
@@ -176,7 +168,7 @@ const TranslationOutputArea = ({
                   className="cursor-pointer opacity-80 hover:opacity-50 group"
                 >
                   {/* Down Arrow SVG */}
-                  <LuArrowDownFromLine
+                  <ArrowDownToLine
                     strokeWidth={1.5}
                     className="size-5 md:size-7 transition-transform duration-200 group-hover:translate-y-1"
                   />
@@ -187,14 +179,14 @@ const TranslationOutputArea = ({
             {ratingGuideline.map((item) => (
               <Tooltip
                 key={item?.scale}
-                pointerStyle="border-t-gray-100 dark:border-t-gray-900"
+                pointerStyle="border-t-neutral-100 dark:border-t-neutral-900"
                 tooltipContent={
                   <div className="space-y-3">
-                    <p className=" text-lg font-mono text-nowrap px-3 py-1 border-b border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-400">
+                    <p className=" text-lg font-mono text-nowrap px-3 py-1 border-b border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-400">
                       Rate-Value: {item?.value} ({item?.scale})
                     </p>
 
-                    <p className="px-3 pb-3 text-sm font-mono text-gray-700 dark:text-gray-400">
+                    <p className="px-3 pb-3 text-sm font-mono text-neutral-700 dark:text-neutral-400">
                       {item?.description}
                     </p>
 

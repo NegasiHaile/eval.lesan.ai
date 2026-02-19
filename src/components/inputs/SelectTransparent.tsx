@@ -37,13 +37,13 @@ const SelectTransparent = ({
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const baseStyles =
-    "w-full min-w-32 py-3 text-gray-600 dark:text-gray-400 rounded-md cursor-pointer focus:outline-none transition-colors duration-200";
+    "w-full min-w-32 py-3 text-neutral-600 dark:text-neutral-400 rounded-md cursor-pointer focus:outline-none transition-colors duration-200";
   const variants: Record<typeof variant, string> = {
-    transparent: "border-0 dark:bg-gray-900 bg-white",
+    transparent: "border-0 dark:bg-neutral-900 bg-white",
     default:
-      "border border-gray-200 dark:border-gray-800 bg-gray-200 dark:bg-gray-800",
+      "border border-neutral-200 dark:border-neutral-800 bg-neutral-200 dark:bg-neutral-800",
     outlined:
-      "border-[0.5px] border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900",
+      "border-[0.5px] border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900",
   };
 
   const selectedIndex = optionsValues.findIndex((item) => item === value);
@@ -84,7 +84,7 @@ const SelectTransparent = ({
 
   const dropdown = (
     <ul
-      className={`w-full absolute z-50 max-h-[600px] mt-1 overflow-auto rounded-md ${variants[variant]} text-gray-600 dark:text-gray-400 cursor-pointer shadow-md`}
+      className={`w-full absolute z-50 max-h-[600px] mt-1 overflow-auto rounded-md ${variants[variant]} text-neutral-600 dark:text-neutral-400 cursor-pointer shadow-md`}
       style={{
         top: dropdownPos.top,
         left: dropdownPos.left,
@@ -102,8 +102,8 @@ const SelectTransparent = ({
           className={`w-full px-4 py-[14px] text-nowrap capitalize transition-colors duration-200
             ${
               item == value
-                ? "bg-white dark:bg-gray-900 font-semibold"
-                : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                ? "bg-white dark:bg-neutral-900 font-semibold"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
             }`}
           role="option"
           aria-selected={item == value}

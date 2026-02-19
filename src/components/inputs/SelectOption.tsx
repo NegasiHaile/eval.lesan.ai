@@ -142,19 +142,19 @@ const SelectOption = ({
   };
 
   const baseStyles =
-    "w-full min-w-32 py-3 text-gray-600 dark:text-gray-300 rounded-md focus:outline-none transition-colors duration-200";
+    "w-full min-w-32 py-3 text-neutral-600 dark:text-neutral-300 rounded-md focus:outline-none transition-colors duration-200";
 
   const variants: Record<NonNullable<SelectTypes["variant"]>, string> = {
-    transparent: "border-0 dark:bg-gray-900 bg-white",
+    transparent: "border-0 dark:bg-neutral-900 bg-white",
     default:
-      "border border-gray-200 dark:border-gray-800 bg-gray-200 dark:bg-gray-800",
+      "border border-neutral-200 dark:border-neutral-800 bg-neutral-200 dark:bg-neutral-800",
     outlined:
-      "border-[0.5px] border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900",
+      "border-[0.5px] border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900",
   };
 
   const dropdown = (
     <ul
-      className={`absolute mt-1 z-50 overflow-auto rounded-md shadow-xl ${variants[variant]} border text-gray-900 dark:text-white`}
+      className={`absolute mt-1 z-50 overflow-auto rounded-md shadow-xl ${variants[variant]} border text-neutral-900 dark:text-white`}
       style={{
         top: dropdownDirection === "down" ? dropdownPos.top : undefined,
         bottom:
@@ -166,7 +166,7 @@ const SelectOption = ({
         maxHeight: dropdownMaxHeight,
       }}
     >
-      <li className="sticky top-0 bg-inherit z-10 px-4 py-2 border-b border-gray-300/50 dark:border-gray-700/50 flex gap-2 items-center">
+      <li className="sticky top-0 bg-inherit z-10 px-4 py-2 border-b border-neutral-300/50 dark:border-neutral-700/50 flex gap-2 items-center">
         <input
           type="text"
           placeholder="Search..."
@@ -206,7 +206,7 @@ const SelectOption = ({
               onChange={(e) =>
                 setNewLang((prev) => ({ ...prev, [field]: e.target.value }))
               }
-              className="w-full px-2 py-2 border border-gray-200 dark:border-gray-800 rounded bg-gray-100 dark:bg-gray-800/50 focus:outline-none text-xs placeholder:opacity-50"
+              className="w-full px-2 py-2 border border-neutral-200 dark:border-neutral-800 rounded bg-neutral-100 dark:bg-neutral-800/50 focus:outline-none text-xs placeholder:opacity-50"
             />
           ))}
           <div className="flex justify-end gap-2 pt-2">
@@ -215,7 +215,7 @@ const SelectOption = ({
                 setIsAdding(false);
                 setNewLang({ iso_name: "", iso_639_1: "", iso_639_3: "" });
               }}
-              className="text-gray-500 hover:text-gray-700 text-xs cursor-pointer"
+              className="text-neutral-500 hover:text-neutral-700 text-xs cursor-pointer"
             >
               Cancel
             </button>
@@ -243,8 +243,8 @@ const SelectOption = ({
               }}
               className={`px-4 py-2 cursor-pointer capitalize transition-colors duration-200 ${
                 value.toLowerCase() === option.iso_639_3.toLowerCase()
-                  ? "bg-white dark:bg-gray-900/60 font-semibold"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-white dark:bg-neutral-900/60 font-semibold"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
               } flex items-center space-x-2`}
             >
               <span>{option.iso_name}</span>
@@ -257,7 +257,7 @@ const SelectOption = ({
       )}
 
       {!isAdding && filteredOptions.length === 0 && (
-        <li className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+        <li className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">
           No options found
         </li>
       )}

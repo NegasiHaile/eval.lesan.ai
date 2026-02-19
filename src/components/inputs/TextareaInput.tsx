@@ -38,7 +38,7 @@ const TextareaInput = ({
       placeholder={placeholder}
       onChange={onChange}
       rows={rows}
-      className={`w-full bg-transparent rounded border-[0.5px] border-gray-300 dark:border-gray-800 dark:bg-gray-900 focus:border-blue-500 focus:outline-none resize-none ${sizeStyle} ${className}`}
+      className={`w-full bg-transparent rounded border-[0.5px] border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 focus:border-blue-500 focus:outline-none resize-none ${sizeStyle} ${className}`}
     />
   );
 };

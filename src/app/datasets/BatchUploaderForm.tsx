@@ -18,13 +18,13 @@ import DomainsList from "@/components/DomainsList";
 import DatasetUploadGuidelines from "./DatasetUploadGuidelines";
 
 import {
-  VscAdd,
-  VscArrowLeft,
-  VscClose,
-  VscCloudUpload,
-  VscInfo,
-  VscSave,
-} from "react-icons/vsc";
+  ArrowLeft,
+  CloudUpload,
+  Info,
+  Plus,
+  Save,
+  X,
+} from "lucide-react";
 import { date_DDMMYYYY } from "@/helpers/format-date";
 
 import { LanguageTypes } from "@/types/languages";
@@ -243,7 +243,7 @@ const BatchUploaderForm = ({
 
   return (
     <div className="w-full p-5 space-y-3">
-      <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800">
+      <div className="flex justify-between items-center border-b border-neutral-200 dark:border-neutral-800">
         <p className="text-xl font-mono">
           Create <span className="uppercase font-bold">{activeTab.name}</span>{" "}
           task
@@ -257,11 +257,11 @@ const BatchUploaderForm = ({
         >
           {showGuidelines ? (
             <>
-              <VscArrowLeft /> Go to form
+              <ArrowLeft className="size-4 shrink-0" /> Go to form
             </>
           ) : (
             <>
-              <VscInfo className="w-6 h-6" />
+              <Info className="size-6 shrink-0" />
               Uploading guideline
             </>
           )}
@@ -378,11 +378,11 @@ const BatchUploaderForm = ({
                 >
                   {addingCategory ? (
                     <>
-                      <VscClose /> Cancel
+                      <X className="size-4 shrink-0" /> Cancel
                     </>
                   ) : (
                     <>
-                      <VscAdd /> Add annotation category
+                      <Plus className="size-4 shrink-0" /> Add annotation category
                     </>
                   )}
                 </Button>
@@ -411,7 +411,7 @@ const BatchUploaderForm = ({
                       setAddingCategory(false);
                     }}
                   >
-                    <VscSave />
+                    <Save className="size-4 shrink-0" />
                     Save
                   </Button>
                 )}
@@ -497,7 +497,7 @@ const BatchUploaderForm = ({
             </div>
             <div className="w-full md:col-span-2 flex items-end mt-10">
               <Button outline type="submit" loading={loading}>
-                <VscCloudUpload className="w-6 h-6" /> Upload task
+                <CloudUpload className="size-6 shrink-0" /> Upload task
               </Button>
             </div>
           </form>

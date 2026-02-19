@@ -247,8 +247,8 @@ export default function DragDropFile({
   };
 
   const borderStyle = isDragging
-    ? "bg-gray-300/50 dark:bg-gray-800/50 border-blue-500"
-    : "bg-white dark:bg-gray-900";
+    ? "bg-neutral-300/50 dark:bg-neutral-800/50 border-blue-500"
+    : "bg-white dark:bg-neutral-900";
 
   const message =
     status.isValid === false ? (
@@ -267,7 +267,7 @@ export default function DragDropFile({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`relative border-1 border-dashed border-gray-300 dark:border-gray-800 rounded-lg p-6 text-center transition ${borderStyle} ${
+        className={`relative border-1 border-dashed border-neutral-300 dark:border-neutral-800 rounded-lg p-6 text-center transition ${borderStyle} ${
           loading ? "cursor-not-allowed" : "cursor-pointer"
         }`}
       >
@@ -282,7 +282,7 @@ export default function DragDropFile({
           required={required}
         />
 
-        <p className="text-gray-700 dark:text-gray-300">
+        <p className="text-neutral-700 dark:text-neutral-300">
           {isDragging
             ? "Drop the file here..."
             : "Click or drag a JSON, CSV, TSV, or Excel file to upload."}

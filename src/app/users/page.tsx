@@ -1,11 +1,10 @@
 "use client";
 
-import PrivateRoute from "@/components/PrivateRoute";
 import CopyText from "@/components/utils/CopyText";
 import { userDefaultValues } from "@/constants/initial_values";
 import { UserTypes } from "@/types/user";
 import { useEffect, useState } from "react";
-import { VscClose, VscEdit, VscLoading, VscTrash } from "react-icons/vsc";
+import { Loader2, Pencil, Trash2, X } from "lucide-react";
 
 const roles = ["root", "admin", "user"];
 
@@ -123,11 +122,10 @@ export default function Page() {
   }, []);
 
   return (
-    <PrivateRoute>
-      <div className="w-full flex flex-col justify-center items-center p-3">
+    <div className="w-full flex flex-col justify-center items-center p-3">
         <div className="w-full h-auto pb-32 max-w-6xl md:pt-6 overflow-x-auto">
-          <table className="min-w-full h-full bg-gray-200/70 dark:bg-gray-800/50 rounded p-1">
-            <thead className="border-b border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+          <table className="min-w-full h-full bg-neutral-200/70 dark:bg-neutral-800/50 rounded p-1">
+            <thead className="border-b border-neutral-300 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200">
               <tr className="">
                 <th className="px-4 py-4 text-left">#</th>
                 <th className="px-4 py-4 text-left">Full Name</th>
@@ -137,11 +135,11 @@ export default function Page() {
                 <th className="px-4 py-4 text-left">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-gray-900 dark:text-gray-100">
+            <tbody className="text-neutral-900 dark:text-neutral-100">
               {users.map((user: UserTypes, i: number) => (
                 <tr
                   key={i}
-                  className="border-b last:border-b-0 border-white dark:border-gray-800"
+                  className="border-b last:border-b-0 border-white dark:border-neutral-800"
                 >
                   <td className="px-4 py-2">{i + 1}</td>
                   <td className="px-4 py-2">{user.fullName}</td>
@@ -157,7 +155,7 @@ export default function Page() {
 
                       {loading === "role" &&
                       activeDropdown === user.username ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="w-5 h-5 animate-spin text-neutral-500" />
                       ) : (
                         <button
                           onClick={() =>
@@ -167,17 +165,15 @@ export default function Page() {
                                 : user.username
                             )
                           }
-                          className="p-1 ml-2 bg-transparent hover:bg-gray-300 hover:dark:bg-gray-900/80 rounded cursor-pointer"
+                          className="p-1 ml-2 bg-transparent hover:bg-neutral-300 hover:dark:bg-neutral-900/80 rounded cursor-pointer"
                         >
                           {activeDropdown === user.username ? (
-                            <VscClose
-                              className="w-5 h-6"
-                              title="Close upadting"
+                            <X
+                              className="size-5"
                             />
                           ) : (
-                            <VscEdit
-                              className="w-5 h-5"
-                              title={`Update ${user.fullName}'s role.`}
+                            <Pencil
+                              className="size-5"
                             />
                           )}
                         </button>
@@ -185,14 +181,14 @@ export default function Page() {
 
                       {loading !== "role" &&
                         activeDropdown === user.username && (
-                          <div className="absolute z-10 top-full mt-1 right-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded shadow-md w-28">
+                          <div className="absolute z-10 top-full mt-1 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded shadow-md w-28">
                             {roles.map((role) => (
                               <button
                                 key={role}
                                 onClick={() =>
                                   updateUserRole(user.username, role)
                                 }
-                                className={`w-full text-left px-3 py-2 hover:bg-gray-300 dark:hover:bg-gray-800/50 cursor-pointer ${
+                                className={`w-full text-left px-3 py-2 hover:bg-neutral-300 dark:hover:bg-neutral-800/50 cursor-pointer ${
                                   role === user.role
                                     ? "font-semibold text-blue-600 dark:text-blue-400"
                                     : ""
@@ -225,7 +221,7 @@ export default function Page() {
                     >
                       {loading === "account" &&
                       editUser.email === user.email ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="size-5 animate-spin text-neutral-500" />
                       ) : (
                         <span>{user.active ? "On" : "Off"}</span>
                       )}
@@ -239,13 +235,13 @@ export default function Page() {
                         setEditUser(user);
                         deleteUser(user.username);
                       }}
-                      className="text-red-600 dark:text-red-400 px-2 py-1 hover:bg-gray-300 dark:hover:bg-gray-900/80 rounded cursor-pointer"
+                      className="text-red-600 dark:text-red-400 px-2 py-1 hover:bg-neutral-300 dark:hover:bg-neutral-900/80 rounded cursor-pointer"
                       title={`Delete ${user.fullName}'s account`}
                     >
                       {loading === "delete" && editUser.email === user.email ? (
-                        <VscLoading className="w-5 h-5 animate-spin text-gray-500" />
+                        <Loader2 className="size-5 animate-spin text-neutral-500" />
                       ) : (
-                        <VscTrash className="w-5 h-5" />
+                        <Trash2 className="size-5" />
                       )}
                     </button>
                   </td>
@@ -255,6 +251,5 @@ export default function Page() {
           </table>
         </div>
       </div>
-    </PrivateRoute>
   );
 }

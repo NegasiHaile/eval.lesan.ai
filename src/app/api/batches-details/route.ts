@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { BatchDetailTypes } from "@/types/data";
 import { requireAuth } from "@/lib/auth";
 
@@ -9,7 +11,7 @@ export async function GET(req: NextRequest) {
   const username = auth.username;
 
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     const datasetType = req.nextUrl.searchParams

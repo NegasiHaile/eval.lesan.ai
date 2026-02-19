@@ -44,7 +44,7 @@ const Tooltip = ({
         typeof window !== "undefined" &&
         createPortal(
           <div
-            className="absolute top-0 z-50 w-full max-w-70 bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-900 rounded-lg shadow-lg animate-fade-in"
+            className="absolute top-0 z-50 w-full max-w-70 bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-700 dark:via-neutral-800 dark:to-neutral-900 rounded-lg shadow-lg animate-fade-in"
             style={{
               left: position.x,
               // right: position.x,
@@ -62,7 +62,7 @@ const Tooltip = ({
             >
               <div
                 className={`w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent ${
-                  pointerStyle ?? `border-t-gray-300 dark:border-t-gray-800`
+                  pointerStyle ?? `border-t-neutral-300 dark:border-t-neutral-800`
                 }`}
               />
             </div>

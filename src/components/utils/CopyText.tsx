@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { VscCheck, VscCopy } from "react-icons/vsc";
+import { Check, Copy } from "lucide-react";
 
 interface CopyTextProps {
   textToCopy: string;
@@ -45,7 +45,7 @@ const CopyText: React.FC<CopyTextProps> = ({ textToCopy }) => {
       className={`p-1 bg-transparent rounded opacity-70 font-light text-xs md:text-sm ${
         copied
           ? ""
-          : "cursor-pointer hover:bg-gray-300 hover:dark:bg-gray-900/80"
+          : "cursor-pointer hover:bg-neutral-300 hover:dark:bg-neutral-900/80"
       }`}
       onClick={handleCopy}
       title={`Copy "${`${textToCopy.slice(0, 25)} ${
@@ -54,12 +54,12 @@ const CopyText: React.FC<CopyTextProps> = ({ textToCopy }) => {
     >
       {copied ? (
         <div className="flex items-center space-x-0.5 text-green-500">
-          <VscCheck className="w-4 h-4" />
+          <Check className="size-4" />
           <span className="hidden sm:block">Copied!</span>
         </div>
       ) : (
         <div className="flex space-x-0.5 items-center">
-          <VscCopy className="w-4 h-4" />
+          <Copy className="size-4" />
           <span className="hidden sm:block">Copy</span>
         </div>
       )}

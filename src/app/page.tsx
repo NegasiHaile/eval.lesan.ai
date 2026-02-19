@@ -28,7 +28,7 @@ import { languages } from "@/constants/languages";
 import Container from "@/components/utils/Container";
 import DomainsList from "@/components/DomainsList";
 import Button from "@/components/utils/Button";
-import { VscAdd, VscDiffRemoved } from "react-icons/vsc";
+import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
 
 export default function Home() {
@@ -706,7 +706,7 @@ export default function Home() {
                 key={evalTask?.id}
                 id={`id_${evalTask?.id}`}
                 placeholder="Add the correct translation for the input text."
-                className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-gray-50 border border-gray-300 dark:bg-gray-800/80 dark:border-gray-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
+                className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-50 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
                 name={"reference"}
                 value={evalTask?.reference ?? ""}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -750,11 +750,11 @@ export default function Home() {
                 >
                   {showReference ? (
                     <>
-                      <VscDiffRemoved className="w-4 h-4" /> Hide
+                      <Minus className="size-4" /> Hide
                     </>
                   ) : (
                     <>
-                      <VscAdd className="w-4 h-4" /> Add{" "}
+                      <Plus className="size-4" /> Add{" "}
                     </>
                   )}{" "}
                   Reference

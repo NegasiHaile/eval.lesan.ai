@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { VscChevronDown, VscChevronUp } from "react-icons/vsc";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type PropTypes = {
   isRealtime: boolean;
@@ -11,7 +11,7 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="relative mt-28 bg-gradient-to-b from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800/60 text-gray-900 dark:text-gray-200 px-6 py-4 rounded-b-md leading-relaxed transition-all duration-300 overflow-hidden">
+    <div className="relative mt-28 bg-gradient-to-b from-neutral-50 to-neutral-200 dark:from-neutral-900 dark:to-neutral-800/60 text-neutral-900 dark:text-neutral-200 px-6 py-4 rounded-b-md leading-relaxed transition-all duration-300 overflow-hidden">
       <h2 className="text-lg font-semibold mb-3">
         <span className=" opacity-70">
           {isRealtime ? "Realtime" : "Batch Based"} evaluation:
@@ -71,7 +71,7 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
             <li>
               Select the content domain like <em>Health</em>, <em>News</em>,{" "}
               <em>Agriculture</em>, etc.{" "}
-              <span className="opacity-60 ml-3 font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full">
+              <span className="opacity-60 ml-3 font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full">
                 optional
               </span>
             </li>
@@ -82,10 +82,10 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
                 + Reference
               </strong>{" "}
               box.{" "}
-              <span className="opacity-60 ml-3 font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full">
+              <span className="opacity-60 ml-3 font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full">
                 optional
               </span>
-              <p className="mt-1 text-sm text-gray-700 dark:text-gray-400">
+              <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-400">
                 Tip: You can copy one of the outputs and improve it instead of
                 starting from scratch.
               </p>
@@ -115,7 +115,7 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
             </li>
             <li>
               Use the star ratings (1 to 5) to score each output:{" "}
-              <span className="opacity-60 ml-3 text-center font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full text-red-700 dark:text-red-400">
+              <span className="opacity-60 ml-3 text-center font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full text-red-700 dark:text-red-400">
                 *required
               </span>
               <ul className="list-decimal list-inside ml-5 mt-2 space-y-1">
@@ -125,7 +125,7 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
                 <li>⭐️⭐️⭐️⭐️ – Good: Minor issues, still clear.</li>
                 <li>⭐️⭐️⭐️⭐️⭐️ – Perfect: Accurate, fluent, no errors.</li>
               </ul>
-              <p className="mt-1 text-sm text-gray-700 dark:text-gray-400">
+              <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-400">
                 Tip: Hover on the star to get more information about the start
                 values.
               </p>
@@ -134,14 +134,14 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
               Use the <span className="text-green-500">↑ Up</span> and{" "}
               <span className="text-red-500">↓ Down</span> arrows to reorder
               outputs based on quality from best to worst.{" "}
-              <span className="opacity-60 ml-3 text-center font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full text-red-700 dark:text-red-400">
+              <span className="opacity-60 ml-3 text-center font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full text-red-700 dark:text-red-400">
                 *required
               </span>
             </li>
             <li>
               Select the content domain like <em>Health</em>, <em>News</em>,{" "}
               <em>Agriculture</em>, etc.
-              <span className="opacity-60 ml-3 font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full">
+              <span className="opacity-60 ml-3 font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full">
                 optional
               </span>
             </li>
@@ -152,10 +152,10 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
                 + Reference
               </strong>{" "}
               box.{" "}
-              <span className="opacity-60 ml-3 font-mono bg-gray-300 dark:bg-gray-700 px-2 rounded-full">
+              <span className="opacity-60 ml-3 font-mono bg-neutral-300 dark:bg-neutral-700 px-2 rounded-full">
                 optional
               </span>
-              <p className="mt-1 text-sm text-gray-700 dark:text-gray-400">
+              <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-400">
                 Tip: You can copy one of the outputs and improve it instead of
                 starting from scratch.
               </p>
@@ -173,7 +173,7 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
 
       {/* Gradient overlay for collapsed state */}
       {!expanded && (
-        <div className="absolute bottom-10 left-0 w-full h-16 bg-gradient-to-t from-gray-100 dark:from-gray-800 to-transparent pointer-events-none" />
+        <div className="absolute bottom-10 left-0 w-full h-16 bg-gradient-to-t from-neutral-100 dark:from-neutral-800 to-transparent pointer-events-none" />
       )}
 
       {/* Toggle Button */}
@@ -185,12 +185,12 @@ export default function MTEvaluationGuide({ isRealtime }: PropTypes) {
           {expanded ? (
             <>
               <span>Show less</span>
-              <VscChevronUp className="w-4 h-4" />
+              <ChevronUp className="size-4" />
             </>
           ) : (
             <>
               <span>Read more</span>
-              <VscChevronDown className="w-4 h-4" />
+              <ChevronDown className="size-4" />
             </>
           )}
         </button>

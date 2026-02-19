@@ -1,7 +1,6 @@
 "use client";
 import DatasetsTable from "@/components/tables/DatasetsTable";
 import React, { useState, useEffect } from "react";
-import PrivateRoute from "@/components/PrivateRoute";
 import { BatchDetailTypes } from "@/types/data";
 import { useUser } from "@/context/UserContext";
 import Container from "@/components/utils/Container";
@@ -10,11 +9,10 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { AiOutlineInfoCircle } from "react-icons/ai";
+import { Info, Languages, Mic, Plus, RefreshCw } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
-import { VscAdd, VscRefresh } from "react-icons/vsc";
 
 const Datasets = () => {
   const [batchesDetails, setBatchesDetailTable] = useState<BatchDetailTypes[]>(
@@ -42,8 +40,7 @@ const Datasets = () => {
   }, []);
 
   return (
-    <PrivateRoute>
-      <Container className={`${loading ? "cursor-progress" : ""}`}>
+    <Container className={`${loading ? "cursor-progress" : ""}`}>
         {/* TABS */}
         <div className="w-full flex flex-wrap space-x-2 font-bold">
           {evalTypes.map((tab, i) => {
@@ -85,7 +82,7 @@ const Datasets = () => {
         <div className="w-full flex flex-col items-center justify-center space-y-5 mt-5">
           {user?.role === "user" && (
             <div className="flex items-center justify-center w-fit gap-3 p-4 rounded-md border border-blue-500 bg-blue-100/50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">
-              <AiOutlineInfoCircle className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+              <Info className="size-6 text-blue-500 dark:text-blue-400 shrink-0" />
               <p className="text-sm">
                 Please ask your Admin for permission if you need to upload a
                 dataset for evaluation.
@@ -105,7 +102,12 @@ const Datasets = () => {
 
           <div className="w-full space-y-1 my-5 overflow-x-auto">
             <div className="w-full flex gap-2 justify-between items-start">
-              <h1 className="text-xl font-semibold mb-3 w-full text-left">
+              <h1 className="text-xl font-semibold mb-3 w-full text-left flex items-center gap-2">
+                {activeTab.value === "mt" ? (
+                  <Languages className="size-6 shrink-0" />
+                ) : activeTab.value === "asr" ? (
+                  <Mic className="size-6 shrink-0" />
+                ) : null}
                 {activeTab.full_name || "Datasets"}
               </h1>
 
@@ -119,9 +121,7 @@ const Datasets = () => {
                   loading={loading}
                   title={`Refresh ${activeTab.name} datasets`}
                 >
-                  <VscRefresh
-                    className={`w-5 h-5 `}
-                  />
+                  <RefreshCw className="size-5 shrink-0" />
                   <span className="hidden sm:block">Refresh</span>
                 </Button>
                 {user?.role !== "user" && (
@@ -133,7 +133,7 @@ const Datasets = () => {
                     onClick={() => setShowUploader(true)}
                     title={`Upload batch based ${activeTab.name} data for evaluation`}
                   >
-                    <VscAdd className="w-5 h-5" />
+                    <Plus className="size-5 shrink-0" />
                     <span className="hidden sm:block">
                       Upload {activeTab.name} tasks
                     </span>
@@ -152,7 +152,6 @@ const Datasets = () => {
           </div>
         </div>
       </Container>
-    </PrivateRoute>
   );
 };
 

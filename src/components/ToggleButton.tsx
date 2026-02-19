@@ -13,7 +13,7 @@ const ToggleButton = ({ id, toggleIcon, onClickToggle }: IconButtonType) => {
     <button
       id={id ?? "toogle_button"}
       onClick={onClickToggle}
-      className="hidden md:block text-gray-800 dark:text-gray-200 opacity-60 hover:opacity-80 p-1 rounded-md cursor-pointer"
+      className="hidden md:block text-neutral-800 dark:text-neutral-200 opacity-60 hover:opacity-80 p-1 rounded-md cursor-pointer"
     >
       {toggleIcon ? (
         <svg

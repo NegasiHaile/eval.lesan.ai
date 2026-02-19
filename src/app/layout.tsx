@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import NavBar from "@/components/navbar";
-import Footer from "@/components/footer";
+import AppChrome from "@/components/AppChrome";
 import { UserProvider } from "@/context/UserContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ReactNode } from "react";
 
 const geistSans = Geist({
@@ -71,15 +71,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}
       >
-        <UserProvider>
-          <PreferencesProvider>
-            <NavBar />
-            <main className="flex-grow pt-18 md:pt-12 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-              {children}
-            </main>
-            <Footer />
-          </PreferencesProvider>
-        </UserProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <PreferencesProvider>
+              <AppChrome>{children}</AppChrome>
+            </PreferencesProvider>
+          </UserProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

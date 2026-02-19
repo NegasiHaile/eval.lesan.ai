@@ -2,13 +2,11 @@
 
 import React, { useRef } from "react";
 
-import { IoCheckmarkOutline } from "react-icons/io5";
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
+import { Check, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 
 import { domainsList } from "@/constants/others";
 import Tooltip from "./utils/Tooltip";
 import { DomainTypes } from "@/types/others";
-import { VscClose, VscEdit } from "react-icons/vsc";
 
 type DomainsListProps = {
   domains?: DomainTypes[] | [] | undefined;
@@ -54,21 +52,21 @@ const DomainsList = ({
       {/* Left Scroll Button */}
       <button
         onClick={scrollLeft}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-gradient-to-l from-gray-300 to-white dark:from-gray-700 dark:hover:from-gray-800 dark:to-gray-900 rounded-r-full p-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105 cursor-pointer"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-gradient-to-l from-neutral-300 to-white dark:from-neutral-700 dark:hover:from-neutral-800 dark:to-neutral-900 rounded-r-full p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-all duration-200 hover:scale-105 cursor-pointer"
         aria-label="Scroll left"
         type="button"
       >
-        <HiChevronLeft className="w-6 h-6" />
+        <ChevronLeft className="size-6" />
       </button>
 
       {/* Right Scroll Button */}
       <button
         onClick={scrollRight}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-gradient-to-r from-gray-300 to-white dark:from-gray-700 dark:hover:from-gray-800 dark:to-gray-900 rounded-l-full p-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105 cursor-pointer"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-gradient-to-r from-neutral-300 to-white dark:from-neutral-700 dark:hover:from-neutral-800 dark:to-neutral-900 rounded-l-full p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-all duration-200 hover:scale-105 cursor-pointer"
         aria-label="Scroll right"
         type="button"
       >
-        <HiChevronRight className="w-6 h-6" />
+        <ChevronRight className="size-6" />
       </button>
 
       {/* Scrollable Container */}
@@ -83,21 +81,21 @@ const DomainsList = ({
               key={index}
               tooltipContent={
                 <div className="font-mono space-y-3">
-                  <div className="px-3 py-1 border-b border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-400">
+                  <div className="px-3 py-1 border-b border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-400">
                     {domain.name}
                   </div>
-                  <div className="text-sm px-3 text-gray-600 dark:text-gray-400 mb-3">
+                  <div className="text-sm px-3 text-neutral-600 dark:text-neutral-400 mb-3">
                     {domain.description}
                   </div>
                   <div className="text-sm px-3 pb-3">
-                    <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <div className="font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                       Subdomains:
                     </div>
                     <div className="space-x-1 text-xs space-y-1 flex flex-wrap">
                       {domain.subdomains?.map((subdomain, idx) => (
                         <div
                           key={idx}
-                          className="text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs"
+                          className="text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded text-xs"
                         >
                           {subdomain}
                         </div>
@@ -118,7 +116,7 @@ const DomainsList = ({
         ${
           selectedDomains.includes(domain.name)
             ? "bg-blue-800/80 text-white shadow-lg scale-105"
-            : "bg-gray-200/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/70 shadow-md"
+            : "bg-neutral-200/80 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 shadow-md"
         }
         focus:outline-none focus:ring-opacity-50 cursor-pointer`}
               >
@@ -127,7 +125,7 @@ const DomainsList = ({
                 </span>
                 {selectedDomains.includes(domain.name) && (
                   <span>
-                    <IoCheckmarkOutline className="text-lg" />
+                    <Check className="size-4" />
                   </span>
                 )}
 
@@ -137,7 +135,7 @@ const DomainsList = ({
                     onClick={() => onEdit(domain.name)}
                     title={`Edit ${domain.name} category`}
                   >
-                    <VscEdit />
+                    <Pencil className="size-4" />
                   </label>
                 )}
 
@@ -147,7 +145,7 @@ const DomainsList = ({
                     onClick={() => onRemove(domain.name)}
                     title={`Delete ${domain.name} category`}
                   >
-                    <VscClose />
+                    <X className="size-4" />
                   </label>
                 )}
               </button>
