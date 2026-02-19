@@ -82,7 +82,10 @@ export async function getSessionFromRequest(req: Request): Promise<SessionUser |
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return null;
   const u = session.user as { email: string; role?: string; active?: boolean };
+
+  // Block deactivated users
   if (u.active === false) return null;
+
   return {
     username: u.email,
     role: (u.role as string) ?? "user",

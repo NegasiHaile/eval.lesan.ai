@@ -145,7 +145,7 @@ const NavBar = () => {
     },
   ];
 
-  const excludeNavebar = ["/reset-password", "/confirm-email"];
+  const excludeNavebar = ["/reset-password"];
 
   if (excludeNavebar.includes(pathname)) return null;
 
@@ -401,7 +401,7 @@ const NavBar = () => {
       )}
 
       {/* Auth Modal */}
-      <Signup isOpen={isOpen} setIsOpen={setIsOpen} setUser={setUser} />
+      <Signup isOpen={isOpen} setIsOpen={setIsOpen} />
     </nav>
   );
 };

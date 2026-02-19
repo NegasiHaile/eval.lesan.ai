@@ -32,10 +32,13 @@ export async function GET(req: NextRequest) {
 
     // 🔐 Apply filtering only if not root
     if (role !== "root") {
+      // Escape regex-special characters in the email to prevent injection
+      const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^${escaped}$`, "i");
       baseQuery.$or = [
-        { created_by: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
-        { annotator_id: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
-        { qa_id: { $regex: new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+        { created_by: { $regex: pattern } },
+        { annotator_id: { $regex: pattern } },
+        { qa_id: { $regex: pattern } },
       ];
     }
 

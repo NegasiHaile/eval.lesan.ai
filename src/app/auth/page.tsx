@@ -9,10 +9,9 @@ import { Loader2 } from "lucide-react";
 
 const Page = () => {
   const router = useRouter();
-  const { user, setUser } = useUser();
+  const { user } = useUser();
 
   useEffect(() => {
-    console.log("user:", user);
     if (user) {
       router.push("/");
     }
@@ -32,7 +31,6 @@ const Page = () => {
         setIsOpen={() => {
           router.push("/");
         }}
-        setUser={setUser}
       />
     </div>
   );
