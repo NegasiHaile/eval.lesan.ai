@@ -3,8 +3,8 @@ import SelectTransparent from "@/components/inputs/SelectTransparent";
 import TextInput from "@/components/inputs/TextInput";
 import React, { useState } from "react";
 
-import data from "../../dataset/leaderboard/09_06_2025.json";
-import bleu_data from "../../dataset/leaderboard/ranked_bleu_score_metrics.json";
+import data from "@/data/leaderboard/09_06_2025.json";
+import bleu_data from "@/data/leaderboard/ranked_bleu_score_metrics.json";
 import TabButton from "@/components/utils/TabButton";
 import Container from "@/components/utils/Container";
 
