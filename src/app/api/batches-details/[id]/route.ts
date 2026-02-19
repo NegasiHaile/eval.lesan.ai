@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { requireRole } from "@/lib/auth";
 
 const ADMIN_ROLES = ["root", "admin"];
@@ -14,7 +16,7 @@ export async function PATCH(
     const batch_id = (await params).id;
     const { annotator_id = null } = await req.json();
 
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     const result = await db
@@ -56,7 +58,7 @@ export async function PUT(
       );
     }
 
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     const result = await db

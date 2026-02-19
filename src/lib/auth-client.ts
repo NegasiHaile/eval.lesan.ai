@@ -4,11 +4,11 @@
  */
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
-import type { auth } from "@/lib/auth";
+import type { Auth } from "@/lib/auth";
 
 export const authClient = createAuthClient({
   baseURL: typeof window !== "undefined" ? window.location.origin : undefined,
-  plugins: [inferAdditionalFields<typeof auth>()],
+  plugins: [inferAdditionalFields<Auth>()],
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;

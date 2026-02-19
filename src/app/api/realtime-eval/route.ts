@@ -1,9 +1,11 @@
-import clientPromise from "@/lib/mongodb";
+export const dynamic = "force-dynamic";
+
+import getClientPromise from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
     const users = await db.collection("realtime_evals").find().toArray();
     return NextResponse.json(users);
@@ -14,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
     const body = await request.json();
 

@@ -1,6 +1,8 @@
+export const dynamic = "force-dynamic";
+
 // File: src/app/api/batches/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { BatchDetailTypes, BatchTasksTypes } from "@/types/data";
 import { requireAuth } from "@/lib/auth";
 
@@ -16,7 +18,7 @@ export async function GET(
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const { datasetType } = await params;
 
     if (!datasetType) {
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     await db
@@ -89,7 +91,7 @@ export async function DELETE(req: NextRequest) {
   if (auth instanceof Response) return auth;
   try {
     const { batch_id, dataset_type } = await req.json();
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     await db
@@ -127,7 +129,7 @@ export async function PUT(req: NextRequest) {
       updatedBatchTask?: Partial<BatchTasksTypes>;
     } = body;
 
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     if (updatedBatchDetail) {

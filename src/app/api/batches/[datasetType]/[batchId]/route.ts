@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { EvalTaskTypes, EvalOutputTypes } from "@/types/data";
 import { requireAuth } from "@/lib/auth";
 
@@ -24,7 +26,7 @@ export async function GET(
     );
   }
 
-  const client = await clientPromise;
+  const client = await getClientPromise();
   const db = client.db();
 
   const batch = await db
@@ -77,7 +79,7 @@ export async function PUT(
 
   body.annotated_tasks = ratedTaskCount;
 
-  const client = await clientPromise;
+  const client = await getClientPromise();
   const db = client.db();
 
   const result = await db
@@ -117,7 +119,7 @@ export async function DELETE(
     );
   }
 
-  const client = await clientPromise;
+  const client = await getClientPromise();
   const db = client.db();
 
   const result = await db

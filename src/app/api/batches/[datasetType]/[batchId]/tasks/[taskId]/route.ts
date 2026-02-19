@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth";
 
 export async function PATCH(
@@ -13,7 +15,7 @@ export async function PATCH(
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
 
-  const client = await clientPromise;
+  const client = await getClientPromise();
   const db = client.db();
   const { datasetType, batchId, taskId } = await params;
 
@@ -65,7 +67,7 @@ export async function GET(
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
 
-  const client = await clientPromise;
+  const client = await getClientPromise();
   const db = client.db();
 
   const { datasetType, batchId, taskId } = await params;

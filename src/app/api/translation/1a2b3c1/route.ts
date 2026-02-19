@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // app/api/translate/route.js
 
 import { GoogleGenerativeAI } from "@google/generative-ai";

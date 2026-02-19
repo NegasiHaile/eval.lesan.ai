@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 
 const PROTECTED_PATHS = ["/profile", "/users", "/datasets"];
 
@@ -16,6 +16,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const auth = await getAuth();
   const session = await auth.api.getSession({
     headers: request.headers,
   });

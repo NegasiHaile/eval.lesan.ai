@@ -1,0 +1,64 @@
+substitutions:
+  _REGION: europe-west3
+  _SERVICE_NAME: horneval
+  _REPO_NAME: horneval-repo
+  _NEXT_PUBLIC_APP_NAME: HornEval
+  _NEXT_PUBLIC_BASE_URL: https://eval.lesan.ai
+
+steps:
+  # Step 1: Build the Docker image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_APP_NAME=${_NEXT_PUBLIC_APP_NAME}
+      - --build-arg
+      - NEXT_PUBLIC_BASE_URL=${_NEXT_PUBLIC_BASE_URL}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest
+      - .
+
+  # Step 2: Push all tags to Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}
+
+  # Step 3: Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --port
+      - "3000"
+      - --memory
+      - 512Mi
+      - --cpu
+      - "1"
+      - --min-instances
+      - "0"
+      - --max-instances
+      - "10"
+      - --set-secrets
+      - BETTER_AUTH_SECRET=BETTER_AUTH_SECRET:latest,BETTER_AUTH_URL=BETTER_AUTH_URL:latest,MONGODB_URI=MONGODB_URI:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,LESAN_API_URL=LESAN_API_URL:latest,LESAN_API_KEY=LESAN_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest
+      - --set-env-vars
+      - APP_NAME=HornEval,APP_VERSION=0.1.0,APP_DESCRIPTION=Human Evaluation Platform
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
