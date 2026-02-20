@@ -1,0 +1,48 @@
+{
+  "title": "Terminologies",
+  "description": "Standard terms used across the platform and in batch specifications.",
+  "subsections": [
+    {
+      "id": "batch-task-model",
+      "title": "Batch, task, and model",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Batch: a named evaluation set (e.g. a dataset split). Contains a list of tasks.",
+            "Task: one input (source text for MT, audio for ASR) and multiple model outputs.",
+            "Model: a system (e.g. an MT or ASR engine) that produced one output per task."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rate-and-rank",
+      "title": "Rate and rank",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Rate: numeric quality score (e.g. 1–5) assigned by the evaluator to each output.",
+            "Rank: relative preference order (1 = best, 2 = second, etc.). Both are required before submission.",
+            "Ranking must be consistent with ratings: higher-rated outputs must receive better (lower) ranks."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guideline-domain-reference",
+      "title": "Rating guideline, domain, and reference",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Rating guideline: defines the scale (e.g. 1–5) and the meaning of each value. Can be attached to a batch so evaluators see it in the UI.",
+            "Domain: optional content category (e.g. Health, News) per task.",
+            "Reference: optional gold or corrected segment (e.g. a reference translation) that evaluators can view or add when all outputs are low quality."
+          ]
+        }
+      ]
+    }
+  ]
+}
