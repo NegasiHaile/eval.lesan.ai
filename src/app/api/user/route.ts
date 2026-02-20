@@ -1,6 +1,8 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/user/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import getClientPromise from "@/lib/mongodb";
 import { requireRole } from "@/lib/auth";
 
 const ADMIN_ROLES = ["root", "admin"];
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireRole(request, ADMIN_ROLES);
   if (auth instanceof Response) return auth;
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
     const docs = await db
       .collection(BETTER_AUTH_USER_COLLECTION)
@@ -37,7 +39,7 @@ export async function DELETE(request: NextRequest) {
   const auth = await requireRole(request, ADMIN_ROLES);
   if (auth instanceof Response) return auth;
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     const body = await request.json();
@@ -70,7 +72,7 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireRole(request, ADMIN_ROLES);
   if (auth instanceof Response) return auth;
   try {
-    const client = await clientPromise;
+    const client = await getClientPromise();
     const db = client.db();
 
     const body = await request.json();
