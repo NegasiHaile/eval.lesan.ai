@@ -18,7 +18,10 @@ export async function middleware(request: NextRequest) {
   // Use a lightweight cookie check instead of importing the full auth
   // library, which requires Node.js crypto and breaks in the Edge Runtime.
   // Actual session validation still happens server-side in API routes.
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  // In production (HTTPS), better-auth prefixes cookies with __Secure-.
+  const sessionToken =
+    request.cookies.get("__Secure-better-auth.session_token") ||
+    request.cookies.get("better-auth.session_token");
 
   if (!sessionToken?.value) {
     return NextResponse.redirect(new URL("/", request.url));
