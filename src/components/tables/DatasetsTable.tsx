@@ -229,7 +229,8 @@ export default function DatasetsTable({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to save batch to server.");
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || "Failed to save batch to server.");
       }
 
       const updatedTasks = batches_details.map((detail) =>
