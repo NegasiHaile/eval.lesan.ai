@@ -68,6 +68,18 @@ export async function POST(req: NextRequest) {
     const client = await getClientPromise();
     const db = client.db();
 
+    // Check for duplicate batch_name within the same dataset_type
+    const existing = await db
+      .collection<BatchDetailTypes>("batches_details")
+      .findOne({ batch_name: batchDetail.batch_name, dataset_type });
+
+    if (existing) {
+      return NextResponse.json(
+        { message: `A dataset named "${batchDetail.batch_name}" already exists for this type. Please choose a different name.` },
+        { status: 409 }
+      );
+    }
+
     await db
       .collection<BatchDetailTypes>("batches_details")
       .insertOne(batchDetail);
