@@ -2,15 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import getClientPromise from "@/lib/mongodb";
-import { requireRole } from "@/lib/auth";
-
-const ADMIN_ROLES = ["root", "admin"];
+import { requireAuth } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(req, ADMIN_ROLES);
+  const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
   try {
     const batch_id = (await params).id;
@@ -18,6 +16,23 @@ export async function PATCH(
 
     const client = await getClientPromise();
     const db = client.db();
+
+    const batch = await db.collection("batches_details").findOne({ batch_id });
+    if (!batch) {
+      return NextResponse.json(
+        { message: "Batch detail not found" },
+        { status: 404 }
+      );
+    }
+
+    const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
+    const isCreator = batch.created_by?.toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator) {
+      return NextResponse.json(
+        { message: "Forbidden. Only the batch creator or an admin can assign annotators." },
+        { status: 403 }
+      );
+    }
 
     const result = await db
       .collection("batches_details")
@@ -44,7 +59,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(req, ADMIN_ROLES);
+  const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
   try {
     const batch_id = (await params).id;
@@ -60,6 +75,23 @@ export async function PUT(
 
     const client = await getClientPromise();
     const db = client.db();
+
+    const existing = await db.collection("batches_details").findOne({ batch_id });
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Batch detail not found" },
+        { status: 404 }
+      );
+    }
+
+    const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
+    const isCreator = existing.created_by?.toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator) {
+      return NextResponse.json(
+        { message: "Forbidden. Only the batch creator or an admin can update this batch." },
+        { status: 403 }
+      );
+    }
 
     const result = await db
       .collection("batches_details")

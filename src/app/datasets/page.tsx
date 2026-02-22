@@ -9,7 +9,7 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { Info, Languages, Mic, Plus, RefreshCw } from "lucide-react";
+import { Info, Languages, Loader2, Mic, Plus, RefreshCw } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
@@ -21,7 +21,7 @@ const Datasets = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<EvalTypeTypes>(evalTypes[0]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { user } = useUser();
+  const { user, isPending } = useUser();
 
   const [showUploader, setShowUploader] = useState<boolean>(false);
 
@@ -38,6 +38,16 @@ const Datasets = () => {
       // ignore invalid stored value
     }
   }, []);
+
+  if (isPending) {
+    return (
+      <Container>
+        <div className="w-full flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="size-8 animate-spin text-neutral-400" />
+        </div>
+      </Container>
+    );
+  }
 
   return (
     <Container className={`${loading ? "cursor-progress" : ""}`}>
