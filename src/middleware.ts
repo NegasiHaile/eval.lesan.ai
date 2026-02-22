@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuth } from "@/lib/auth";
 
 const PROTECTED_PATHS = ["/profile", "/users", "/datasets"];
 
@@ -16,12 +15,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const auth = await getAuth();
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  // Use a lightweight cookie check instead of importing the full auth
+  // library, which requires Node.js crypto and breaks in the Edge Runtime.
+  // Actual session validation still happens server-side in API routes.
+  const sessionToken = request.cookies.get("better-auth.session_token");
 
-  if (!session?.user) {
+  if (!sessionToken?.value) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
