@@ -494,13 +494,7 @@ export default function Home() {
             ]}
             optionsLabels={[
               ...new Set(
-                batchesDetails.map((item) => {
-                  const percentile = `${item.annotated_tasks}/${item.number_of_tasks}`;
-                  const title = `${item.batch_name}-${item?.batch_id}`;
-                  return item.batch_name === "realtime"
-                    ? item.batch_name
-                    : `${percentile}: ${title}`;
-                })
+                batchesDetails.map((item) => item.batch_name)
               ),
             ]}
             onChange={(e) => {
