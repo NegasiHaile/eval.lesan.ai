@@ -414,7 +414,7 @@ export default function DatasetsTable({
                       {batch_detail.target_language?.iso_639_3 ?? ""}
                     </td>
                     <td className="px-3 py-2 break-words max-w-[150px] text-xs font-mono space-x-1">
-                      {batch_detail.models.map((item, i) => {
+                      {(batch_detail.models ?? []).map((item, i) => {
                         return <i key={i}>{item},</i>;
                       })}
                     </td>
