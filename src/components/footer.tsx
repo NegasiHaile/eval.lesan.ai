@@ -10,7 +10,7 @@ const Footer = () => {
             <path d="M8 6h18v3H8V6zm0 6h14v3H8v-3zm0 9h18v3H8v-3zM8 6v20h3V6H8z"/>
           </svg>
         </span>
-        © {new Date().getFullYear()} {process.env.APP_NAME}. All rights
+        © {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME}. All rights
         reserved.
       </span>
       <Link href="/docs" className="hover:underline hover:text-foreground">
