@@ -16,7 +16,7 @@ export default function DocsShell({ children }: { children: ReactNode }) {
       <div className="border-b border-border bg-muted/30 px-4 py-3 md:hidden">
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/" className="font-semibold text-foreground hover:text-primary">
-            ← HornEval
+            ← {process.env.NEXT_PUBLIC_APP_NAME}
           </Link>
           <span className="text-muted-foreground">·</span>
           {DOC_PAGES.map(({ slug, title }) => (
@@ -37,7 +37,7 @@ export default function DocsShell({ children }: { children: ReactNode }) {
         aria-label="Documentation navigation"
       >
         <Link href="/" className="mb-4 font-semibold text-foreground hover:text-primary">
-          ← HornEval
+          ← {process.env.NEXT_PUBLIC_APP_NAME}
         </Link>
         <nav className="flex flex-col gap-1">
           {DOC_PAGES.map(({ slug, title }) => {
