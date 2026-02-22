@@ -9,9 +9,10 @@ export async function GET(
   const { url } = await params;
 
   try {
-    console.log("params.url:", url);
-    // Decode the passed URL (it will be URL-encoded from the frontend)
-    const remoteUrl = decodeURIComponent(url);
+    // Next.js automatically decodes the [url] dynamic route param,
+    // so no additional decodeURIComponent is needed. Applying it again
+    // would over-decode signed URLs (e.g. %2B → + breaking GCS signatures).
+    const remoteUrl = url;
 
     // Get the range header from the request
     const range = req.headers.get("range") || "bytes=0-";
