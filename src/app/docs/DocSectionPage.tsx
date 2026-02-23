@@ -7,8 +7,7 @@ import { DOC_PAGES, getPrevNextSlug } from "@/lib/docs";
 
 const CODE_WORDS = [
   "dataset_name", "dataset_domain", "batch_name", "source_language", "target_language",
-  "language", "tasks", "models", "rate", "rank", "input", "output", "model",
-  "rating_guideline", "task_models_shuffles", "domains", "reference", "domain",
+  "rating_guideline", "task_models_shuffles",
 ];
 
 function codeRegex() {
