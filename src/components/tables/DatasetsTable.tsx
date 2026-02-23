@@ -229,7 +229,8 @@ export default function DatasetsTable({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to save batch to server.");
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || "Failed to save batch to server.");
       }
 
       const updatedTasks = batches_details.map((detail) =>
@@ -282,23 +283,23 @@ export default function DatasetsTable({
 
   const filteredBatches = batches_details.filter((detail) => {
     return (
-      detail.batch_name
+      (detail.batch_name ?? "")
         .toLowerCase()
         .includes(filters.batch_name.toLowerCase()) &&
-      detail.dataset_domain
+      (detail.dataset_domain ?? "")
         .toLowerCase()
         .includes(filters.dataset_domain.toLowerCase()) &&
-      detail.source_language.iso_639_3
+      (detail.source_language?.iso_639_3 ?? "")
         .toLowerCase()
         .includes(filters.source_language.toLowerCase()) &&
-      detail.target_language.iso_639_3
+      (detail.target_language?.iso_639_3 ?? "")
         .toLowerCase()
         .includes(filters.target_language.toLowerCase()) &&
-      detail.models
+      (detail.models ?? [])
         .join(",")
         .toLowerCase()
         .includes(filters.models.toLowerCase()) &&
-      detail.created_by
+      (detail.created_by ?? "")
         .toLowerCase()
         .includes(filters.created_by.toLowerCase()) &&
       (detail.annotator_id ?? "")
@@ -410,11 +411,11 @@ export default function DatasetsTable({
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
                     <td className="px-3 py-2">{batch_detail.dataset_domain}</td>
                     <td className="px-3 py-2">
-                      {batch_detail.source_language.iso_639_3} -{" "}
-                      {batch_detail.target_language.iso_639_3}
+                      {batch_detail.source_language?.iso_639_3 ?? ""} -{" "}
+                      {batch_detail.target_language?.iso_639_3 ?? ""}
                     </td>
                     <td className="px-3 py-2 break-words max-w-[150px] text-xs font-mono space-x-1">
-                      {batch_detail.models.map((item, i) => {
+                      {(batch_detail.models ?? []).map((item, i) => {
                         return <i key={i}>{item},</i>;
                       })}
                     </td>
@@ -423,9 +424,9 @@ export default function DatasetsTable({
                       className="px-3 py-2 text-sm font-mono"
                       title={batch_detail.created_by}
                     >
-                      {batch_detail.created_by.length > 15
+                      {(batch_detail.created_by ?? "").length > 15
                         ? `${batch_detail.created_by.slice(0, 15)}...`
-                        : batch_detail.created_by}
+                        : batch_detail.created_by ?? ""}
                     </td>
                     <td className="px-3 py-2 space-x-0.5 text-sm font-mono flex justify-between items-center">
                       {editFile !== index && (
