@@ -27,9 +27,10 @@ export async function PATCH(
 
     const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
     const isCreator = batch.created_by?.toLowerCase() === auth.username.toLowerCase();
-    if (!isAdminOrRoot && !isCreator) {
+    const isAssignedAnnotator = batch.annotator_id?.toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator && !isAssignedAnnotator) {
       return NextResponse.json(
-        { message: "Forbidden. Only the batch creator or an admin can assign annotators." },
+        { message: "Forbidden. Only the batch creator, assigned annotator, or an admin can assign annotators." },
         { status: 403 }
       );
     }
@@ -86,9 +87,10 @@ export async function PUT(
 
     const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
     const isCreator = existing.created_by?.toLowerCase() === auth.username.toLowerCase();
-    if (!isAdminOrRoot && !isCreator) {
+    const isAssignedAnnotator = existing.annotator_id?.toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator && !isAssignedAnnotator) {
       return NextResponse.json(
-        { message: "Forbidden. Only the batch creator or an admin can update this batch." },
+        { message: "Forbidden. Only the batch creator, assigned annotator, or an admin can update this batch." },
         { status: 403 }
       );
     }
