@@ -1,0 +1,95 @@
+{
+  "title": "Task preparation",
+  "description": "Tasks are prepared as batches (JSON). Understanding who can prepare them, what types exist, and what to include ensures evaluations run smoothly.",
+  "subsections": [
+    {
+      "id": "who-and-how",
+      "title": "Who can prepare a task and how",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Administrators (or users with upload permission) can create and upload batches via the Datasets page.",
+            "Batches are uploaded as JSON; the schema is the same for MT and ASR except for language fields and the type of input (text vs. audio URL/path)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "types-mt-asr",
+      "title": "Types of tasks: MT and ASR",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "MT: each task has a source segment (input) and one or more translation hypotheses (model outputs).",
+            "ASR: each task has an audio input (URL or path) and one or more transcription hypotheses. ASR evaluations are batch-based."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "required-fields",
+      "title": "Required fields",
+      "blocks": [
+        { "type": "p", "text": "Top level:" },
+        {
+          "type": "ul",
+          "items": [
+            "dataset_name, dataset_domain, batch_name, tasks (array).",
+            "MT: add source_language and target_language. ASR: add language."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Each task: id, input (source text for MT, audio URL or path for ASR), models (array). Each model: output (text), model (string identifier), rate (number, use 0 when preparing), rank (number, use 0)."
+        }
+      ]
+    },
+    {
+      "id": "optional-and-defaults",
+      "title": "Optional fields and default values",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "rating_guideline: if not provided, the default 1–5 scale is used (Critical, Major, Minor, Neutral, Kudos).",
+            "domains: if not provided, no domain dropdown is shown; evaluators can still complete the task.",
+            "task_models_shuffles: if not provided, model identifiers in the batch are shown as-is.",
+            "Per-task reference: optional; evaluators can add a reference in the UI when needed."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mt-batch-example",
+      "title": "MT batch example",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "input is the source segment; each model output is the translation. rate and rank are set by evaluators; use 0 in the upload."
+        },
+        {
+          "type": "code",
+          "language": "json",
+          "code": "{\n  \"dataset_name\": \"Swahili-English News\",\n  \"dataset_domain\": \"news\",\n  \"batch_name\": \"Batch 001\",\n  \"source_language\": \"sw\",\n  \"target_language\": \"en\",\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"input\": \"Habari za leo zinasema joto litaendelea.\",\n      \"models\": [\n        { \"output\": \"Today's news says the heat will continue.\", \"model\": \"Model A\", \"rate\": 0, \"rank\": 0 },\n        { \"output\": \"The news today say heat will continue.\", \"model\": \"Model B\", \"rate\": 0, \"rank\": 0 }\n      ]\n    }\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "id": "asr-batch-example",
+      "title": "ASR batch example",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "input must be a URL or path to the audio. Use language instead of source_language and target_language."
+        },
+        {
+          "type": "code",
+          "language": "json",
+          "code": "{\n  \"dataset_name\": \"Amharic Read Speech\",\n  \"dataset_domain\": \"speech\",\n  \"batch_name\": \"ASR Batch 001\",\n  \"language\": \"am\",\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"input\": \"https://example.com/audio/sample1.wav\",\n      \"models\": [\n        { \"output\": \"Transcribed text from model A.\", \"model\": \"Model A\", \"rate\": 0, \"rank\": 0 },\n        { \"output\": \"Transcribed text from model B.\", \"model\": \"Model B\", \"rate\": 0, \"rank\": 0 }\n      ]\n    }\n  ]\n}"
+        }
+      ]
+    }
+  ]
+}

@@ -86,11 +86,23 @@ export async function PUT(
 
     const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
     const isCreator = existing.created_by?.toLowerCase() === auth.username.toLowerCase();
-    if (!isAdminOrRoot && !isCreator) {
+    const isAssignedAnnotator = existing.annotator_id?.toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator && !isAssignedAnnotator) {
       return NextResponse.json(
-        { message: "Forbidden. Only the batch creator or an admin can update this batch." },
+        { message: "Forbidden. Only the batch creator, assigned annotator, or an admin can update this batch." },
         { status: 403 }
       );
+    }
+
+    // Annotators may only update annotated_tasks
+    if (!isAdminOrRoot && !isCreator) {
+      const result = await db
+        .collection("batches_details")
+        .updateOne({ batch_id }, { $set: { annotated_tasks: updatedBatch.annotated_tasks } });
+      return NextResponse.json({
+        message: "Batch detail updated successfully",
+        modifiedCount: result.modifiedCount,
+      });
     }
 
     const result = await db

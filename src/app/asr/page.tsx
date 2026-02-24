@@ -22,7 +22,7 @@ import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
 import { TaskEvalErrorTypes } from "@/types/others";
 import Button from "@/components/utils/Button";
 import DomainsList from "@/components/DomainsList";
-import { Minus, Plus } from "lucide-react";
+import { Loader2, Minus, Plus } from "lucide-react";
 
 export default function ASR() {
   const { user } = useUser();
@@ -137,7 +137,12 @@ export default function ASR() {
         setBatchTasks([...this_batchTasks.tasks]);
         localStorage.setItem(
           "asr_active_batch",
-          JSON.stringify(this_batchTasks)
+          JSON.stringify({
+            ...this_batchTasks,
+            batch_id: batch.batch_id,
+            dataset_type: batch.dataset_type,
+            currentTaskIndex: 0,
+          })
         );
       } else {
         handleResetEvalTask(modelsToEval);
@@ -148,10 +153,24 @@ export default function ASR() {
 
   const handlePreviousEvaluation = () => {
     if (currentTaskIndex > 0) {
-      setError(null); // Clear any previous errors
-      setCurrentTaskIndex((prev) => prev - 1);
-      const previousTask = batchTasks[currentTaskIndex - 1];
-      setEvalTask(previousTask);
+      setError(null);
+      const prevIndex = currentTaskIndex - 1;
+      setCurrentTaskIndex(prevIndex);
+      setEvalTask(batchTasks[prevIndex]);
+      if (
+        !selectedBatchDetail.batch_name.toLowerCase().includes("realtime")
+      ) {
+        localStorage.setItem(
+          "asr_active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: batchTasks,
+            currentTaskIndex: prevIndex,
+          })
+        );
+      }
     } else {
       alert("You are already at the first task!");
     }
@@ -172,13 +191,14 @@ export default function ASR() {
   };
 
   const updateBatchDetail = async (batchDetail: BatchDetailTypes) => {
-    await fetch(`/api/batches-details/${selectedBatchDetail.batch_id}`, {
+    const res = await fetch(`/api/batches-details/${selectedBatchDetail.batch_id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(batchDetail), // full updated batch object including all fields
     });
+    if (!res.ok) throw new Error("Failed to update batch detail");
     setSelectedBatchDetail({ ...batchDetail });
     setBatchesDetails((prev: BatchDetailTypes[]) =>
       prev.map((batch) =>
@@ -189,7 +209,7 @@ export default function ASR() {
 
   const handleSaveTaskChanges = async () => {
     if (!evalTask) return null;
-    await fetch(
+    const res = await fetch(
       `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
       {
         method: "PATCH",
@@ -199,6 +219,7 @@ export default function ASR() {
         body: JSON.stringify(evalTask),
       }
     );
+    if (!res.ok) throw new Error("Failed to save task changes");
   };
 
   const handleSubmitEvaluation = async () => {
@@ -220,30 +241,40 @@ export default function ASR() {
       // STEP 4. Update the state with the updated task
       setBatchTasks(updatedTasks);
 
-      setCurrentTaskIndex((prev) => prev + 1);
-
       // STEP 5. Save the updated task into database if there is a change only
       if (isThereChangeInActiveTask()) {
-        handleSaveTaskChanges();
+        try {
+          await handleSaveTaskChanges();
 
-        // Count the number of Evaluated tasks
-        const evaluatedTasks = updatedTasks.filter(
-          (item) => item.models[0].rate > 0 && item.models[0].rank > 0
-        );
-        updateBatchDetail({
-          ...selectedBatchDetail,
-          annotated_tasks: evaluatedTasks.length,
-        });
-
-        localStorage.setItem(
-          "asr_active_batch",
-          JSON.stringify({ ...selectedBatchDetail, tasks: updatedTasks })
-        );
+          // Count the number of Evaluated tasks
+          const evaluatedTasks = updatedTasks.filter(
+            (item) => item.models.some((m) => m.rate > 0 && m.rank > 0)
+          );
+          await updateBatchDetail({
+            ...selectedBatchDetail,
+            annotated_tasks: evaluatedTasks.length,
+          });
+        } catch {
+          alert("Failed to save evaluation. Please try again.");
+          return;
+        }
       }
 
-      if (currentTaskIndex + 1 < batchTasks.length) {
-        const nextTask = batchTasks[currentTaskIndex + 1];
+      const nextIndex = currentTaskIndex + 1;
+      if (nextIndex < batchTasks.length) {
+        const nextTask = batchTasks[nextIndex];
         setEvalTask(nextTask);
+        setCurrentTaskIndex(nextIndex);
+        localStorage.setItem(
+          "asr_active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: nextIndex,
+          })
+        );
       } else {
         setCurrentTaskIndex(0);
         setEvalTask(null);
@@ -253,7 +284,6 @@ export default function ASR() {
         alert(
           `End of <${selectedBatchDetail.batch_name}> ASR evaluation tasks!`
         );
-
         return;
       }
     } else {
@@ -267,7 +297,7 @@ export default function ASR() {
   };
 
   useEffect(() => {
-    if (evalTask?.models.length ?? 1 <= 2) {
+    if ((evalTask?.models.length ?? 1) <= 2) {
       setOutputTextareaHeight(`md:min-h-25`);
     } else if (evalTask?.models.length === 3) {
       setOutputTextareaHeight(`md:min-h-19`);
@@ -278,6 +308,7 @@ export default function ASR() {
 
   useEffect(() => {
     const fetchASRBatchDetails = async () => {
+      setIsLoading(true);
       try {
         if (user?.username) {
           // STEP 1. GET all asr batches details that belongs to the loggedin user
@@ -290,38 +321,63 @@ export default function ASR() {
           if (data.length > 0) {
             setBatchesDetails((prev) => [...data, ...prev]);
 
-            // STEP 2. Check if there is already a batch task stored in localstorage
-            const active_batch =
-              localStorage.getItem("asr_active_batch") || null;
+            const active_batch = localStorage.getItem("asr_active_batch") || null;
             if (active_batch) {
-              const batch_json = JSON.parse(active_batch) as ASRBatchTasksTypes;
-              setEvalTask({ ...batch_json.tasks[0] });
-              setBatchTasks([...batch_json.tasks]);
-
-              const existingSelectedBatch = data.find(
-                (item) => item.batch_id === batch_json.batch_id
-              );
-
-              if (existingSelectedBatch)
-                setSelectedBatchDetail(existingSelectedBatch);
-
-              return;
+              try {
+                const batch_json = JSON.parse(active_batch) as ASRBatchTasksTypes & {
+                  currentTaskIndex?: number;
+                };
+                const storedBatchId = batch_json.batch_id;
+                const storedIndex = Math.max(0, batch_json.currentTaskIndex ?? 0);
+                const existingSelectedBatch = data.find(
+                  (item) => item.batch_id === storedBatchId
+                );
+                if (existingSelectedBatch) {
+                  const freshBatch = await FetchBatchTasks(existingSelectedBatch);
+                  const tasks = Array.isArray(freshBatch?.tasks)
+                    ? freshBatch.tasks
+                    : [];
+                  if (tasks.length > 0) {
+                    const idx = Math.min(storedIndex, tasks.length - 1);
+                    setSelectedBatchDetail(existingSelectedBatch);
+                    setBatchTasks([...tasks]);
+                    setCurrentTaskIndex(idx);
+                    setEvalTask({ ...tasks[idx] });
+                    localStorage.setItem(
+                      "asr_active_batch",
+                      JSON.stringify({
+                        ...freshBatch,
+                        batch_id: existingSelectedBatch.batch_id,
+                        dataset_type: existingSelectedBatch.dataset_type,
+                        tasks,
+                        currentTaskIndex: idx,
+                      })
+                    );
+                    return;
+                  }
+                }
+              } catch {
+                // Invalid stored data; fall through to load first batch
+              }
             }
-            console.log("HERE");
 
-            // STEP 3. Fetch all the data of the first batch in the detials as a default batch
-            const this_batchTasks = await FetchBatchTasks(data[0]);
-            setSelectedBatchDetail(data[0]);
-
-            if (this_batchTasks?.tasks.length > 0) {
+            const firstBatch = data[0];
+            setSelectedBatchDetail(firstBatch);
+            const this_batchTasks = await FetchBatchTasks(firstBatch);
+            if (this_batchTasks?.tasks?.length > 0) {
               setEvalTask({ ...this_batchTasks.tasks[0] });
               setBatchTasks([...this_batchTasks.tasks]);
               localStorage.setItem(
                 "asr_active_batch",
-                JSON.stringify(this_batchTasks)
+                JSON.stringify({
+                  ...this_batchTasks,
+                  batch_id: firstBatch.batch_id,
+                  dataset_type: firstBatch.dataset_type,
+                  currentTaskIndex: 0,
+                })
               );
             }
-            return; // This will prevent excution of next line of codes wich should excute on fail of one of these if statements
+            return;
           }
         }
 
@@ -331,6 +387,8 @@ export default function ASR() {
         handleResetEvalTask(2);
       } catch (err) {
         console.error("Error fetching batch details:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
     handleResetEvalTask(2); // initilaizing the output fields
@@ -400,20 +458,23 @@ export default function ASR() {
                   batchesDetails.map((item) => item.batch_name)
                 ),
               ]}
-              onChange={(e) => {
+              onChange={async (e) => {
                 setIsLoading(true);
                 setError(null);
                 const value = e.target.value;
                 const batchDetails = batchesDetails.find(
                   (item) => item.batch_id === value
                 );
-                if (batchDetails) {
-                  setSelectedBatchDetail(batchDetails);
-                  handleSelectedBatchUpdate(batchDetails);
-                } else {
-                  setSelectedBatchDetail(realtimeBatch);
+                try {
+                  if (batchDetails) {
+                    setSelectedBatchDetail(batchDetails);
+                    await handleSelectedBatchUpdate(batchDetails);
+                  } else {
+                    setSelectedBatchDetail(realtimeBatch);
+                  }
+                } finally {
+                  setIsLoading(false);
                 }
-                setIsLoading(false);
               }}
               labelClass="absolute left-3 border-r-2 pr-2"
               selectClass="pl-14"
@@ -432,6 +493,17 @@ export default function ASR() {
             isHorizontal ? "flex-row" : "flex-col"
           }`}
         >
+          {isLoading ? (
+            <div className="w-full min-h-[280px] flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/30">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-8 animate-spin text-blue-500" />
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                  Loading…
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
           <AudioCard
             index={1}
             key={evalTask?.input}
@@ -442,7 +514,7 @@ export default function ASR() {
           />
           <div
             className={`${
-              isHorizontal ? "md:max-w-[60%]" : "w-full"
+              isHorizontal ? "md:max-w-[60%] w-full" : "w-full"
             } space-y-3`}
           >
             {evalTask?.models.map((task, index) => {
@@ -559,6 +631,8 @@ export default function ASR() {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
     </Container>

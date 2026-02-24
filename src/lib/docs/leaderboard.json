@@ -1,0 +1,45 @@
+{
+  "title": "Leaderboard",
+  "description": "The leaderboard is the public view of system performance from completed evaluations. It helps you see which models perform best on which datasets and domains.",
+  "subsections": [
+    {
+      "id": "what-is-leaderboard",
+      "title": "What is the leaderboard",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "A public page showing ranked results from human evaluations (and, when available, automatic metrics).",
+            "Columns: overall rank (competition ranking), model name, average rate (μ), rate standard deviation (σ), dataset name, number of evaluations (votes), and metadata (e.g. organization, license).",
+            "You can pin models to keep them visible for comparison when scrolling."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "how-calculated-ranked",
+      "title": "How leaderboard scores are calculated and ranked",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Model names may be anonymized in tasks (e.g. Model A, Model B); a mapping (task_models_shuffles) stores the real names for scoring.",
+            "For each model: aggregate rate and rank across all evaluated tasks; compute average rank (lower is better) and average rate (higher is better).",
+            "Sort: first by preference for better ranks (e.g. more 1st-place ranks), then by average rate to break ties.",
+            "Overall rank uses competition ranking: ties get the same rank; the next rank skips (e.g. 1, 2, 2, 4)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "automatic-metrics",
+      "title": "Automatic metrics tab",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "When available, a second tab shows automatic metrics (e.g. BLEU, chrF) per model and dataset. This allows comparison of human scores with reference-based metrics."
+        }
+      ]
+    }
+  ]
+}

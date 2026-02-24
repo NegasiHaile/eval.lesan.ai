@@ -1,0 +1,41 @@
+{
+  "title": "Introduction",
+  "description": "HornEval is a platform for human evaluation of machine translation (MT) and automatic speech recognition (ASR) systems, with a focus on African languages and low-resource settings.",
+  "subsections": [
+    {
+      "id": "about-horneval",
+      "title": "About HornEval",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "HornEval helps researchers and practitioners run human evaluations, manage evaluation datasets, and compare systems on a public leaderboard."
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Evaluation tool: evaluators rate and rank model outputs so you can compare systems objectively.",
+            "Crowdsourcing for evaluation: tasks can be completed by many evaluators; results aggregate into dataset benchmarks.",
+            "Leaderboarding tool: completed evaluations feed a public leaderboard so you can see which models perform best on which datasets and domains."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "evaluation-types",
+      "title": "Evaluation types",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The platform supports two evaluation modes:"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "MT (Machine Translation): each task has a source segment and one or more translation hypotheses. Evaluators assign a numeric rating and a preference rank.",
+            "ASR (Automatic Speech Recognition): each task has an audio input and one or more transcription hypotheses. Evaluators rate and rank transcriptions. ASR evaluations are batch-based."
+          ]
+        }
+      ]
+    }
+  ]
+}

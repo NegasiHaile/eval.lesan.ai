@@ -1,0 +1,95 @@
+{
+  "title": "Evaluation",
+  "description": "Evaluation is the process of having humans rate and rank model outputs so you can compare systems and choose the one that best fits your purpose. HornEval supports realtime and batch evaluation.",
+  "subsections": [
+    {
+      "id": "what-and-how",
+      "title": "What is evaluation and how it works",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Evaluators see the input (source text or audio) and one or more model outputs.",
+            "They assign a numeric rating (e.g. 1–5) and a preference rank (1 = best) to each output.",
+            "They can optionally set a content domain and add a reference when all outputs are poor.",
+            "After submission, results aggregate; for batches, progress is saved and completed batches feed the leaderboard."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "realtime-and-batch",
+      "title": "Types of evaluation: realtime and batch",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Realtime: on the home page, you paste or type a source sentence (MT), get hypotheses from multiple models, then rate, rank, and submit. Good for quick comparisons.",
+            "Batch: pre-defined tasks are loaded from the Data dropdown. You work through tasks one by one. Batch evaluation is for experts and teams who want to benchmark models on a specific dataset or domain—so they can see which tool fits their purpose (e.g. medical, news) based on many evaluated items."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rating-scale",
+      "title": "Rating scale (1–5)",
+      "blocks": [
+        { "type": "p", "text": "Use the batch rating guideline if set; otherwise the default scale:" },
+        {
+          "type": "ol",
+          "items": [
+            "1 – Critical: completely wrong or unusable.",
+            "2 – Major: serious errors (additions, omissions, major misinterpretation).",
+            "3 – Minor: understandable but with minor errors.",
+            "4 – Neutral: correct content with minor style issues.",
+            "5 – Kudos: accurate and fluent."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ranking-rules",
+      "title": "Ranking rules",
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "Assign rank 1 to the best output, 2 to the second-best, and so on.",
+            "Every output must have a distinct rank.",
+            "If output A has a higher rating than output B, then A must have a better (lower) rank than B.",
+            "If validation fails, the UI highlights the offending outputs and blocks submission until corrected."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mt-steps",
+      "title": "MT evaluation (step-by-step)",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "Realtime: Select source and target language, paste or type a source sentence, click Translate, then rate each output (1–5), order by rank (1 = best), optionally set domain and reference, and Submit.",
+            "Batch: Select the batch from the Data dropdown. For each task: rate each output, reorder by rank, optionally set domain and reference, Submit, then use Previous/Next. Progress is saved; completed batches contribute to the leaderboard."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asr-steps",
+      "title": "ASR evaluation (step-by-step)",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "Open the ASR section and select a batch from the Data dropdown.",
+            "For each task: use the audio player or link to listen to the source audio.",
+            "Read and compare the transcription hypotheses; rate each (1–5) and rank from best to worst.",
+            "Optionally set domain and add a reference transcription if all outputs are poor.",
+            "Click Submit and move to the next task. Progress is saved; completed batches feed into the leaderboard."
+          ]
+        }
+      ]
+    }
+  ]
+}
