@@ -95,6 +95,17 @@ export async function PUT(
       );
     }
 
+    // Annotators may only update annotated_tasks
+    if (!isAdminOrRoot && !isCreator) {
+      const result = await db
+        .collection("batches_details")
+        .updateOne({ batch_id }, { $set: { annotated_tasks: updatedBatch.annotated_tasks } });
+      return NextResponse.json({
+        message: "Batch detail updated successfully",
+        modifiedCount: result.modifiedCount,
+      });
+    }
+
     const result = await db
       .collection("batches_details")
       .updateOne({ batch_id }, { $set: updatedBatch });

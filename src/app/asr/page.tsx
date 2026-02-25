@@ -191,13 +191,14 @@ export default function ASR() {
   };
 
   const updateBatchDetail = async (batchDetail: BatchDetailTypes) => {
-    await fetch(`/api/batches-details/${selectedBatchDetail.batch_id}`, {
+    const res = await fetch(`/api/batches-details/${selectedBatchDetail.batch_id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(batchDetail), // full updated batch object including all fields
     });
+    if (!res.ok) throw new Error("Failed to update batch detail");
     setSelectedBatchDetail({ ...batchDetail });
     setBatchesDetails((prev: BatchDetailTypes[]) =>
       prev.map((batch) =>
@@ -208,7 +209,7 @@ export default function ASR() {
 
   const handleSaveTaskChanges = async () => {
     if (!evalTask) return null;
-    await fetch(
+    const res = await fetch(
       `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
       {
         method: "PATCH",
@@ -218,6 +219,7 @@ export default function ASR() {
         body: JSON.stringify(evalTask),
       }
     );
+    if (!res.ok) throw new Error("Failed to save task changes");
   };
 
   const handleSubmitEvaluation = async () => {
@@ -239,20 +241,23 @@ export default function ASR() {
       // STEP 4. Update the state with the updated task
       setBatchTasks(updatedTasks);
 
-      setCurrentTaskIndex((prev) => prev + 1);
-
       // STEP 5. Save the updated task into database if there is a change only
       if (isThereChangeInActiveTask()) {
-        handleSaveTaskChanges();
+        try {
+          await handleSaveTaskChanges();
 
-        // Count the number of Evaluated tasks
-        const evaluatedTasks = updatedTasks.filter(
-          (item) => item.models[0].rate > 0 && item.models[0].rank > 0
-        );
-        updateBatchDetail({
-          ...selectedBatchDetail,
-          annotated_tasks: evaluatedTasks.length,
-        });
+          // Count the number of Evaluated tasks
+          const evaluatedTasks = updatedTasks.filter(
+            (item) => item.models.some((m) => m.rate > 0 && m.rank > 0)
+          );
+          await updateBatchDetail({
+            ...selectedBatchDetail,
+            annotated_tasks: evaluatedTasks.length,
+          });
+        } catch {
+          alert("Failed to save evaluation. Please try again.");
+          return;
+        }
       }
 
       const nextIndex = currentTaskIndex + 1;
@@ -286,6 +291,7 @@ export default function ASR() {
             currentTaskIndex: 0,
           })
         );
+        return;
       }
     } else {
       if (evalTask?.input) {
@@ -298,7 +304,7 @@ export default function ASR() {
   };
 
   useEffect(() => {
-    if (evalTask?.models.length ?? 1 <= 2) {
+    if ((evalTask?.models.length ?? 1) <= 2) {
       setOutputTextareaHeight(`md:min-h-25`);
     } else if (evalTask?.models.length === 3) {
       setOutputTextareaHeight(`md:min-h-19`);
