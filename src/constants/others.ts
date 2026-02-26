@@ -216,3 +216,37 @@ export const tausRating: guidelineTypes[] = [
     example: [],
   },
 ];
+
+/** Default rating guideline for ASR (transcription); used in star tooltip when no batch guideline. */
+export const tausRatingTranscription: guidelineTypes[] = [
+  {
+    scale: 1,
+    value: "Critical",
+    description:
+      "This is for a completely wrong output. The transcription does not make sense given the audio.",
+    example: [],
+  },
+  {
+    scale: 2,
+    value: "Major",
+    description: `There is a serious problem in the transcription. For example, there is addition of content not in the audio, some parts are missing or misinterpreted. It would be hard to match the transcription with the audio without major modifications.`,
+    example: [],
+  },
+  {
+    scale: 3,
+    value: "Minor",
+    description: `The transcription has minor problems given the audio but requires some minor changes, e.g. changing a word or two to make it fully match the audio.`,
+    example: [],
+  },
+  {
+    scale: 4,
+    value: "Neutral",
+    description: `The transcription matches the audio; however, there may be some problems with style such as punctuation, word order.`,
+  },
+  {
+    scale: 5,
+    value: "Kudos",
+    description: `Great job! The transcription correctly matches the audio. It's both accurate and fluent.`,
+    example: [],
+  },
+];
