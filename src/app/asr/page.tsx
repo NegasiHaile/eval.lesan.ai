@@ -400,7 +400,7 @@ export default function ASR() {
     };
     handleResetEvalTask(2); // initilaizing the output fields
     fetchASRBatchDetails();
-  }, [user]);
+  }, [user?.username]);
 
   return (
     <Container>
