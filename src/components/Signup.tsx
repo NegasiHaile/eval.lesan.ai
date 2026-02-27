@@ -23,11 +23,21 @@ type ModalProps = {
   setIsOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-export default function Signup({ isOpen, setIsOpen }: ModalProps) {
-  const [loading, setLoading] = useState<string | null>(null);
+type Mode = "signin" | "signup" | "forgot";
 
-  const handleSignIn = async (provider: SocialProvider) => {
+export default function Signup({ isOpen, setIsOpen }: ModalProps) {
+  const [mode, setMode] = useState<Mode>("signin");
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+
+  const handleSignInSocial = async (provider: SocialProvider) => {
     setLoading(provider);
+    setError(null);
     try {
       await authClient.signIn.social({
         provider,
@@ -35,44 +45,271 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
       });
     } catch (err) {
       console.error(`${provider} sign-in error:`, err);
+      setError("Sign-in failed. Please try again.");
       setLoading(null);
     }
   };
 
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setForgotSuccess(false);
+    if (mode === "forgot") {
+      setLoading("email");
+      const redirectTo =
+        typeof window !== "undefined" ? `${window.location.origin}/reset-password` : "/reset-password";
+      const { error: err } = await authClient.requestPasswordReset({
+        email: email.trim(),
+        redirectTo,
+      });
+      setLoading(null);
+      if (err) {
+        setError(err.message ?? "Could not send reset link.");
+        return;
+      }
+      setForgotSuccess(true);
+      return;
+    }
+    if (mode === "signin") {
+      setLoading("email");
+      const { error: err } = await authClient.signIn.email(
+        {
+          email: email.trim(),
+          password,
+          callbackURL: "/",
+        },
+        {
+          onError: (ctx) => {
+            if (ctx.error.status === 403) {
+              setError("Please verify your email first. Check your inbox for the verification link.");
+            } else {
+              setError(ctx.error.message ?? "Sign in failed.");
+            }
+          },
+        }
+      );
+      setLoading(null);
+      if (err) {
+        setError(
+          err.status === 403
+            ? "Please verify your email first. Check your inbox for the verification link."
+            : (err.message ?? "Sign in failed.")
+        );
+        return;
+      }
+      setIsOpen(false);
+    } else {
+      setLoading("email");
+      const { error: err } = await authClient.signUp.email({
+        name: name.trim() || email.split("@")[0],
+        email: email.trim(),
+        password,
+        callbackURL: "/",
+      });
+      setLoading(null);
+      if (err) {
+        setError(err.message ?? "Sign up failed.");
+        return;
+      }
+      setIsOpen(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+    setLoading(null);
+    setError(null);
+    setForgotSuccess(false);
+    setEmail("");
+    setPassword("");
+    setName("");
+  };
+
+  const backFromForgot = () => {
+    setMode("signin");
+    setError(null);
+    setForgotSuccess(false);
+  };
+
   return (
-    <Modal isOpen={isOpen} setIsOpen={()=> {setIsOpen(false); setLoading(null);}}>
-      <div className="p-6 rounded w-full md:min-w-lg text-center">
-        <h2 className="text-2xl font-semibold mb-2 text-neutral-900 dark:text-white">
-          Sign in
-        </h2>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
-          Use one of the following to continue.
-        </p>
-        <div className="flex flex-col gap-2">
-          {PROVIDERS.map(({ id, label, iconSrc }) => (
+    <Modal isOpen={isOpen} setIsOpen={closeModal}>
+      <div className="p-8 rounded-lg w-full md:min-w-[400px] max-w-[440px] text-center">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">
+          {mode === "forgot" ? "Reset password" : mode === "signin" ? "Sign in" : "Create account"}
+        </h1>
+
+        {forgotSuccess ? (
+          <div className="text-left space-y-4">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              If an account exists for <strong className="text-neutral-900 dark:text-white">{email}</strong>, you will receive an email with a link to reset your password. Check your inbox and spam folder.
+            </p>
             <button
-              key={id}
               type="button"
-              disabled={!!loading}
-              onClick={() => handleSignIn(id)}
-              className={`w-full flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-medium border border-neutral-300 dark:border-neutral-600 bg-neutral-200/80 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition ${loading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
+              onClick={backFromForgot}
+              className="text-sm font-medium text-primary hover:underline"
             >
-              {loading === id ? (
-                <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />
-              ) : (
-                <Image
-                  src={iconSrc}
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="shrink-0"
-                  aria-hidden
-                />
-              )}
-              <span>Sign in with {label}</span>
+              Back to sign in
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <>
+            <form onSubmit={handleEmailSubmit} className="text-left space-y-4">
+              {mode === "forgot" && (
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Enter your email and we&apos;ll send you a link to reset your password.
+                </p>
+              )}
+              {mode === "signup" && (
+                <div className="space-y-1.5">
+                  <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2.5 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow"
+                    placeholder="Your name"
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2.5 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow"
+                  placeholder="you@example.com"
+                />
+              </div>
+              {mode !== "forgot" && (
+                <div className="space-y-1.5">
+                  <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2.5 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow"
+                    placeholder={mode === "signin" ? "Your password" : "At least 8 characters"}
+                  />
+                </div>
+              )}
+              {error && (
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                  {error}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={!!loading}
+                className="w-full flex items-center justify-center gap-2 rounded-lg py-3 px-4 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading === "email" ? (
+                  <Loader2 className="size-5 animate-spin" aria-hidden />
+                ) : (
+                  <span>{mode === "forgot" ? "Send reset link" : mode === "signin" ? "Sign in" : "Create account"}</span>
+                )}
+              </button>
+              {mode === "signin" && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setMode("forgot"); setError(null); }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+              {mode === "forgot" && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={backFromForgot}
+                    className="text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:underline"
+                  >
+                    Back to sign in
+                  </button>
+                </div>
+              )}
+            </form>
+
+            {mode !== "forgot" && (
+              <>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-neutral-200 dark:border-neutral-700" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-white dark:bg-neutral-900 px-2 text-neutral-500 dark:text-neutral-400">Or continue with</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {PROVIDERS.map(({ id, label, iconSrc }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={!!loading}
+                      onClick={() => handleSignInSocial(id)}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-lg py-2.5 px-4 text-sm font-medium border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {loading === id ? (
+                        <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />
+                      ) : (
+                        <Image src={iconSrc} alt="" width={20} height={20} className="shrink-0" aria-hidden />
+                      )}
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(mode === "signin" || mode === "signup") && (
+              <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-700">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {mode === "signin" ? (
+                    <>
+                      Don&apos;t have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => { setMode("signup"); setError(null); }}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Sign up here
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => { setMode("signin"); setError(null); }}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Sign in here
+                      </button>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </Modal>
   );

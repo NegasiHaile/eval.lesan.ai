@@ -1,6 +1,6 @@
 # 🧠 Machine Translation Systems Human Evaluation
 
-Full-stack **Next.js** app for **human evaluation and leaderboard** of machine translation (MT) and automatic speech recognition (ASR) systems. Upload datasets, manage tasks, and rate/rank model outputs. Authentication is via [Better Auth](https://www.better-auth.com/) with **Google**, **GitHub**, and **Hugging Face** sign-in.
+Full-stack **Next.js** app for **human evaluation and leaderboard** of machine translation (MT) and automatic speech recognition (ASR) systems. Upload datasets, manage tasks, and rate/rank model outputs. Authentication is via [Better Auth](https://www.better-auth.com/) with **email/password** (including email verification and forgot-password reset) and **Google**, **GitHub**, and **Hugging Face** sign-in.
 
 ---
 
@@ -8,7 +8,7 @@ Full-stack **Next.js** app for **human evaluation and leaderboard** of machine t
 
 - **Next.js** (App Router), **TypeScript**, **Tailwind CSS**
 - **MongoDB** — app data and Better Auth (users, sessions, accounts)
-- **Better Auth** — Google, GitHub, Hugging Face OAuth; no email/password
+- **Better Auth** — email/password and Google, GitHub, Hugging Face OAuth
 - **Vercel** — recommended for deployment
 
 ---
@@ -61,6 +61,13 @@ Create `.env` or `.env.local` (see `.env.example`). Next.js loads both; `.env.lo
 | `GEMINI_API_KEY` | Yes | Gemini API key (if used). |
 | `APP_VERSION` | No | App version. |
 | `APP_DESCRIPTION` | No | Short description. |
+| `SMTP_HOST` | For email/password | SMTP server host (e.g. `smtp.example.com`) for verification and password-reset emails. |
+| `SMTP_PORT` | For email/password | SMTP port (e.g. `587`). |
+| `SMTP_USER` | For email/password | SMTP username. |
+| `SMTP_PASS` | For email/password | SMTP password. |
+| `EMAIL_FROM` | No | From address for emails (defaults to `SMTP_USER`). |
+
+**Email/password sign-in:** Sign-up and sign-in with email and password are always enabled. Email verification is required before first sign-in; verification and password-reset emails are sent via **Nodemailer** when `SMTP_*` and `EMAIL_FROM` are set. If SMTP is not configured, verification and forgot-password emails are skipped (auth still works; users must verify or reset via another channel or you can configure SMTP later). Forgot-password uses the “Forgot password?” link on sign-in; reset link is valid for 1 hour.
 
 Better Auth uses the same MongoDB as the app. The DB name is `development` when `NODE_ENV=development` and `production` when `NODE_ENV=production`. It creates collections: `user`, `session`, `account`. No migrations needed.
 
@@ -79,6 +86,7 @@ You can enable one, two, or all three; at least one is required for sign-in.
 - [ ] `BETTER_AUTH_SECRET` set (32+ chars), never committed.
 - [ ] `BETTER_AUTH_URL` and `NEXT_PUBLIC_BASE_URL` set to your production URL (https, no trailing slash).
 - [ ] Each enabled OAuth provider has production origin and redirect URI (e.g. `https://<your-domain>/api/auth/callback/google`, `.../callback/github`, `.../callback/huggingface`). Set the matching `*_CLIENT_ID` and `*_CLIENT_SECRET` in production.
+- [ ] If using email/password: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `EMAIL_FROM` so verification and password-reset emails are sent.
 - [ ] `MONGODB_URI` points to production MongoDB; app runs with `NODE_ENV=production` so the `production` DB is used.
 - [ ] No `.env` / `.env.local` with secrets committed; use the host’s env UI for production.
 

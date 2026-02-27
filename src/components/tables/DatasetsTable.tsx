@@ -86,6 +86,8 @@ export default function DatasetsTable({
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
   const [editFile, setEditFile] = useState<number | null>(null);
+  const [editCreatorIndex, setEditCreatorIndex] = useState<number | null>(null);
+  const [editedCreatedBy, setEditedCreatedBy] = useState<string>("");
   const [activeBatch, setActiveBatch] = useState<
     ASRBatchTasksTypes | BatchTasksTypes | null
   >(null);
@@ -305,6 +307,52 @@ export default function DatasetsTable({
     return batch_detail.created_by === user?.username;
   };
 
+  const isRoot = user?.role?.toLowerCase() === "root";
+
+  const handleAssignCreator = async (batch_detail: BatchDetailTypes) => {
+    const creator_email = `${editedCreatedBy}`.trim() ?? null;
+
+    if ((batch_detail.created_by ?? "").trim().toLowerCase() === (creator_email ?? "").toLowerCase()) {
+      setEditCreatorIndex(null);
+      setEditedCreatedBy("");
+      return;
+    }
+
+    if (!user?.email && !user?.username) {
+      alert("Unauthorized user or your session has expired. Please sign in again.");
+      setEditCreatorIndex(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const batchID = batch_detail?.batch_id;
+      const res = await fetch(`/api/batches-details/${batchID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ created_by: creator_email }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message ?? "Failed to update batch creator.");
+      }
+
+      const updatedDetails = batches_details.map((detail) =>
+        detail.batch_id === batchID
+          ? { ...detail, created_by: creator_email ?? "" }
+          : detail
+      ) as BatchDetailTypes[];
+      setBatchDetails(updatedDetails);
+      setEditCreatorIndex(null);
+      setEditedCreatedBy("");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to update creator.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -472,13 +520,54 @@ export default function DatasetsTable({
                       })}
                     </td>
                     <td className="px-3 py-2">{batch_detail.created_at}</td>
-                    <td
-                      className="px-3 py-2 text-sm font-mono"
-                      title={batch_detail.created_by}
-                    >
-                      {(batch_detail.created_by ?? "").length > 15
-                        ? `${batch_detail.created_by.slice(0, 15)}...`
-                        : batch_detail.created_by ?? ""}
+                    <td className="px-3 py-2 text-sm font-mono" title={batch_detail.created_by}>
+                      {editCreatorIndex !== index ? (
+                        <>
+                          {(batch_detail.created_by ?? "").length > 15
+                            ? `${(batch_detail.created_by ?? "").slice(0, 15)}...`
+                            : batch_detail.created_by ?? ""}
+                          {isRoot && (
+                            <span
+                              className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                              onClick={() => {
+                                setEditCreatorIndex(index);
+                                setEditedCreatedBy(batch_detail.created_by ?? "");
+                              }}
+                              title="Edit creator"
+                            >
+                              ✏️
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-1">
+                          <input
+                            name={`creator_${index}`}
+                            value={editedCreatedBy}
+                            onChange={(e) => setEditedCreatedBy(e.target.value)}
+                            type="text"
+                            placeholder="Creator email"
+                            className="border rounded p-[2px] focus:outline-none w-full max-w-[180px]"
+                          />
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => handleAssignCreator(batch_detail)}
+                            title="Save"
+                          >
+                            ✔
+                          </span>
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => {
+                              setEditCreatorIndex(null);
+                              setEditedCreatedBy("");
+                            }}
+                            title="Cancel"
+                          >
+                            ✖
+                          </span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 space-x-0.5 text-sm font-mono flex justify-between items-center">
                       {editFile !== index && (
@@ -506,7 +595,7 @@ export default function DatasetsTable({
                         />
                       )}
 
-                      {/* UPdating annotator-id is allowed only to the creator of the batch */}
+                      {/* Updating annotator is allowed only for the creator of the batch */}
                       {IsAuthorized(batch_detail) && (
                         <div className="px-0.5">
                           {(editFile === null || editFile !== index) && (
@@ -635,7 +724,9 @@ export default function DatasetsTable({
                           onClick={() => {
                             handleDelete(batch_detail);
                             setEditFile(null);
+                            setEditCreatorIndex(null);
                             setEditedAnnotatorId("");
+                            setEditedCreatedBy("");
                           }}
                           className="text-red-600 dark:text-red-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                           title="Delete"
