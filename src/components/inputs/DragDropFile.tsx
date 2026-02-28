@@ -57,14 +57,7 @@ export default function DragDropFile({
         try {
           if (ext === "json") {
             const parsed = JSON.parse(content as string);
-
-            // Ensure unique task IDs
-            if (Array.isArray(parsed.tasks)) {
-              parsed.tasks = parsed.tasks.map((task: Record<string, unknown>, index: number) => ({
-                ...task,
-                id: (index + 1).toString(),
-              }));
-            }
+            // Do not modify tasks or task ids – use file as-is
             resolve(parsed);
           } else if (ext === "csv" || ext === "tsv") {
             const delimiter = ext === "tsv" ? "\t" : ",";

@@ -97,7 +97,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE: Delete batch detail and tasks batch by batch_id
+// DELETE: Delete batch detail and tasks batch by batch_id.
+// Only the batch creator or a root user can delete.
 export async function DELETE(req: NextRequest) {
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
@@ -105,6 +106,22 @@ export async function DELETE(req: NextRequest) {
     const { batch_id, dataset_type } = await req.json();
     const client = await getClientPromise();
     const db = client.db();
+
+    const batchDetail = await db
+      .collection<BatchDetailTypes>("batches_details")
+      .findOne({ batch_id });
+
+    if (batchDetail) {
+      const isRoot = auth.role?.toLowerCase() === "root";
+      const isCreator =
+        (batchDetail.created_by ?? "").toLowerCase() === (auth.username ?? "").toLowerCase();
+      if (!isRoot && !isCreator) {
+        return NextResponse.json(
+          { message: "Forbidden. Only the batch creator or a root user can delete this batch." },
+          { status: 403 }
+        );
+      }
+    }
 
     await db
       .collection<BatchDetailTypes>("batches_details")

@@ -719,7 +719,7 @@ export default function DatasetsTable({
                         </div>
                       )}
 
-                      {IsAuthorized(batch_detail) && (
+                      {(IsAuthorized(batch_detail) || isRoot) && (
                         <button
                           onClick={() => {
                             handleDelete(batch_detail);
