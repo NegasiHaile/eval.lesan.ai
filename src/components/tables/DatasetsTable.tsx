@@ -6,10 +6,11 @@ import {
   BatchTasksTypes,
 } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
-import { useState, useEffect, Dispatch } from "react";
+import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
 import { Download, Expand, X } from "lucide-react";
+import Button from "../utils/Button";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -65,6 +66,11 @@ function batchToCSV(
   return rows.map((row) => row.map(escapeCSV).join(",")).join("\r\n");
 }
 
+export type BulkDeleteToolbarProps = {
+  selectedCount: number;
+  onOpenConfirm: () => void;
+};
+
 type DatasetsTableProps = {
   batches_details: BatchDetailTypes[];
   setBatchDetails: Dispatch<React.SetStateAction<BatchDetailTypes[]>>;
@@ -73,6 +79,8 @@ type DatasetsTableProps = {
   evalDataType: EvalTypeTypes;
   /** Increment to trigger a refetch (e.g. from Refresh button). */
   refreshKey?: number;
+  /** Called when selection changes so parent can show Delete selected button (e.g. next to Refresh/Upload). */
+  onBulkDeleteToolbarChange?: (props: BulkDeleteToolbarProps | null) => void;
 };
 
 export default function DatasetsTable({
@@ -82,6 +90,7 @@ export default function DatasetsTable({
   setLoading,
   evalDataType,
   refreshKey = 0,
+  onBulkDeleteToolbarChange,
 }: DatasetsTableProps) {
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
@@ -107,6 +116,8 @@ export default function DatasetsTable({
     null
   );
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
@@ -134,6 +145,22 @@ export default function DatasetsTable({
       cancelled = true;
     };
   }, [user?.username, evalDataType.value, refreshKey, setBatchDetails, setLoading]);
+
+  useEffect(() => {
+    setSelectedBatchIds(new Set());
+  }, [evalDataType.value]);
+
+  useEffect(() => {
+    if (!onBulkDeleteToolbarChange) return;
+    if (selectedBatchIds.size > 1) {
+      onBulkDeleteToolbarChange({
+        selectedCount: selectedBatchIds.size,
+        onOpenConfirm: () => setShowBulkDeleteConfirm(true),
+      });
+    } else {
+      onBulkDeleteToolbarChange(null);
+    }
+  }, [selectedBatchIds, onBulkDeleteToolbarChange]);
 
   const handleDownload = async (
     batch_detail: BatchDetailTypes,
@@ -206,52 +233,41 @@ export default function DatasetsTable({
     }
   };
 
+  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
+  const doDeleteBatch = useCallback(
+    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
+      const batch_id = batch_detail.batch_id;
+      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...batch_detail }),
+      });
+      if (!res.ok) return false;
+      if (batch_detail.dataset_type === "mt") {
+        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
+        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
+      } else if (batch_detail.dataset_type === "asr") {
+        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
+        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
+      }
+      return true;
+    },
+    []
+  );
+
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
-    const batch_id = batch_detail.batch_id;
     const confirmed = window.confirm(
       "Are you sure you want to delete this batch? This action cannot be undone."
     );
     if (!confirmed) return;
     setLoading(true);
-    const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...batch_detail,
-      }),
-    });
-
-    if (!res.ok) {
-      alert("Deleting batch faild!");
-      setLoading(false);
+    const ok = await doDeleteBatch(batch_detail);
+    setLoading(false);
+    if (!ok) {
+      alert("Deleting batch failed!");
       return;
     }
-
-    // Remove the item from the state
-    const tasks_CPY = [...batches_details];
-    const detials = tasks_CPY.filter((t) => t.batch_id !== batch_id);
-
-    // Remove the Item if it is in the local storage as an active batch
-    if (batch_detail.dataset_type === "mt") {
-      const actv_batch = JSON.parse(
-        localStorage.getItem("active_batch") || "{}"
-      );
-      if (actv_batch?.batch_id === batch_id) {
-        localStorage.removeItem("active_batch");
-      }
-    } else if (batch_detail.dataset_type === "asr") {
-      const asr_actv_batch = JSON.parse(
-        localStorage.getItem("asr_active_batch") || "{}"
-      );
-      if (asr_actv_batch?.batch_id === batch_id) {
-        localStorage.removeItem("asr_active_batch");
-      }
-    }
-
-    setBatchDetails([...detials]);
-    setLoading(false);
+    setBatchDetails((prev) => prev.filter((t) => t.batch_id !== batch_detail.batch_id));
   };
 
   const handleAssignAnnotator = async (batch_detail: BatchDetailTypes) => {
@@ -425,12 +441,97 @@ export default function DatasetsTable({
     { key: "", type: "spacer" }, // Actions
   ];
 
+  const canDelete = useCallback(
+    (batch_detail: BatchDetailTypes) =>
+      batch_detail.created_by === user?.username || user?.role?.toLowerCase() === "root",
+    [user?.username, user?.role]
+  );
+
+  const deletableBatches = useMemo(
+    () => filteredBatches.filter((b) => canDelete(b)),
+    [filteredBatches, canDelete]
+  );
+
+  const toggleSelection = (batchId: string) => {
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const deletableIds = deletableBatches.map((b) => b.batch_id);
+    const allSelected =
+      deletableIds.length > 0 && deletableIds.every((id) => selectedBatchIds.has(id));
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) deletableIds.forEach((id) => next.delete(id));
+      else deletableIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    const toDelete = batches_details.filter(
+      (b) => selectedBatchIds.has(b.batch_id) && canDelete(b)
+    );
+    if (toDelete.length === 0) {
+      setShowBulkDeleteConfirm(false);
+      return;
+    }
+    setLoading(true);
+    const succeeded = new Set<string>();
+    for (const d of toDelete) {
+      const ok = await doDeleteBatch(d);
+      if (ok) succeeded.add(d.batch_id);
+    }
+    setBatchDetails((prev) => prev.filter((b) => !succeeded.has(b.batch_id)));
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      succeeded.forEach((id) => next.delete(id));
+      return next;
+    });
+    setShowBulkDeleteConfirm(false);
+    setLoading(false);
+    alert(
+      succeeded.size === toDelete.length
+        ? `${succeeded.size} batch(es) deleted.`
+        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`
+    );
+  };
+
+  const selectedDeletableDetails = useMemo(
+    () =>
+      batches_details.filter(
+        (b) => selectedBatchIds.has(b.batch_id) && canDelete(b)
+      ),
+    [batches_details, selectedBatchIds, canDelete]
+  );
+
   return (
     <div className="relative min-h-[55lvh]">
       <div className="overflow-x-auto border-1 rounded-md border-neutral-300 dark:border-neutral-800 bg-neutral-200/30 dark:bg-neutral-800/30">
         <table className="min-w-full px-2 py-4 text-left border-spacing-y-2">
           <thead className="border-b-1 rounded-3xl font-mono border-neutral-300 dark:border-neutral-800 py-5">
             <tr>
+              <th className="px-2 py-4 text-left w-10">
+                {deletableBatches.length > 0 ? (
+                  <input
+                    type="checkbox"
+                    checked={
+                      deletableBatches.length > 0 &&
+                      deletableBatches.every((b) =>
+                        selectedBatchIds.has(b.batch_id)
+                      )
+                    }
+                    onChange={toggleSelectAll}
+                    title="Select all (deletable batches)"
+                    className="rounded border-neutral-300 dark:border-neutral-600"
+                  />
+                ) : null}
+              </th>
               <th className="px-4 py-4 text-left">#</th>
               <th className="px-4 py-4 text-left">Dataset</th>
               <th className="px-4 py-4 text-left">Domain</th>
@@ -443,6 +544,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Actions</th>
             </tr>
             <tr className="bg-neutral-100 dark:bg-neutral-900 text-xs">
+              <th />
               <th> {/* Serial column */} </th>
               {filterFields.map((field, idx) => {
                 if (field.type === "spacer") return <th key={idx} />;
@@ -507,6 +609,17 @@ export default function DatasetsTable({
                     key={`${batch_detail.batch_id}, ${index}`}
                     className="border-t border-neutral-200 dark:border-neutral-700"
                   >
+                    <td className="px-2 py-2 w-10 align-middle">
+                      {canDelete(batch_detail) ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedBatchIds.has(batch_detail.batch_id)}
+                          onChange={() => toggleSelection(batch_detail.batch_id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-neutral-300 dark:border-neutral-600"
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
                     <td className="px-3 py-2">{batch_detail.dataset_domain}</td>
@@ -749,7 +862,7 @@ export default function DatasetsTable({
             ) : (
               <tr key={"no-data"}>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="text-center py-6 text-neutral-600 dark:text-neutral-300"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
@@ -790,7 +903,7 @@ export default function DatasetsTable({
                 key={"laoding-popup"}
                 className="absolute w-full h-full flex py-6 items-center justify-center top-0 bottom-0 left-0 bg-neutral-200/80 dark:bg-neutral-900/70"
               >
-                <td colSpan={10} className="text-center py-6">
+                <td colSpan={11} className="text-center py-6">
                   <svg
                     aria-hidden="true"
                     role="status"
@@ -822,6 +935,46 @@ export default function DatasetsTable({
             className="!w-full md:!max-w-6xl !px-2"
           >
             <TasksDetail data={activeBatch} />
+          </Modal>
+        )}
+
+        {showBulkDeleteConfirm && (
+          <Modal
+            isOpen={showBulkDeleteConfirm}
+            setIsOpen={setShowBulkDeleteConfirm}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">
+                Delete {selectedDeletableDetails.length} batch(es)?
+              </h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                This action cannot be undone. The following batches will be deleted:
+              </p>
+              <ul className="max-h-48 overflow-y-auto list-disc list-inside text-sm font-mono space-y-1">
+                {selectedDeletableDetails.map((b) => (
+                  <li key={b.batch_id}>{b.batch_name ?? b.batch_id}</li>
+                ))}
+              </ul>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  minimal
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleBulkDeleteConfirm}
+                  loading={loading}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
           </Modal>
         )}
       </div>

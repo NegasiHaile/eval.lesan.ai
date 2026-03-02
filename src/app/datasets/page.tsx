@@ -1,5 +1,7 @@
 "use client";
-import DatasetsTable from "@/components/tables/DatasetsTable";
+import DatasetsTable, {
+  type BulkDeleteToolbarProps,
+} from "@/components/tables/DatasetsTable";
 import React, { useState, useEffect } from "react";
 import { BatchDetailTypes } from "@/types/data";
 import { useUser } from "@/context/UserContext";
@@ -9,7 +11,7 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { Info, Languages, Loader2, Mic, Plus, RefreshCw } from "lucide-react";
+import { Info, Languages, Loader2, Mic, Plus, RefreshCw, Trash2 } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
@@ -24,6 +26,7 @@ const Datasets = () => {
   const { user, isPending } = useUser();
 
   const [showUploader, setShowUploader] = useState<boolean>(false);
+  const [bulkDeleteToolbar, setBulkDeleteToolbar] = useState<BulkDeleteToolbarProps | null>(null);
 
   // Restore active tab from localStorage (client-only; avoids SSR "localStorage is not defined")
   useEffect(() => {
@@ -149,6 +152,21 @@ const Datasets = () => {
                     </span>
                   </Button>
                 )}
+                {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount > 1 && (
+                  <Button
+                    className="!w-fit !text-nowrap text-center font-mono"
+                    variant="danger"
+                    minimal
+                    size="sm"
+                    onClick={bulkDeleteToolbar.onOpenConfirm}
+                    title="Delete selected batches"
+                  >
+                    <Trash2 className="size-5 shrink-0" />
+                    <span className="hidden sm:block">
+                      Delete selected ({bulkDeleteToolbar.selectedCount})
+                    </span>
+                  </Button>
+                )}
               </div>
             </div>
             <DatasetsTable
@@ -158,6 +176,7 @@ const Datasets = () => {
               setLoading={setLoading}
               evalDataType={activeTab}
               refreshKey={refreshKey}
+              onBulkDeleteToolbarChange={setBulkDeleteToolbar}
             />
           </div>
         </div>
