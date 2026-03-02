@@ -9,7 +9,7 @@ import { EvalTypeTypes } from "@/types/others";
 import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, X } from "lucide-react";
+import { Download, Expand, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
 
 const getProgressColor = (percentage: number): string => {
@@ -844,7 +844,7 @@ export default function DatasetsTable({
                           className="text-red-600 dark:text-red-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                           title="Delete"
                         >
-                          <X className="size-6" />
+                          <Trash2 className="size-6" />
                         </button>
                       )}
 
