@@ -6,10 +6,13 @@ import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
 import { isValidBatchData } from "@/helpers/validate_uploading_batch";
 
+export type BatchData = ASRBatchTasksTypes | BatchTasksTypes;
+
 type NativeDragDropProps = {
   activeTab: EvalTypeTypes;
   loading: boolean;
-  onChange: (data: ASRBatchTasksTypes | BatchTasksTypes) => void;
+  /** Called with a single batch when one file is selected, or an array when multiple files are selected. */
+  onChange: (data: BatchData | BatchData[]) => void;
   required?: boolean;
 };
 
@@ -178,61 +181,111 @@ export default function DragDropFile({
     });
   };
 
-  const validateAndProcessFile = (file: File) => {
+  /** Process one file: parse and validate. Resolves with batch data or rejects with error message. */
+  const processOneFile = (
+    file: File
+  ): Promise<BatchData> => {
     const ext = getFileExtension(file.name);
     const typeIsSupported =
       SUPPORTED_TYPES.includes(file.type) ||
       ["json", "csv", "tsv", "xlsx", "xls"].includes(ext ?? "");
 
     if (!typeIsSupported) {
-      setStatus({
-        isValid: false,
-        message:
-          "Unsupported file format. Please upload JSON, CSV, TSV, or Excel files.",
-      });
+      return Promise.reject(
+        "Unsupported file format. Please upload JSON, CSV, TSV, or Excel files."
+      );
+    }
+
+    return parseFileToJson(file).then((data) => {
+      const result = isValidBatchData(activeTab.value, data as BatchTasksTypes);
+      if (result.isValid) {
+        return data as BatchData;
+      }
+      return Promise.reject(result.message);
+    });
+  };
+
+  /** Process multiple files iteratively and call onChange once with single or array. */
+  const processFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const fileArray = Array.from(files);
+    if (fileArray.length === 1) {
+      processOneFile(fileArray[0])
+        .then((data) => {
+          onChange(data);
+          setStatus({
+            isValid: true,
+            message: `File "${fileArray[0].name}" uploaded successfully.`,
+          });
+          if (fileInputRef.current) {
+            const dt = new DataTransfer();
+            dt.items.add(fileArray[0]);
+            fileInputRef.current.files = dt.files;
+          }
+        })
+        .catch((err) => {
+          setStatus({
+            isValid: false,
+            message: typeof err === "string" ? err : "Error parsing file.",
+          });
+        });
       return;
     }
 
-    parseFileToJson(file)
-      .then((data) => {
-        const result = isValidBatchData(activeTab.value, data as BatchTasksTypes);
-        if (result.isValid) {
-          onChange(data as ASRBatchTasksTypes | BatchTasksTypes);
+    // Multiple files: process iteratively, collect valid results and errors
+    const validData: BatchData[] = [];
+    const errors: string[] = [];
+
+    const runNext = (index: number): void => {
+      if (index >= fileArray.length) {
+        if (validData.length === 0) {
           setStatus({
-            isValid: true,
-            message: `File "${file.name}" uploaded successfully.`,
+            isValid: false,
+            message: errors[0] ?? "No valid files.",
           });
-        } else {
-          setStatus(result);
+          return;
         }
-      })
-      .catch((err) => {
+        onChange(validData.length === 1 ? validData[0] : validData);
         setStatus({
-          isValid: false,
-          message: typeof err === "string" ? err : "Error parsing file.",
+          isValid: true,
+          message:
+            errors.length > 0
+              ? `${validData.length} file(s) ready. ${errors.length} failed: ${errors.join("; ")}`
+              : `${validData.length} file(s) ready.`,
         });
-      });
+        if (fileInputRef.current) {
+          const dt = new DataTransfer();
+          fileArray.forEach((f) => dt.items.add(f));
+          fileInputRef.current.files = dt.files;
+        }
+        return;
+      }
+
+      processOneFile(fileArray[index])
+        .then((data) => {
+          validData.push(data);
+          runNext(index + 1);
+        })
+        .catch((err) => {
+          errors.push(`${fileArray[index].name}: ${typeof err === "string" ? err : "Error"}`);
+          runNext(index + 1);
+        });
+    };
+
+    runNext(0);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      validateAndProcessFile(file);
-
-      // ✅ Make the hidden input hold the dropped file
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInputRef.current.files = dt.files;
-      }
-    }
+    const files = e.dataTransfer.files;
+    if (files?.length) processFiles(files);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) validateAndProcessFile(file);
+    const files = e.target.files;
+    if (files?.length) processFiles(files);
   };
 
   const openFileDialog = () => {
@@ -267,9 +320,10 @@ export default function DragDropFile({
         <input
           ref={fileInputRef}
           type="file"
-          name="uploadFile" // ✅ required for validation
+          name="uploadFile"
           accept=".json,.csv,.tsv,.xls,.xlsx"
           className="hidden"
+          multiple
           onChange={handleFileChange}
           disabled={loading}
           required={required}
@@ -277,8 +331,8 @@ export default function DragDropFile({
 
         <p className="text-neutral-700 dark:text-neutral-300">
           {isDragging
-            ? "Drop the file here..."
-            : "Click or drag a JSON, CSV, TSV, or Excel file to upload."}
+            ? "Drop file(s) here..."
+            : "Click or drag one or more JSON, CSV, TSV, or Excel files to upload."}
         </p>
 
         {message}
