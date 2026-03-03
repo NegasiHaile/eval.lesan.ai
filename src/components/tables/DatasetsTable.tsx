@@ -7,6 +7,7 @@ import {
 } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
 import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
+import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
 import { Download, Expand, Trash2 } from "lucide-react";
@@ -17,6 +18,33 @@ const getProgressColor = (percentage: number): string => {
   if (percentage < 70) return "bg-yellow-500";
   return "bg-green-500";
 };
+
+/** Progress percentage (0–100) for a batch. */
+function getProgressPercent(detail: BatchDetailTypes): number {
+  const annotated = parseInt(`${detail.annotated_tasks}`, 10) || 0;
+  const total = detail.number_of_tasks || 1;
+  return total ? (annotated / total) * 100 : 0;
+}
+
+type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed";
+
+function progressMatchesFilter(percent: number, filter: ProgressFilterValue): boolean {
+  if (!filter) return true;
+  switch (filter) {
+    case "not_started":
+      return percent === 0;
+    case "in_progress":
+      return percent > 0 && percent < 100;
+    case "less_than_50":
+      return percent > 0 && percent < 50;
+    case "completed_over_50":
+      return percent >= 50 && percent < 100;
+    case "completed":
+      return percent === 100;
+    default:
+      return true;
+  }
+}
 
 /** Escape a CSV field (quote if needed, double internal quotes). */
 function escapeCSV(value: string): string {
@@ -69,6 +97,7 @@ function batchToCSV(
 export type BulkDeleteToolbarProps = {
   selectedCount: number;
   onOpenConfirm: () => void;
+  onDownloadClick: (format: "json" | "csv") => void;
 };
 
 type DatasetsTableProps = {
@@ -111,6 +140,7 @@ export default function DatasetsTable({
     models: "",
     created_by: "",
     annotator_id: "",
+    progress_filter: "" as ProgressFilterValue,
   });
   const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
     null
@@ -150,17 +180,64 @@ export default function DatasetsTable({
     setSelectedBatchIds(new Set());
   }, [evalDataType.value]);
 
-  useEffect(() => {
-    if (!onBulkDeleteToolbarChange) return;
-    if (selectedBatchIds.size > 1) {
-      onBulkDeleteToolbarChange({
-        selectedCount: selectedBatchIds.size,
-        onOpenConfirm: () => setShowBulkDeleteConfirm(true),
-      });
-    } else {
-      onBulkDeleteToolbarChange(null);
-    }
-  }, [selectedBatchIds, onBulkDeleteToolbarChange]);
+  /** Fetch one batch and return its blob + filename (no download). */
+  const getBatchBlob = useCallback(
+    async (
+      batch_detail: BatchDetailTypes,
+      format: string
+    ): Promise<{ blob: Blob; filename: string }> => {
+      const res = await fetch(
+        `/api/batches/${evalDataType.value}/${batch_detail.batch_id}?include_models_shuffles=true`
+      );
+      if (!res.ok) throw new Error("Failed to fetch batch data from server.");
+      const batch = await res.json();
+
+      if (dwnldOriginalData && !!batch.task_models_shuffles) {
+        for (const task of batch.tasks) {
+          const shuffleMap = batch.task_models_shuffles?.[task.id];
+          for (const model of task.models) {
+            model.model = shuffleMap?.[model.model] ?? model.model;
+          }
+        }
+        delete batch.task_models_shuffles;
+      }
+
+      const isCSV = format === "csv";
+      let blob: Blob;
+      let filename: string;
+      if (isCSV) {
+        blob = new Blob([batchToCSV(batch)], { type: "text/csv;charset=utf-8" });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
+      } else {
+        const batchWithDomains = {
+          ...batch,
+          domains: batch_detail.domains ?? batch.domains ?? [],
+        };
+        blob = new Blob([JSON.stringify(batchWithDomains, null, 2)], {
+          type: "application/json",
+        });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`;
+      }
+      return { blob, filename };
+    },
+    [evalDataType.value, dwnldOriginalData]
+  );
+
+  /** Single-batch download: fetch, build blob, trigger save. Does not set loading. */
+  const doOneDownload = useCallback(
+    async (batch_detail: BatchDetailTypes, format: string) => {
+      const { blob, filename } = await getBatchBlob(batch_detail, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    [getBatchBlob]
+  );
 
   const handleDownload = async (
     batch_detail: BatchDetailTypes,
@@ -168,63 +245,7 @@ export default function DatasetsTable({
   ) => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/batches/${evalDataType.value}/${batch_detail.batch_id}?include_models_shuffles=true`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch batch data from server.");
-      }
-
-      const batch = await res.json();
-
-      // De-annonmization of task models to the orginal mapping.
-      if (dwnldOriginalData && !!batch.task_models_shuffles) {
-        const deAnnoTasks = [];
-
-        for (const task of batch.tasks) {
-          const taskID = task.id;
-          const shuffleMap = batch.task_models_shuffles?.[taskID];
-
-          const deAnnoModels = [];
-          for (const model of task.models) {
-            const fakeModelName = model.model;
-            const originalModelName = shuffleMap
-              ? shuffleMap[fakeModelName]
-              : fakeModelName;
-            model.model = originalModelName;
-            deAnnoModels.push(model);
-          }
-
-          task.models = deAnnoModels;
-          deAnnoTasks.push(task);
-        }
-
-        batch.tasks = deAnnoTasks;
-        delete batch.task_models_shuffles; // removing mapping
-      }
-
-      const isCSV = format === "csv";
-      let blob: Blob;
-      let filename: string;
-
-      if (isCSV) {
-        const csv = batchToCSV(batch);
-        blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
-      } else {
-        const json = JSON.stringify(batch, null, 2);
-        blob = new Blob([json], { type: "application/json" });
-        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const downloadAnchorNode = document.createElement("a");
-      downloadAnchorNode.setAttribute("href", url);
-      downloadAnchorNode.setAttribute("download", filename);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-      URL.revokeObjectURL(url);
+      await doOneDownload(batch_detail, format);
     } catch (error) {
       console.error("Download error:", error);
       alert("Could not download the batch tasks.");
@@ -232,6 +253,56 @@ export default function DatasetsTable({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!onBulkDeleteToolbarChange) return;
+    if (selectedBatchIds.size >= 1) {
+      onBulkDeleteToolbarChange({
+        selectedCount: selectedBatchIds.size,
+        onOpenConfirm: () => setShowBulkDeleteConfirm(true),
+        onDownloadClick: async (format: "json" | "csv") => {
+          const toDownload = batches_details.filter((b) =>
+            selectedBatchIds.has(b.batch_id)
+          );
+          setLoading(true);
+          try {
+            if (toDownload.length === 1) {
+              await doOneDownload(toDownload[0], format);
+            } else {
+              const zip = new JSZip();
+              for (const d of toDownload) {
+                const { blob, filename } = await getBatchBlob(d, format);
+                zip.file(filename, blob);
+              }
+              const zipBlob = await zip.generateAsync({ type: "blob" });
+              const url = URL.createObjectURL(zipBlob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `batches_${new Date().toISOString().slice(0, 10)}.zip`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }
+            setSelectedBatchIds(new Set());
+          } catch (err) {
+            console.error("Bulk download error:", err);
+            alert("Some downloads failed.");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+    } else {
+      onBulkDeleteToolbarChange(null);
+    }
+  }, [
+    selectedBatchIds,
+    onBulkDeleteToolbarChange,
+    batches_details,
+    doOneDownload,
+    getBatchBlob,
+  ]);
 
   /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
   const doDeleteBatch = useCallback(
@@ -398,7 +469,10 @@ export default function DatasetsTable({
   };
 
   const filteredBatches = batches_details.filter((detail) => {
+    const percent = getProgressPercent(detail);
+    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
     return (
+      progressMatch &&
       (detail.batch_name ?? "")
         .toLowerCase()
         .includes(filters.batch_name.toLowerCase()) &&
@@ -430,15 +504,15 @@ export default function DatasetsTable({
     { key: "dataset_domain", placeholder: "Filter by domain" },
     {
       key: "language_pair",
-      type: "dual", // for from-to filter
+      type: "dual",
       placeholders: ["From", "To"],
     },
     { key: "models", placeholder: "Model" },
-    { key: "", type: "spacer" }, // empty th for 'Created At'
+    { key: "", type: "spacer" },
     { key: "created_by", placeholder: "Creator" },
     { key: "annotator_id", placeholder: "Annotator" },
-    { key: "", type: "spacer" }, // Progress
-    { key: "", type: "spacer" }, // Actions
+    { key: "progress_filter", type: "progress" },
+    { key: "", type: "spacer" },
   ];
 
   const canDelete = useCallback(
@@ -578,6 +652,33 @@ export default function DatasetsTable({
                     </th>
                   );
                 }
+                if (field.type === "progress") {
+                  return (
+                    <th key={idx}>
+                      <select
+                        className={`w-full px-2 py-1.5 rounded-md text-xs shadow-sm border bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-400 hover:border-neutral-300 dark:hover:border-neutral-600 ${
+                          filters.progress_filter
+                            ? "border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+                            : "border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
+                        }`}
+                        value={filters.progress_filter}
+                        onChange={(e) =>
+                          handleFilterChange(
+                            "progress_filter",
+                            e.target.value as ProgressFilterValue
+                          )
+                        }
+                      >
+                        <option value="">All</option>
+                        <option value="not_started">Not started</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="less_than_50">Less than 50%</option>
+                        <option value="completed_over_50">Completed &gt;50%</option>
+                        <option value="completed">Completed (100%)</option>
+                      </select>
+                    </th>
+                  );
+                }
                 return (
                   <th key={idx}>
                     <input
@@ -607,7 +708,7 @@ export default function DatasetsTable({
                 return (
                   <tr
                     key={`${batch_detail.batch_id}, ${index}`}
-                    className="border-t border-neutral-200 dark:border-neutral-700"
+                    className="border-t border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors"
                   >
                     <td className="px-2 py-2 w-10 align-middle">
                       {canDelete(batch_detail) ? (

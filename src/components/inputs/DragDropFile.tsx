@@ -16,9 +16,14 @@ type NativeDragDropProps = {
   required?: boolean;
 };
 
+type InvalidFile = { name: string; message: string };
+
 type StatusType = {
   isValid: boolean | null;
   message: string;
+  /** When multiple files: list of files that failed validation and need to be updated. */
+  invalidFiles?: InvalidFile[];
+  validCount?: number;
 };
 
 export default function DragDropFile({
@@ -181,9 +186,10 @@ export default function DragDropFile({
     });
   };
 
-  /** Process one file: parse and validate. Resolves with batch data or rejects with error message. */
+  /** Process one file: parse and validate. When requireMetadata is true (multi-file), batch_name, dataset_domain, and language are required. */
   const processOneFile = (
-    file: File
+    file: File,
+    requireMetadata = false
   ): Promise<BatchData> => {
     const ext = getFileExtension(file.name);
     const typeIsSupported =
@@ -197,7 +203,9 @@ export default function DragDropFile({
     }
 
     return parseFileToJson(file).then((data) => {
-      const result = isValidBatchData(activeTab.value, data as BatchTasksTypes);
+      const result = isValidBatchData(activeTab.value, data as BatchTasksTypes, {
+        requireMetadata,
+      });
       if (result.isValid) {
         return data as BatchData;
       }
@@ -211,7 +219,7 @@ export default function DragDropFile({
 
     const fileArray = Array.from(files);
     if (fileArray.length === 1) {
-      processOneFile(fileArray[0])
+      processOneFile(fileArray[0], false)
         .then((data) => {
           onChange(data);
           setStatus({
@@ -233,26 +241,30 @@ export default function DragDropFile({
       return;
     }
 
-    // Multiple files: process iteratively, collect valid results and errors
+    // Multiple files: validate one by one, collect only valid data and invalid file details
     const validData: BatchData[] = [];
-    const errors: string[] = [];
+    const invalidFiles: InvalidFile[] = [];
 
     const runNext = (index: number): void => {
       if (index >= fileArray.length) {
         if (validData.length === 0) {
           setStatus({
             isValid: false,
-            message: errors[0] ?? "No valid files.",
+            message: invalidFiles[0] ? `${invalidFiles[0].name}: ${invalidFiles[0].message}` : "No valid files.",
+            invalidFiles: invalidFiles.length > 0 ? invalidFiles : undefined,
           });
           return;
         }
+        // Only pass valid files so parent uploads only those
         onChange(validData.length === 1 ? validData[0] : validData);
         setStatus({
           isValid: true,
           message:
-            errors.length > 0
-              ? `${validData.length} file(s) ready. ${errors.length} failed: ${errors.join("; ")}`
-              : `${validData.length} file(s) ready.`,
+            invalidFiles.length > 0
+              ? `${validData.length} file(s) are valid and will be uploaded. ${invalidFiles.length} file(s) need to be updated.`
+              : `${validData.length} file(s) are valid and ready to upload.`,
+          validCount: validData.length,
+          invalidFiles: invalidFiles.length > 0 ? invalidFiles : undefined,
         });
         if (fileInputRef.current) {
           const dt = new DataTransfer();
@@ -262,13 +274,16 @@ export default function DragDropFile({
         return;
       }
 
-      processOneFile(fileArray[index])
+      processOneFile(fileArray[index], true)
         .then((data) => {
           validData.push(data);
           runNext(index + 1);
         })
         .catch((err) => {
-          errors.push(`${fileArray[index].name}: ${typeof err === "string" ? err : "Error"}`);
+          invalidFiles.push({
+            name: fileArray[index].name,
+            message: typeof err === "string" ? err : "Error parsing or validating file.",
+          });
           runNext(index + 1);
         });
     };
@@ -298,9 +313,37 @@ export default function DragDropFile({
 
   const message =
     status.isValid === false ? (
-      <p className="mt-2 text-sm text-red-600">{status.message}</p>
+      <div className="mt-2 text-sm space-y-1">
+        <p className="text-red-600">{status.message}</p>
+        {status.invalidFiles && status.invalidFiles.length > 0 && (
+          <p className="font-medium text-red-700 dark:text-red-400 mt-2">
+            The following file(s) need to be updated:
+          </p>
+        )}
+        {status.invalidFiles?.map((f, i) => (
+          <p key={i} className="text-red-600 pl-2 text-xs">
+            <span className="font-mono font-medium">{f.name}</span>: {f.message}
+          </p>
+        ))}
+      </div>
     ) : status.isValid === true ? (
-      <p className="text-green-600">{status.message}</p>
+      <div className="mt-2 text-sm space-y-1">
+        <p className="text-green-600">{status.message}</p>
+        {status.invalidFiles && status.invalidFiles.length > 0 && (
+          <>
+            <p className="font-medium text-amber-600 dark:text-amber-400 mt-2">
+              The following file(s) need to be updated (not uploaded):
+            </p>
+            <ul className="list-disc list-inside text-amber-600 dark:text-amber-400 text-xs space-y-0.5 pl-2">
+              {status.invalidFiles.map((f, i) => (
+                <li key={i}>
+                  <span className="font-mono">{f.name}</span>: {f.message}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     ) : null;
 
   return (
