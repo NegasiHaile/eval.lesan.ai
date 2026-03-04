@@ -1,6 +1,8 @@
 "use client";
-import DatasetsTable from "@/components/tables/DatasetsTable";
-import React, { useState, useEffect } from "react";
+import DatasetsTable, {
+  type BulkDeleteToolbarProps,
+} from "@/components/tables/DatasetsTable";
+import React, { useState, useEffect, useRef } from "react";
 import { BatchDetailTypes } from "@/types/data";
 import { useUser } from "@/context/UserContext";
 import Container from "@/components/utils/Container";
@@ -9,7 +11,7 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { Info, Languages, Loader2, Mic, Plus, RefreshCw } from "lucide-react";
+import { Info, Languages, Loader2, Mic, Plus, RefreshCw, Trash2, Download } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
@@ -24,6 +26,24 @@ const Datasets = () => {
   const { user, isPending } = useUser();
 
   const [showUploader, setShowUploader] = useState<boolean>(false);
+  const [bulkDeleteToolbar, setBulkDeleteToolbar] = useState<BulkDeleteToolbarProps | null>(null);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!downloadMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setDownloadMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [downloadMenuOpen]);
+
+  useEffect(() => {
+    if (loading) setDownloadMenuOpen(false);
+  }, [loading]);
 
   // Restore active tab from localStorage (client-only; avoids SSR "localStorage is not defined")
   useEffect(() => {
@@ -140,6 +160,7 @@ const Datasets = () => {
                     outline={true}
                     minimal
                     size="sm"
+                    disabled={loading}
                     onClick={() => setShowUploader(true)}
                     title={`Upload batch based ${activeTab.name} data for evaluation`}
                   >
@@ -148,6 +169,66 @@ const Datasets = () => {
                       Upload {activeTab.name} tasks
                     </span>
                   </Button>
+                )}
+                {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 && (
+                  <>
+                    <div className="relative" ref={downloadMenuRef}>
+                      <Button
+                        className="!w-fit !text-nowrap text-center font-mono"
+                        variant="primary"
+                        minimal
+                        size="sm"
+                        disabled={loading}
+                        onClick={() => setDownloadMenuOpen((o) => !o)}
+                        title="Download selected batches"
+                      >
+                        <Download className="size-5 shrink-0" />
+                        <span className="hidden sm:block">
+                          Download ({bulkDeleteToolbar.selectedCount})
+                        </span>
+                      </Button>
+                      {downloadMenuOpen && (
+                        <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 py-1 shadow-lg">
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                            onClick={() => {
+                              bulkDeleteToolbar.onDownloadClick("json");
+                              setDownloadMenuOpen(false);
+                            }}
+                          >
+                            JSON
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                            onClick={() => {
+                              bulkDeleteToolbar.onDownloadClick("csv");
+                              setDownloadMenuOpen(false);
+                            }}
+                          >
+                            CSV
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {bulkDeleteToolbar.selectedCount > 1 && (
+                      <Button
+                        className="!w-fit !text-nowrap text-center font-mono"
+                        variant="danger"
+                        minimal
+                        size="sm"
+                        disabled={loading}
+                        onClick={bulkDeleteToolbar.onOpenConfirm}
+                        title="Delete selected batches"
+                      >
+                        <Trash2 className="size-5 shrink-0" />
+                        <span className="hidden sm:block">
+                          Delete selected ({bulkDeleteToolbar.selectedCount})
+                        </span>
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -158,6 +239,7 @@ const Datasets = () => {
               setLoading={setLoading}
               evalDataType={activeTab}
               refreshKey={refreshKey}
+              onBulkDeleteToolbarChange={setBulkDeleteToolbar}
             />
           </div>
         </div>

@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 type ButtonTypes = {
   type?: "button" | "submit" | "reset";
   loading?: boolean;
+  disabled?: boolean;
   text?: string;
   title?: string;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -63,6 +64,7 @@ const variantClassMap = {
 const Button = ({
   type = "submit",
   loading = false,
+  disabled = false,
   text,
   title = "",
   onClick,
@@ -80,15 +82,16 @@ const Button = ({
     ? variantStyle.outline
     : variantStyle.solid;
   const sizeStyle = sizeClassMap[size] || sizeClassMap.md;
+  const isDisabled = loading || disabled;
 
   return (
     <button
       type={type}
       onClick={onClick}
       className={`flex items-center justify-center space-x-1 ${baseClass} ${sizeStyle} ${
-        loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
       } ${finalStyle} ${className}`}
-      disabled={loading}
+      disabled={isDisabled}
       title={title}
     >
       {children}

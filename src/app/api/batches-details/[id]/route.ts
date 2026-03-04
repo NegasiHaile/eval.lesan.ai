@@ -12,7 +12,9 @@ export async function PATCH(
   if (auth instanceof Response) return auth;
   try {
     const batch_id = (await params).id;
-    const { annotator_id = null } = await req.json();
+    const body = await req.json();
+    const annotator_id = body.annotator_id !== undefined ? body.annotator_id : undefined;
+    const created_by = typeof body.created_by === "string" ? body.created_by.trim() || null : undefined;
 
     const client = await getClientPromise();
     const db = client.db();
@@ -25,18 +27,40 @@ export async function PATCH(
       );
     }
 
-    const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
-    const isCreator = batch.created_by?.toLowerCase() === auth.username.toLowerCase();
-    if (!isAdminOrRoot && !isCreator) {
+    const updates: Record<string, unknown> = {};
+
+    if (created_by !== undefined) {
+      if (auth.role.toLowerCase() !== "root") {
+        return NextResponse.json(
+          { message: "Forbidden. Only root can update the batch creator." },
+          { status: 403 }
+        );
+      }
+      updates.created_by = created_by ?? batch.created_by;
+    }
+
+    if (annotator_id !== undefined) {
+      const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
+      const isCreator = batch.created_by?.toLowerCase() === auth.username.toLowerCase();
+      if (!isAdminOrRoot && !isCreator) {
+        return NextResponse.json(
+          { message: "Forbidden. Only the batch creator or an admin can assign annotators." },
+          { status: 403 }
+        );
+      }
+      updates.annotator_id = annotator_id;
+    }
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { message: "Forbidden. Only the batch creator or an admin can assign annotators." },
-        { status: 403 }
+        { message: "No valid fields to update (annotator_id or created_by)." },
+        { status: 400 }
       );
     }
 
     const result = await db
       .collection("batches_details")
-      .updateOne({ batch_id }, { $set: { annotator_id } });
+      .updateOne({ batch_id }, { $set: updates });
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
@@ -45,11 +69,11 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ message: "annotator_id updated successfully" });
+    return NextResponse.json({ message: "Batch detail updated successfully" });
   } catch (error) {
     console.error("PATCH /batches/[id] error:", error);
     return NextResponse.json(
-      { message: "Failed to update annotator_id", error: String(error) },
+      { message: "Failed to update batch detail", error: String(error) },
       { status: 500 }
     );
   }

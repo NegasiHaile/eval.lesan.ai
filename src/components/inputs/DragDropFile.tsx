@@ -6,16 +6,24 @@ import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
 import { isValidBatchData } from "@/helpers/validate_uploading_batch";
 
+export type BatchData = ASRBatchTasksTypes | BatchTasksTypes;
+
 type NativeDragDropProps = {
   activeTab: EvalTypeTypes;
   loading: boolean;
-  onChange: (data: ASRBatchTasksTypes | BatchTasksTypes) => void;
+  /** Called with a single batch when one file is selected, or an array when multiple files are selected. */
+  onChange: (data: BatchData | BatchData[]) => void;
   required?: boolean;
 };
+
+type InvalidFile = { name: string; message: string };
 
 type StatusType = {
   isValid: boolean | null;
   message: string;
+  /** When multiple files: list of files that failed validation and need to be updated. */
+  invalidFiles?: InvalidFile[];
+  validCount?: number;
 };
 
 export default function DragDropFile({
@@ -57,14 +65,7 @@ export default function DragDropFile({
         try {
           if (ext === "json") {
             const parsed = JSON.parse(content as string);
-
-            // Ensure unique task IDs
-            if (Array.isArray(parsed.tasks)) {
-              parsed.tasks = parsed.tasks.map((task: Record<string, unknown>, index: number) => ({
-                ...task,
-                id: (index + 1).toString(),
-              }));
-            }
+            // Do not modify tasks or task ids – use file as-is
             resolve(parsed);
           } else if (ext === "csv" || ext === "tsv") {
             const delimiter = ext === "tsv" ? "\t" : ",";
@@ -185,61 +186,121 @@ export default function DragDropFile({
     });
   };
 
-  const validateAndProcessFile = (file: File) => {
+  /** Process one file: parse and validate. When requireMetadata is true (multi-file), batch_name, dataset_domain, and language are required. */
+  const processOneFile = (
+    file: File,
+    requireMetadata = false
+  ): Promise<BatchData> => {
     const ext = getFileExtension(file.name);
     const typeIsSupported =
       SUPPORTED_TYPES.includes(file.type) ||
       ["json", "csv", "tsv", "xlsx", "xls"].includes(ext ?? "");
 
     if (!typeIsSupported) {
-      setStatus({
-        isValid: false,
-        message:
-          "Unsupported file format. Please upload JSON, CSV, TSV, or Excel files.",
+      return Promise.reject(
+        "Unsupported file format. Please upload JSON, CSV, TSV, or Excel files."
+      );
+    }
+
+    return parseFileToJson(file).then((data) => {
+      const result = isValidBatchData(activeTab.value, data as BatchTasksTypes, {
+        requireMetadata,
       });
+      if (result.isValid) {
+        return data as BatchData;
+      }
+      return Promise.reject(result.message);
+    });
+  };
+
+  /** Process multiple files iteratively and call onChange once with single or array. */
+  const processFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const fileArray = Array.from(files);
+    if (fileArray.length === 1) {
+      processOneFile(fileArray[0], false)
+        .then((data) => {
+          onChange(data);
+          setStatus({
+            isValid: true,
+            message: `File "${fileArray[0].name}" uploaded successfully.`,
+          });
+          if (fileInputRef.current) {
+            const dt = new DataTransfer();
+            dt.items.add(fileArray[0]);
+            fileInputRef.current.files = dt.files;
+          }
+        })
+        .catch((err) => {
+          setStatus({
+            isValid: false,
+            message: typeof err === "string" ? err : "Error parsing file.",
+          });
+        });
       return;
     }
 
-    parseFileToJson(file)
-      .then((data) => {
-        const result = isValidBatchData(activeTab.value, data as BatchTasksTypes);
-        if (result.isValid) {
-          onChange(data as ASRBatchTasksTypes | BatchTasksTypes);
+    // Multiple files: validate one by one, collect only valid data and invalid file details
+    const validData: BatchData[] = [];
+    const invalidFiles: InvalidFile[] = [];
+
+    const runNext = (index: number): void => {
+      if (index >= fileArray.length) {
+        if (validData.length === 0) {
           setStatus({
-            isValid: true,
-            message: `File "${file.name}" uploaded successfully.`,
+            isValid: false,
+            message: invalidFiles[0] ? `${invalidFiles[0].name}: ${invalidFiles[0].message}` : "No valid files.",
+            invalidFiles: invalidFiles.length > 0 ? invalidFiles : undefined,
           });
-        } else {
-          setStatus(result);
+          return;
         }
-      })
-      .catch((err) => {
+        // Only pass valid files so parent uploads only those
+        onChange(validData.length === 1 ? validData[0] : validData);
         setStatus({
-          isValid: false,
-          message: typeof err === "string" ? err : "Error parsing file.",
+          isValid: true,
+          message:
+            invalidFiles.length > 0
+              ? `${validData.length} file(s) are valid and will be uploaded. ${invalidFiles.length} file(s) need to be updated.`
+              : `${validData.length} file(s) are valid and ready to upload.`,
+          validCount: validData.length,
+          invalidFiles: invalidFiles.length > 0 ? invalidFiles : undefined,
         });
-      });
+        if (fileInputRef.current) {
+          const dt = new DataTransfer();
+          fileArray.forEach((f) => dt.items.add(f));
+          fileInputRef.current.files = dt.files;
+        }
+        return;
+      }
+
+      processOneFile(fileArray[index], true)
+        .then((data) => {
+          validData.push(data);
+          runNext(index + 1);
+        })
+        .catch((err) => {
+          invalidFiles.push({
+            name: fileArray[index].name,
+            message: typeof err === "string" ? err : "Error parsing or validating file.",
+          });
+          runNext(index + 1);
+        });
+    };
+
+    runNext(0);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      validateAndProcessFile(file);
-
-      // ✅ Make the hidden input hold the dropped file
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInputRef.current.files = dt.files;
-      }
-    }
+    const files = e.dataTransfer.files;
+    if (files?.length) processFiles(files);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) validateAndProcessFile(file);
+    const files = e.target.files;
+    if (files?.length) processFiles(files);
   };
 
   const openFileDialog = () => {
@@ -252,9 +313,37 @@ export default function DragDropFile({
 
   const message =
     status.isValid === false ? (
-      <p className="mt-2 text-sm text-red-600">{status.message}</p>
+      <div className="mt-2 text-sm space-y-1">
+        <p className="text-red-600">{status.message}</p>
+        {status.invalidFiles && status.invalidFiles.length > 0 && (
+          <p className="font-medium text-red-700 dark:text-red-400 mt-2">
+            The following file(s) need to be updated:
+          </p>
+        )}
+        {status.invalidFiles?.map((f, i) => (
+          <p key={i} className="text-red-600 pl-2 text-xs">
+            <span className="font-mono font-medium">{f.name}</span>: {f.message}
+          </p>
+        ))}
+      </div>
     ) : status.isValid === true ? (
-      <p className="text-green-600">{status.message}</p>
+      <div className="mt-2 text-sm space-y-1">
+        <p className="text-green-600">{status.message}</p>
+        {status.invalidFiles && status.invalidFiles.length > 0 && (
+          <>
+            <p className="font-medium text-amber-600 dark:text-amber-400 mt-2">
+              The following file(s) need to be updated (not uploaded):
+            </p>
+            <ul className="list-disc list-inside text-amber-600 dark:text-amber-400 text-xs space-y-0.5 pl-2">
+              {status.invalidFiles.map((f, i) => (
+                <li key={i}>
+                  <span className="font-mono">{f.name}</span>: {f.message}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     ) : null;
 
   return (
@@ -274,9 +363,10 @@ export default function DragDropFile({
         <input
           ref={fileInputRef}
           type="file"
-          name="uploadFile" // ✅ required for validation
+          name="uploadFile"
           accept=".json,.csv,.tsv,.xls,.xlsx"
           className="hidden"
+          multiple
           onChange={handleFileChange}
           disabled={loading}
           required={required}
@@ -284,8 +374,8 @@ export default function DragDropFile({
 
         <p className="text-neutral-700 dark:text-neutral-300">
           {isDragging
-            ? "Drop the file here..."
-            : "Click or drag a JSON, CSV, TSV, or Excel file to upload."}
+            ? "Drop file(s) here..."
+            : "Click or drag one or more JSON, CSV, TSV, or Excel files to upload."}
         </p>
 
         {message}

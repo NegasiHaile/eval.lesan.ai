@@ -7,4 +7,5 @@ export type UserTypes = {
   institution?: string;
   role: string;
   active?: boolean;
+  image?: string;
 };

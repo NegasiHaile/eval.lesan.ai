@@ -6,16 +6,45 @@ import {
   BatchTasksTypes,
 } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
-import { useState, useEffect, Dispatch } from "react";
+import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
+import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, X } from "lucide-react";
+import { Download, Expand, Trash2 } from "lucide-react";
+import Button from "../utils/Button";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
   if (percentage < 70) return "bg-yellow-500";
   return "bg-green-500";
 };
+
+/** Progress percentage (0–100) for a batch. */
+function getProgressPercent(detail: BatchDetailTypes): number {
+  const annotated = parseInt(`${detail.annotated_tasks}`, 10) || 0;
+  const total = detail.number_of_tasks || 1;
+  return total ? (annotated / total) * 100 : 0;
+}
+
+type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed";
+
+function progressMatchesFilter(percent: number, filter: ProgressFilterValue): boolean {
+  if (!filter) return true;
+  switch (filter) {
+    case "not_started":
+      return percent === 0;
+    case "in_progress":
+      return percent > 0 && percent < 100;
+    case "less_than_50":
+      return percent > 0 && percent < 50;
+    case "completed_over_50":
+      return percent >= 50 && percent < 100;
+    case "completed":
+      return percent === 100;
+    default:
+      return true;
+  }
+}
 
 /** Escape a CSV field (quote if needed, double internal quotes). */
 function escapeCSV(value: string): string {
@@ -65,6 +94,12 @@ function batchToCSV(
   return rows.map((row) => row.map(escapeCSV).join(",")).join("\r\n");
 }
 
+export type BulkDeleteToolbarProps = {
+  selectedCount: number;
+  onOpenConfirm: () => void;
+  onDownloadClick: (format: "json" | "csv") => void;
+};
+
 type DatasetsTableProps = {
   batches_details: BatchDetailTypes[];
   setBatchDetails: Dispatch<React.SetStateAction<BatchDetailTypes[]>>;
@@ -73,6 +108,8 @@ type DatasetsTableProps = {
   evalDataType: EvalTypeTypes;
   /** Increment to trigger a refetch (e.g. from Refresh button). */
   refreshKey?: number;
+  /** Called when selection changes so parent can show Delete selected button (e.g. next to Refresh/Upload). */
+  onBulkDeleteToolbarChange?: (props: BulkDeleteToolbarProps | null) => void;
 };
 
 export default function DatasetsTable({
@@ -82,10 +119,13 @@ export default function DatasetsTable({
   setLoading,
   evalDataType,
   refreshKey = 0,
+  onBulkDeleteToolbarChange,
 }: DatasetsTableProps) {
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
   const [editFile, setEditFile] = useState<number | null>(null);
+  const [editCreatorIndex, setEditCreatorIndex] = useState<number | null>(null);
+  const [editedCreatedBy, setEditedCreatedBy] = useState<string>("");
   const [activeBatch, setActiveBatch] = useState<
     ASRBatchTasksTypes | BatchTasksTypes | null
   >(null);
@@ -100,11 +140,14 @@ export default function DatasetsTable({
     models: "",
     created_by: "",
     annotator_id: "",
+    progress_filter: "" as ProgressFilterValue,
   });
   const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
     null
   );
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
@@ -133,69 +176,76 @@ export default function DatasetsTable({
     };
   }, [user?.username, evalDataType.value, refreshKey, setBatchDetails, setLoading]);
 
+  useEffect(() => {
+    setSelectedBatchIds(new Set());
+  }, [evalDataType.value]);
+
+  /** Fetch one batch and return its blob + filename (no download). */
+  const getBatchBlob = useCallback(
+    async (
+      batch_detail: BatchDetailTypes,
+      format: string
+    ): Promise<{ blob: Blob; filename: string }> => {
+      const res = await fetch(
+        `/api/batches/${evalDataType.value}/${batch_detail.batch_id}?include_models_shuffles=true`
+      );
+      if (!res.ok) throw new Error("Failed to fetch batch data from server.");
+      const batch = await res.json();
+
+      if (dwnldOriginalData && !!batch.task_models_shuffles) {
+        for (const task of batch.tasks) {
+          const shuffleMap = batch.task_models_shuffles?.[task.id];
+          for (const model of task.models) {
+            model.model = shuffleMap?.[model.model] ?? model.model;
+          }
+        }
+        delete batch.task_models_shuffles;
+      }
+
+      const isCSV = format === "csv";
+      let blob: Blob;
+      let filename: string;
+      if (isCSV) {
+        blob = new Blob([batchToCSV(batch)], { type: "text/csv;charset=utf-8" });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
+      } else {
+        const batchWithDomains = {
+          ...batch,
+          domains: batch_detail.domains ?? batch.domains ?? [],
+        };
+        blob = new Blob([JSON.stringify(batchWithDomains, null, 2)], {
+          type: "application/json",
+        });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`;
+      }
+      return { blob, filename };
+    },
+    [evalDataType.value, dwnldOriginalData]
+  );
+
+  /** Single-batch download: fetch, build blob, trigger save. Does not set loading. */
+  const doOneDownload = useCallback(
+    async (batch_detail: BatchDetailTypes, format: string) => {
+      const { blob, filename } = await getBatchBlob(batch_detail, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    [getBatchBlob]
+  );
+
   const handleDownload = async (
     batch_detail: BatchDetailTypes,
     format: string
   ) => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/batches/${evalDataType.value}/${batch_detail.batch_id}?include_models_shuffles=true`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch batch data from server.");
-      }
-
-      const batch = await res.json();
-
-      // De-annonmization of task models to the orginal mapping.
-      if (dwnldOriginalData && !!batch.task_models_shuffles) {
-        const deAnnoTasks = [];
-
-        for (const task of batch.tasks) {
-          const taskID = task.id;
-          const shuffleMap = batch.task_models_shuffles?.[taskID];
-
-          const deAnnoModels = [];
-          for (const model of task.models) {
-            const fakeModelName = model.model;
-            const originalModelName = shuffleMap
-              ? shuffleMap[fakeModelName]
-              : fakeModelName;
-            model.model = originalModelName;
-            deAnnoModels.push(model);
-          }
-
-          task.models = deAnnoModels;
-          deAnnoTasks.push(task);
-        }
-
-        batch.tasks = deAnnoTasks;
-        delete batch.task_models_shuffles; // removing mapping
-      }
-
-      const isCSV = format.toLowerCase() === "csv";
-      let blob: Blob;
-      let filename: string;
-
-      if (isCSV) {
-        const csv = batchToCSV(batch);
-        blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
-      } else {
-        const json = JSON.stringify(batch, null, 2);
-        blob = new Blob([json], { type: "application/json" });
-        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const downloadAnchorNode = document.createElement("a");
-      downloadAnchorNode.setAttribute("href", url);
-      downloadAnchorNode.setAttribute("download", filename);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-      URL.revokeObjectURL(url);
+      await doOneDownload(batch_detail, format);
     } catch (error) {
       console.error("Download error:", error);
       alert("Could not download the batch tasks.");
@@ -204,52 +254,91 @@ export default function DatasetsTable({
     }
   };
 
+  useEffect(() => {
+    if (!onBulkDeleteToolbarChange) return;
+    if (selectedBatchIds.size >= 1) {
+      onBulkDeleteToolbarChange({
+        selectedCount: selectedBatchIds.size,
+        onOpenConfirm: () => setShowBulkDeleteConfirm(true),
+        onDownloadClick: async (format: "json" | "csv") => {
+          const toDownload = batches_details.filter((b) =>
+            selectedBatchIds.has(b.batch_id)
+          );
+          setLoading(true);
+          try {
+            if (toDownload.length === 1) {
+              await doOneDownload(toDownload[0], format);
+            } else {
+              const zip = new JSZip();
+              for (const d of toDownload) {
+                const { blob, filename } = await getBatchBlob(d, format);
+                zip.file(filename, blob);
+              }
+              const zipBlob = await zip.generateAsync({ type: "blob" });
+              const url = URL.createObjectURL(zipBlob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `batches_${new Date().toISOString().slice(0, 10)}.zip`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }
+            setSelectedBatchIds(new Set());
+          } catch (err) {
+            console.error("Bulk download error:", err);
+            alert("Some downloads failed.");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+    } else {
+      onBulkDeleteToolbarChange(null);
+    }
+  }, [
+    selectedBatchIds,
+    onBulkDeleteToolbarChange,
+    batches_details,
+    doOneDownload,
+    getBatchBlob,
+  ]);
+
+  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
+  const doDeleteBatch = useCallback(
+    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
+      const batch_id = batch_detail.batch_id;
+      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...batch_detail }),
+      });
+      if (!res.ok) return false;
+      if (batch_detail.dataset_type === "mt") {
+        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
+        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
+      } else if (batch_detail.dataset_type === "asr") {
+        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
+        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
+      }
+      return true;
+    },
+    []
+  );
+
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
-    const batch_id = batch_detail.batch_id;
     const confirmed = window.confirm(
       "Are you sure you want to delete this batch? This action cannot be undone."
     );
     if (!confirmed) return;
     setLoading(true);
-    const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...batch_detail,
-      }),
-    });
-
-    if (!res.ok) {
-      alert("Deleting batch faild!");
-      setLoading(false);
+    const ok = await doDeleteBatch(batch_detail);
+    setLoading(false);
+    if (!ok) {
+      alert("Deleting batch failed!");
       return;
     }
-
-    // Remove the item from the state
-    const tasks_CPY = [...batches_details];
-    const detials = tasks_CPY.filter((t) => t.batch_id !== batch_id);
-
-    // Remove the Item if it is in the local storage as an active batch
-    if (batch_detail.dataset_type === "mt") {
-      const actv_batch = JSON.parse(
-        localStorage.getItem("active_batch") || "{}"
-      );
-      if (actv_batch?.batch_id === batch_id) {
-        localStorage.removeItem("active_batch");
-      }
-    } else if (batch_detail.dataset_type === "asr") {
-      const asr_actv_batch = JSON.parse(
-        localStorage.getItem("asr_active_batch") || "{}"
-      );
-      if (asr_actv_batch?.batch_id === batch_id) {
-        localStorage.removeItem("asr_active_batch");
-      }
-    }
-
-    setBatchDetails([...detials]);
-    setLoading(false);
+    setBatchDetails((prev) => prev.filter((t) => t.batch_id !== batch_detail.batch_id));
   };
 
   const handleAssignAnnotator = async (batch_detail: BatchDetailTypes) => {
@@ -305,6 +394,52 @@ export default function DatasetsTable({
     return batch_detail.created_by === user?.username;
   };
 
+  const isRoot = user?.role?.toLowerCase() === "root";
+
+  const handleAssignCreator = async (batch_detail: BatchDetailTypes) => {
+    const creator_email = `${editedCreatedBy}`.trim() ?? null;
+
+    if ((batch_detail.created_by ?? "").trim().toLowerCase() === (creator_email ?? "").toLowerCase()) {
+      setEditCreatorIndex(null);
+      setEditedCreatedBy("");
+      return;
+    }
+
+    if (!user?.email && !user?.username) {
+      alert("Unauthorized user or your session has expired. Please sign in again.");
+      setEditCreatorIndex(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const batchID = batch_detail?.batch_id;
+      const res = await fetch(`/api/batches-details/${batchID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ created_by: creator_email }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message ?? "Failed to update batch creator.");
+      }
+
+      const updatedDetails = batches_details.map((detail) =>
+        detail.batch_id === batchID
+          ? { ...detail, created_by: creator_email ?? "" }
+          : detail
+      ) as BatchDetailTypes[];
+      setBatchDetails(updatedDetails);
+      setEditCreatorIndex(null);
+      setEditedCreatedBy("");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to update creator.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -334,7 +469,10 @@ export default function DatasetsTable({
   };
 
   const filteredBatches = batches_details.filter((detail) => {
+    const percent = getProgressPercent(detail);
+    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
     return (
+      progressMatch &&
       (detail.batch_name ?? "")
         .toLowerCase()
         .includes(filters.batch_name.toLowerCase()) &&
@@ -366,16 +504,85 @@ export default function DatasetsTable({
     { key: "dataset_domain", placeholder: "Filter by domain" },
     {
       key: "language_pair",
-      type: "dual", // for from-to filter
+      type: "dual",
       placeholders: ["From", "To"],
     },
     { key: "models", placeholder: "Model" },
-    { key: "", type: "spacer" }, // empty th for 'Created At'
+    { key: "", type: "spacer" },
     { key: "created_by", placeholder: "Creator" },
     { key: "annotator_id", placeholder: "Annotator" },
-    { key: "", type: "spacer" }, // Progress
-    { key: "", type: "spacer" }, // Actions
+    { key: "progress_filter", type: "progress" },
+    { key: "", type: "spacer" },
   ];
+
+  const canDelete = useCallback(
+    (batch_detail: BatchDetailTypes) =>
+      batch_detail.created_by === user?.username || user?.role?.toLowerCase() === "root",
+    [user?.username, user?.role]
+  );
+
+  const deletableBatches = useMemo(
+    () => filteredBatches.filter((b) => canDelete(b)),
+    [filteredBatches, canDelete]
+  );
+
+  const toggleSelection = (batchId: string) => {
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const deletableIds = deletableBatches.map((b) => b.batch_id);
+    const allSelected =
+      deletableIds.length > 0 && deletableIds.every((id) => selectedBatchIds.has(id));
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) deletableIds.forEach((id) => next.delete(id));
+      else deletableIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    const toDelete = batches_details.filter(
+      (b) => selectedBatchIds.has(b.batch_id) && canDelete(b)
+    );
+    if (toDelete.length === 0) {
+      setShowBulkDeleteConfirm(false);
+      return;
+    }
+    setLoading(true);
+    const succeeded = new Set<string>();
+    for (const d of toDelete) {
+      const ok = await doDeleteBatch(d);
+      if (ok) succeeded.add(d.batch_id);
+    }
+    setBatchDetails((prev) => prev.filter((b) => !succeeded.has(b.batch_id)));
+    setSelectedBatchIds((prev) => {
+      const next = new Set(prev);
+      succeeded.forEach((id) => next.delete(id));
+      return next;
+    });
+    setShowBulkDeleteConfirm(false);
+    setLoading(false);
+    alert(
+      succeeded.size === toDelete.length
+        ? `${succeeded.size} batch(es) deleted.`
+        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`
+    );
+  };
+
+  const selectedDeletableDetails = useMemo(
+    () =>
+      batches_details.filter(
+        (b) => selectedBatchIds.has(b.batch_id) && canDelete(b)
+      ),
+    [batches_details, selectedBatchIds, canDelete]
+  );
 
   return (
     <div className="relative min-h-[55lvh]">
@@ -383,6 +590,22 @@ export default function DatasetsTable({
         <table className="min-w-full px-2 py-4 text-left border-spacing-y-2">
           <thead className="border-b-1 rounded-3xl font-mono border-neutral-300 dark:border-neutral-800 py-5">
             <tr>
+              <th className="px-2 py-4 text-left w-10">
+                {deletableBatches.length > 0 ? (
+                  <input
+                    type="checkbox"
+                    checked={
+                      deletableBatches.length > 0 &&
+                      deletableBatches.every((b) =>
+                        selectedBatchIds.has(b.batch_id)
+                      )
+                    }
+                    onChange={toggleSelectAll}
+                    title="Select all (deletable batches)"
+                    className="rounded border-neutral-300 dark:border-neutral-600"
+                  />
+                ) : null}
+              </th>
               <th className="px-4 py-4 text-left">#</th>
               <th className="px-4 py-4 text-left">Dataset</th>
               <th className="px-4 py-4 text-left">Domain</th>
@@ -395,6 +618,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Actions</th>
             </tr>
             <tr className="bg-neutral-100 dark:bg-neutral-900 text-xs">
+              <th />
               <th> {/* Serial column */} </th>
               {filterFields.map((field, idx) => {
                 if (field.type === "spacer") return <th key={idx} />;
@@ -428,6 +652,33 @@ export default function DatasetsTable({
                     </th>
                   );
                 }
+                if (field.type === "progress") {
+                  return (
+                    <th key={idx}>
+                      <select
+                        className={`w-full px-2 py-1.5 rounded-md text-xs shadow-sm border bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-400 hover:border-neutral-300 dark:hover:border-neutral-600 ${
+                          filters.progress_filter
+                            ? "border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+                            : "border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
+                        }`}
+                        value={filters.progress_filter}
+                        onChange={(e) =>
+                          handleFilterChange(
+                            "progress_filter",
+                            e.target.value as ProgressFilterValue
+                          )
+                        }
+                      >
+                        <option value="">All</option>
+                        <option value="not_started">Not started</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="less_than_50">Less than 50%</option>
+                        <option value="completed_over_50">Completed &gt;50%</option>
+                        <option value="completed">Completed (100%)</option>
+                      </select>
+                    </th>
+                  );
+                }
                 return (
                   <th key={idx}>
                     <input
@@ -457,8 +708,19 @@ export default function DatasetsTable({
                 return (
                   <tr
                     key={`${batch_detail.batch_id}, ${index}`}
-                    className="border-t border-neutral-200 dark:border-neutral-700"
+                    className="border-t border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors"
                   >
+                    <td className="px-2 py-2 w-10 align-middle">
+                      {canDelete(batch_detail) ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedBatchIds.has(batch_detail.batch_id)}
+                          onChange={() => toggleSelection(batch_detail.batch_id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-neutral-300 dark:border-neutral-600"
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
                     <td className="px-3 py-2">{batch_detail.dataset_domain}</td>
@@ -472,13 +734,54 @@ export default function DatasetsTable({
                       })}
                     </td>
                     <td className="px-3 py-2">{batch_detail.created_at}</td>
-                    <td
-                      className="px-3 py-2 text-sm font-mono"
-                      title={batch_detail.created_by}
-                    >
-                      {(batch_detail.created_by ?? "").length > 15
-                        ? `${batch_detail.created_by.slice(0, 15)}...`
-                        : batch_detail.created_by ?? ""}
+                    <td className="px-3 py-2 text-sm font-mono" title={batch_detail.created_by}>
+                      {editCreatorIndex !== index ? (
+                        <>
+                          {(batch_detail.created_by ?? "").length > 15
+                            ? `${(batch_detail.created_by ?? "").slice(0, 15)}...`
+                            : batch_detail.created_by ?? ""}
+                          {isRoot && (
+                            <span
+                              className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                              onClick={() => {
+                                setEditCreatorIndex(index);
+                                setEditedCreatedBy(batch_detail.created_by ?? "");
+                              }}
+                              title="Edit creator"
+                            >
+                              ✏️
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-1">
+                          <input
+                            name={`creator_${index}`}
+                            value={editedCreatedBy}
+                            onChange={(e) => setEditedCreatedBy(e.target.value)}
+                            type="text"
+                            placeholder="Creator email"
+                            className="border rounded p-[2px] focus:outline-none w-full max-w-[180px]"
+                          />
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => handleAssignCreator(batch_detail)}
+                            title="Save"
+                          >
+                            ✔
+                          </span>
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => {
+                              setEditCreatorIndex(null);
+                              setEditedCreatedBy("");
+                            }}
+                            title="Cancel"
+                          >
+                            ✖
+                          </span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 space-x-0.5 text-sm font-mono flex justify-between items-center">
                       {editFile !== index && (
@@ -506,7 +809,7 @@ export default function DatasetsTable({
                         />
                       )}
 
-                      {/* UPdating annotator-id is allowed only to the creator of the batch */}
+                      {/* Updating annotator is allowed only for the creator of the batch */}
                       {IsAuthorized(batch_detail) && (
                         <div className="px-0.5">
                           {(editFile === null || editFile !== index) && (
@@ -630,17 +933,19 @@ export default function DatasetsTable({
                         </div>
                       )}
 
-                      {IsAuthorized(batch_detail) && (
+                      {(IsAuthorized(batch_detail) || isRoot) && (
                         <button
                           onClick={() => {
                             handleDelete(batch_detail);
                             setEditFile(null);
+                            setEditCreatorIndex(null);
                             setEditedAnnotatorId("");
+                            setEditedCreatedBy("");
                           }}
                           className="text-red-600 dark:text-red-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                           title="Delete"
                         >
-                          <X className="size-6" />
+                          <Trash2 className="size-6" />
                         </button>
                       )}
 
@@ -658,7 +963,7 @@ export default function DatasetsTable({
             ) : (
               <tr key={"no-data"}>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="text-center py-6 text-neutral-600 dark:text-neutral-300"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
@@ -699,7 +1004,7 @@ export default function DatasetsTable({
                 key={"laoding-popup"}
                 className="absolute w-full h-full flex py-6 items-center justify-center top-0 bottom-0 left-0 bg-neutral-200/80 dark:bg-neutral-900/70"
               >
-                <td colSpan={10} className="text-center py-6">
+                <td colSpan={11} className="text-center py-6">
                   <svg
                     aria-hidden="true"
                     role="status"
@@ -731,6 +1036,46 @@ export default function DatasetsTable({
             className="!w-full md:!max-w-6xl !px-2"
           >
             <TasksDetail data={activeBatch} />
+          </Modal>
+        )}
+
+        {showBulkDeleteConfirm && (
+          <Modal
+            isOpen={showBulkDeleteConfirm}
+            setIsOpen={setShowBulkDeleteConfirm}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">
+                Delete {selectedDeletableDetails.length} batch(es)?
+              </h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                This action cannot be undone. The following batches will be deleted:
+              </p>
+              <ul className="max-h-48 overflow-y-auto list-disc list-inside text-sm font-mono space-y-1">
+                {selectedDeletableDetails.map((b) => (
+                  <li key={b.batch_id}>{b.batch_name ?? b.batch_id}</li>
+                ))}
+              </ul>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  minimal
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleBulkDeleteConfirm}
+                  loading={loading}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
           </Modal>
         )}
       </div>

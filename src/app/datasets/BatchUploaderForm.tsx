@@ -28,7 +28,7 @@ import {
 import { date_DDMMYYYY } from "@/helpers/format-date";
 
 import { LanguageTypes } from "@/types/languages";
-import DragDropFile from "@/components/inputs/DragDropFile";
+import DragDropFile, { type BatchData } from "@/components/inputs/DragDropFile";
 import { UserTypes } from "@/types/user";
 
 import { userDefaultValues } from "@/constants/initial_values";
@@ -125,23 +125,23 @@ const BatchUploaderForm = ({
     return `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
   };
 
-  const generateFileDetail = (data: ASRBatchTasksTypes | BatchTasksTypes) => {
+  /** Returns batch detail from parsed data (no state update). Used for single and multi-file save. */
+  const getBatchDetailFromData = (
+    data: ASRBatchTasksTypes | BatchTasksTypes
+  ): BatchDetailTypes => {
     const batch_id = generateUniqueId();
-
     const batche_details = { ...initialBatchDetail };
     batche_details.batch_id = batch_id;
 
-    // MT
     if (data && "source_language" in data && "target_language" in data) {
       batche_details.source_language = data.source_language;
       batche_details.target_language = data.target_language;
     } else if (data && "language" in data) {
       batche_details.source_language = data.language;
       batche_details.target_language = data.language;
-    } else {
     }
 
-    batche_details.dataset_type = activeTab.value; // mt, asr, tts
+    batche_details.dataset_type = activeTab.value;
     batche_details.dataset_domain = data.dataset_domain;
     batche_details.batch_name = data.batch_name;
     batche_details.number_of_tasks = data.tasks.length;
@@ -149,22 +149,83 @@ const BatchUploaderForm = ({
     batche_details.rating_guideline = data.rating_guideline ?? [];
     batche_details.domains = data.domains ?? [];
 
-    // Extracting models names from models
     const models: string[] = [];
     data.tasks[0].models.map((item: EvalOutputTypes) => {
       models.push(item.model);
     });
     batche_details.models = models;
 
-    // Count the number of Evaluated tasks, incase the batch was downloaded from the Eval system
     const evaluatedTasks = data.tasks.filter(
       (item: EvalTaskTypes) =>
         item.models[0].rate > 0 && item.models[0].rank > 0
     );
     batche_details.annotated_tasks = evaluatedTasks.length;
 
+    return batche_details;
+  };
+
+  const generateFileDetail = (data: ASRBatchTasksTypes | BatchTasksTypes) => {
+    const batche_details = getBatchDetailFromData(data);
     setNewBatchDetail({ ...batche_details });
     return batche_details;
+  };
+
+  /** Save one batch to the server using existing implementation. Used for multi-file upload. */
+  const saveOneBatch = async (
+    data: ASRBatchTasksTypes | BatchTasksTypes
+  ): Promise<BatchDetailTypes | null> => {
+    const deepClonedTasks = JSON.parse(JSON.stringify(data.tasks));
+    const { anonymized_tasks, task_models_shuffles } =
+      shuffleAndAnonymizeModels(deepClonedTasks, 123);
+    const payload = {
+      ...data,
+      tasks: anonymized_tasks,
+      task_models_shuffles,
+    };
+    const detail = getBatchDetailFromData(payload);
+
+    let tasks_batch: ASRBatchTasksTypes | BatchTasksTypes = {
+      ...payload,
+      batch_id: detail.batch_id,
+      dataset_name: detail.batch_name,
+      dataset_domain: detail.dataset_domain,
+      batch_name: detail.batch_name,
+    };
+    delete tasks_batch.domains;
+    delete tasks_batch.rating_guideline;
+
+    if (activeTab.value.toLowerCase() === "mt") {
+      tasks_batch = {
+        ...tasks_batch,
+        source_language: detail.source_language,
+        target_language: detail.target_language,
+      };
+      if ("language" in tasks_batch) delete tasks_batch.language;
+    } else {
+      tasks_batch = {
+        ...tasks_batch,
+        language: detail.source_language,
+      };
+      if ("source_language" in tasks_batch) delete tasks_batch.source_language;
+      if ("target_language" in tasks_batch) delete tasks_batch.target_language;
+    }
+
+    const res = await fetch(`/api/batches/${activeTab.value}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        batchDetail: detail,
+        batchTask: tasks_batch,
+      }),
+    });
+
+    if (res.status === 409) {
+      const body = await res.json();
+      throw new Error(body.message ?? "Conflict");
+    }
+    if (!res.ok) throw new Error("Failed to save batch to server.");
+
+    return detail;
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -291,23 +352,55 @@ const BatchUploaderForm = ({
               <DragDropFile
                 activeTab={activeTab}
                 loading={loading}
-                onChange={(data) => {
-                  // Deep clone tasks to prevent mutation of original data
+                onChange={async (data) => {
+                  const items: BatchData[] = Array.isArray(data) ? data : [data];
+
+                  if (items.length > 1) {
+                    setLoading(true);
+                    const saved: BatchDetailTypes[] = [];
+                    const errors: string[] = [];
+                    for (let i = 0; i < items.length; i++) {
+                      try {
+                        const detail = await saveOneBatch(items[i]);
+                        if (detail) {
+                          saved.push(detail);
+                          setBatchesDetailTable((prev) => [detail, ...prev]);
+                        }
+                      } catch (err) {
+                        errors.push(
+                          `${items[i]?.batch_name ?? `File ${i + 1}`}: ${err instanceof Error ? err.message : "Failed"}`
+                        );
+                      }
+                    }
+                    setLoading(false);
+                    setShowUploader(false);
+                    if (saved.length > 0) {
+                      alert(
+                        errors.length > 0
+                          ? `${saved.length} batch(es) uploaded. ${errors.length} failed: ${errors.join("; ")}`
+                          : `${saved.length} batch(es) uploaded successfully.`
+                      );
+                    } else if (errors.length > 0) {
+                      alert(`Upload failed: ${errors.join("; ")}`);
+                    }
+                    return;
+                  }
+
+                  const single = items[0];
                   const deepClonedTasks = JSON.parse(
-                    JSON.stringify(data.tasks)
+                    JSON.stringify(single.tasks)
                   );
                   const { anonymized_tasks, task_models_shuffles } =
                     shuffleAndAnonymizeModels(deepClonedTasks, 123);
 
-                  // Optional: set state or generate file using updated data
                   setNewBatchTasks({
-                    ...data,
+                    ...single,
                     tasks: anonymized_tasks,
                     task_models_shuffles,
                   });
 
                   generateFileDetail({
-                    ...data,
+                    ...single,
                     tasks: anonymized_tasks,
                     task_models_shuffles,
                   });

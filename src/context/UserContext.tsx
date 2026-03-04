@@ -12,7 +12,9 @@ type UserContextType = {
 };
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-function sessionToUser(session: { user: { email: string; name?: string; role?: string } } | null): UserTypes | null {
+function sessionToUser(session: {
+  user: { email: string; name?: string; role?: string; image?: string; active?: boolean };
+} | null): UserTypes | null {
   if (!session?.user) return null;
   const u = session.user;
   return {
@@ -20,6 +22,8 @@ function sessionToUser(session: { user: { email: string; name?: string; role?: s
     role: (u as { role?: string }).role ?? "user",
     fullName: u.name,
     email: u.email,
+    active: (u as { active?: boolean }).active,
+    image: (u as { image?: string }).image,
   };
 }
 

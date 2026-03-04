@@ -2,7 +2,7 @@ import { guidelineTypes, EvalOutputTypes } from "@/types/data";
 import { TaskEvalErrorTypes } from "@/types/others";
 import React from "react";
 import Tooltip from "../utils/Tooltip";
-import { tausRating } from "@/constants/others";
+import { tausRating, tausRatingTranscription } from "@/constants/others";
 
 import {
   ArrowDownToLine,
@@ -54,7 +54,18 @@ const TranslationOutputArea = ({
   const ratingGuideline =
     rating_guideline && rating_guideline?.length > 0
       ? rating_guideline
-      : tausRating;
+      : type === "asr"
+        ? tausRatingTranscription
+        : tausRating;
+
+  /** For ASR tooltip, show transcription wording even if guideline text says "translation". */
+  const tooltipDescription = (desc: string | undefined) =>
+    type === "asr" && desc
+      ? desc
+          .replace(/\btranslation\b/gi, "transcription")
+          .replace(/\bthe source\b/gi, "the audio")
+          .replace(/\bsource\b/gi, "audio")
+      : desc;
 
   const modelIcon = () => {
     if (type === "asr") {
@@ -187,7 +198,7 @@ const TranslationOutputArea = ({
                     </p>
 
                     <p className="px-3 pb-3 text-sm font-mono text-neutral-700 dark:text-neutral-400">
-                      {item?.description}
+                      {tooltipDescription(item?.description)}
                     </p>
 
                     {/* <div className="space-x-1 space-y-1 flex-wrap">

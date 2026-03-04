@@ -1,11 +1,19 @@
 /**
  * Better Auth: Google, GitHub, Hugging Face sign-in, MongoDB, Next.js.
+ * Email verification and password reset via Nodemailer.
  * @see https://www.better-auth.com/docs
  */
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import getClientPromise from "@/lib/mongodb";
+import { sendEmail, sendEmailInBackground } from "@/lib/email";
+import {
+  getVerificationEmailHtml,
+  getVerificationEmailText,
+  getResetPasswordEmailHtml,
+  getResetPasswordEmailText,
+} from "@/lib/email-templates";
 
 let _auth: ReturnType<typeof betterAuth> | undefined;
 
@@ -24,6 +32,33 @@ export async function getAuth() {
     database: mongodbAdapter(db, { client }),
     secret,
     baseURL: process.env.BETTER_AUTH_URL,
+
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      sendResetPassword: async ({ user, url }, _request) => {
+        sendEmailInBackground({
+          to: user.email,
+          subject: "Reset your password",
+          html: getResetPasswordEmailHtml(url, user.name ?? undefined),
+          text: getResetPasswordEmailText(url),
+        });
+      },
+    },
+
+    emailVerification: {
+      sendOnSignUp: true,
+      sendOnSignIn: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }, _request) => {
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email address",
+          html: getVerificationEmailHtml(url, user.name ?? undefined),
+          text: getVerificationEmailText(url),
+        });
+      },
+    },
 
     socialProviders: {
       ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET

@@ -2,30 +2,47 @@ import { BatchTasksTypes } from "@/types/data";
 
 const keys = {
   mt: {
-    topLevel: ["tasks"],
+    topLevel: ["tasks", "batch_name", "dataset_domain", "source_language", "target_language"],
     taskKeys: ["id", "input", "models"],
     modelKeys: ["output", "model", "rate", "rank"],
   },
   asr: {
-    topLevel: ["tasks"],
+    topLevel: ["tasks", "batch_name", "dataset_domain", "language"],
     taskKeys: ["id", "input", "models"],
     modelKeys: ["output", "model", "rate", "rank"],
   },
   tts: {
-    topLevel: ["tasks"],
+    topLevel: ["tasks", "batch_name", "dataset_domain", "language"],
     taskKeys: ["id", "input", "models"],
     modelKeys: ["output", "model", "rate", "rank"],
   },
 };
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isLanguageObject(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const o = value as Record<string, unknown>;
+  return typeof o.iso_639_3 === "string" || typeof o.iso_name === "string";
+}
 
 const isPathOrUrl = (value: string): boolean => {
   return /^https?:\/\/|^\/|^[A-Za-z]:\\/.test(value);
 };
 
+export type ValidateBatchOptions = {
+  /** When true (e.g. multi-file upload), require batch_name, dataset_domain, and language so files are self-contained. When false, only tasks structure is required (user can fill form). */
+  requireMetadata?: boolean;
+};
+
 export const isValidBatchData = (
   type: "mt" | "asr" | "tts" = "mt",
-  data: BatchTasksTypes
+  data: BatchTasksTypes,
+  options: ValidateBatchOptions = {}
 ): { isValid: boolean; message: string } => {
+  const { requireMetadata = false } = options;
   const { topLevel, taskKeys, modelKeys } = keys[type];
 
   const groupedMessages: Map<string, number[]> = new Map();
@@ -36,14 +53,37 @@ export const isValidBatchData = (
     groupedMessages.get(baseMessage)!.push(taskIndex);
   };
 
-  // 1. Validate top-level keys
-  const missingTopKeys = topLevel.filter((key) => !(key in data));
+  // 1. Validate top-level keys (always require "tasks"; when requireMetadata, also require batch_name, dataset_domain, language)
+  const requiredTopKeys = requireMetadata ? topLevel : ["tasks"];
+  const missingTopKeys = requiredTopKeys.filter((key) => !(key in data));
   if (missingTopKeys.length > 0) {
     miscMessages.push(
       `Missing top-level ${type.toUpperCase()} batch key(s): ${missingTopKeys.join(
         ", "
       )}`
     );
+  }
+
+  if (requireMetadata) {
+    if (!isNonEmptyString((data as Record<string, unknown>).batch_name)) {
+      miscMessages.push("`batch_name` is required and must be a non-empty string.");
+    }
+    if (!isNonEmptyString((data as Record<string, unknown>).dataset_domain)) {
+      miscMessages.push("`dataset_domain` is required and must be a non-empty string.");
+    }
+    if (type === "mt") {
+      const d = data as Record<string, unknown>;
+      if (!isLanguageObject(d.source_language)) {
+        miscMessages.push("`source_language` is required and must be an object with at least `iso_639_3` or `iso_name`.");
+      }
+      if (!isLanguageObject(d.target_language)) {
+        miscMessages.push("`target_language` is required and must be an object with at least `iso_639_3` or `iso_name`.");
+      }
+    } else if (type === "asr" || type === "tts") {
+      if (!isLanguageObject((data as Record<string, unknown>).language)) {
+        miscMessages.push("`language` is required and must be an object with at least `iso_639_3` or `iso_name`.");
+      }
+    }
   }
 
   // 2. Validate tasks
