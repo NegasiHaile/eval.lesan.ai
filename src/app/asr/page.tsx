@@ -465,6 +465,7 @@ export default function ASR() {
                   batchesDetails.map((item) => item.batch_name)
                 ),
               ]}
+              searchable
               onChange={async (e) => {
                 setIsLoading(true);
                 setError(null);
