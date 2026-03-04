@@ -132,6 +132,8 @@ export default function DatasetsTable({
   const [editedAnnotatorId, setEditedAnnotatorId] = useState<string | number>(
     ""
   );
+  const [editReviewerFile, setEditReviewerFile] = useState<number | null>(null);
+  const [editedReviewerId, setEditedReviewerId] = useState<string>("");
   const [filters, setFilters] = useState({
     batch_name: "",
     dataset_domain: "",
@@ -140,6 +142,7 @@ export default function DatasetsTable({
     models: "",
     created_by: "",
     annotator_id: "",
+    qa_id: "",
     progress_filter: "" as ProgressFilterValue,
   });
   const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
@@ -390,11 +393,56 @@ export default function DatasetsTable({
     setLoading(false);
   };
 
+  const handleAssignReviewer = async (batch_detail: BatchDetailTypes) => {
+    const reviewer_email = editedReviewerId.trim() || null;
+
+    if ((batch_detail.qa_id ?? "").trim().toLowerCase() === (reviewer_email ?? "").toLowerCase()) {
+      setEditReviewerFile(null);
+      setEditedReviewerId("");
+      return;
+    }
+
+    if (!user?.email && !user?.username) {
+      alert("Unauthorized user or your session has expired. Please sign in again.");
+      setEditReviewerFile(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const batchID = batch_detail?.batch_id;
+      const res = await fetch(`/api/batches-details/${batchID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qa_id: reviewer_email }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || "Failed to assign reviewer.");
+      }
+
+      const updatedDetails = batches_details.map((detail) =>
+        detail.batch_id === batchID
+          ? { ...detail, qa_id: reviewer_email }
+          : detail
+      ) as BatchDetailTypes[];
+      setBatchDetails(updatedDetails);
+      setEditReviewerFile(null);
+      setEditedReviewerId("");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to assign reviewer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const IsAuthorized = (batch_detail: BatchDetailTypes) => {
     return batch_detail.created_by === user?.username;
   };
 
   const isRoot = user?.role?.toLowerCase() === "root";
+  const isAdminOrRoot = ["root", "admin"].includes(user?.role?.toLowerCase() ?? "");
 
   const handleAssignCreator = async (batch_detail: BatchDetailTypes) => {
     const creator_email = `${editedCreatedBy}`.trim() ?? null;
@@ -495,7 +543,11 @@ export default function DatasetsTable({
       (detail.annotator_id ?? "")
         .toString()
         .toLowerCase()
-        .includes(filters.annotator_id.toLowerCase())
+        .includes(filters.annotator_id.toLowerCase()) &&
+      (detail.qa_id ?? "")
+        .toString()
+        .toLowerCase()
+        .includes(filters.qa_id.toLowerCase())
     );
   });
 
@@ -511,6 +563,7 @@ export default function DatasetsTable({
     { key: "", type: "spacer" },
     { key: "created_by", placeholder: "Creator" },
     { key: "annotator_id", placeholder: "Annotator" },
+    { key: "qa_id", placeholder: "Reviewer" },
     { key: "progress_filter", type: "progress" },
     { key: "", type: "spacer" },
   ];
@@ -614,6 +667,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">created At</th>
               <th className="px-4 py-4 text-left">created By</th>
               <th className="px-4 py-4 text-left">Assigned To</th>
+              <th className="px-4 py-4 text-left">Reviewer</th>
               <th className="px-4 py-4 text-left">Progress</th>
               <th className="px-4 py-4 text-left">Actions</th>
             </tr>
@@ -852,6 +906,55 @@ export default function DatasetsTable({
                         </div>
                       )}
                     </td>
+                    <td className="px-3 py-2 text-sm font-mono" title={batch_detail.qa_id ?? ""}>
+                      {editReviewerFile !== index ? (
+                        <>
+                          {(batch_detail.qa_id ?? "").length > 15
+                            ? `${(batch_detail.qa_id ?? "").slice(0, 15)}...`
+                            : batch_detail.qa_id ?? "N/A"}
+                          {isAdminOrRoot && (
+                            <span
+                              className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                              onClick={() => {
+                                setEditReviewerFile(index);
+                                setEditedReviewerId(batch_detail.qa_id ?? "");
+                              }}
+                              title="Edit reviewer"
+                            >
+                              ✏️
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-1">
+                          <input
+                            name={`reviewer_${index}`}
+                            value={editedReviewerId}
+                            onChange={(e) => setEditedReviewerId(e.target.value)}
+                            type="text"
+                            placeholder="Reviewer email"
+                            className="border rounded p-[2px] focus:outline-none w-full max-w-[180px]"
+                          />
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => handleAssignReviewer(batch_detail)}
+                            title="Save"
+                          >
+                            ✔
+                          </span>
+                          <span
+                            className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                            onClick={() => {
+                              setEditReviewerFile(null);
+                              setEditedReviewerId("");
+                            }}
+                            title="Cancel"
+                          >
+                            ✖
+                          </span>
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 w-56">
                       <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-3 rounded-full">
                         <div
@@ -963,7 +1066,7 @@ export default function DatasetsTable({
             ) : (
               <tr key={"no-data"}>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="text-center py-6 text-neutral-600 dark:text-neutral-300"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
@@ -1004,7 +1107,7 @@ export default function DatasetsTable({
                 key={"laoding-popup"}
                 className="absolute w-full h-full flex py-6 items-center justify-center top-0 bottom-0 left-0 bg-neutral-200/80 dark:bg-neutral-900/70"
               >
-                <td colSpan={11} className="text-center py-6">
+                <td colSpan={12} className="text-center py-6">
                   <svg
                     aria-hidden="true"
                     role="status"

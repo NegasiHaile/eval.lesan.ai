@@ -54,6 +54,8 @@ export default function Home() {
   const [isHorizontal, setIsHorizontal] = useState(true);
   const [outputTextareaHeight, setOutputTextareaHeight] =
     useState<string>("md:min-h-35");
+  const [reviewerComment, setReviewerComment] = useState<string>("");
+  const [savingComment, setSavingComment] = useState(false);
 
   function RankTranslations(fromIndex: number, toIndex: number) {
     setEvalTask((prev) => {
@@ -273,6 +275,7 @@ export default function Home() {
       if (this_batchTasks?.tasks.length > 0) {
         setEvalTask({ ...this_batchTasks.tasks[0] });
         setBatchTasks([...this_batchTasks.tasks]);
+        setReviewerComment(this_batchTasks.tasks[0]?.reviewer_comment ?? "");
         localStorage.setItem("active_batch", JSON.stringify(this_batchTasks));
       } else {
         handleResetEvalTask(modelsToEval);
@@ -282,6 +285,64 @@ export default function Home() {
 
   const IsRealtime = () => {
     return selectedBatchDetail?.batch_name?.toLowerCase().includes("realtime");
+  };
+
+  const isReviewerMode = (() => {
+    if (!user?.username || !selectedBatchDetail?.qa_id) return false;
+    const username = user.username.toLowerCase();
+    const qaId = selectedBatchDetail.qa_id.toLowerCase();
+    if (qaId !== username) return false;
+    // Not reviewer mode if user is also the annotator or creator
+    const isAnnotator = (selectedBatchDetail.annotator_id ?? "").toLowerCase() === username;
+    const isCreator = (selectedBatchDetail.created_by ?? "").toLowerCase() === username;
+    return !isAnnotator && !isCreator;
+  })();
+
+  const handleSaveReviewerComment = async () => {
+    if (!evalTask) return;
+    setSavingComment(true);
+    try {
+      const updatedTask = { ...evalTask, reviewer_comment: reviewerComment };
+      await fetch(
+        `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedTask),
+        }
+      );
+      // Update the task in local state
+      setEvalTask(updatedTask);
+      const updatedTasks = [...batchTasks];
+      updatedTasks[currentTaskIndex] = updatedTask;
+      setBatchTasks(updatedTasks);
+    } catch (error) {
+      alert("Failed to save comment.");
+      console.error(error);
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleReviewerNext = () => {
+    if (currentTaskIndex + 1 < batchTasks.length) {
+      setCurrentTaskIndex((prev) => prev + 1);
+      const nextTask = batchTasks[currentTaskIndex + 1];
+      setEvalTask(nextTask);
+      setReviewerComment(nextTask?.reviewer_comment ?? "");
+    } else {
+      alert(`End of <${selectedBatchDetail.batch_name}> review tasks!`);
+    }
+  };
+
+  const handleReviewerPrev = () => {
+    if (currentTaskIndex > 0) {
+      const prevIndex = currentTaskIndex - 1;
+      setCurrentTaskIndex(prevIndex);
+      const prevTask = batchTasks[prevIndex];
+      setEvalTask(prevTask);
+      setReviewerComment(prevTask?.reviewer_comment ?? "");
+    }
   };
 
   const realtimeTranslate = async (
@@ -518,11 +579,13 @@ export default function Home() {
           />
         )}
 
-        <ToggleButton
-          id="toggle_trans_components_layouts"
-          toggleIcon={isHorizontal}
-          onClickToggle={() => setIsHorizontal(!isHorizontal)}
-        />
+        {!isReviewerMode && (
+          <ToggleButton
+            id="toggle_trans_components_layouts"
+            toggleIcon={isHorizontal}
+            onClickToggle={() => setIsHorizontal(!isHorizontal)}
+          />
+        )}
       </>
     );
   };
@@ -682,6 +745,7 @@ export default function Home() {
                   isLastItem={index === evalTask.models.length - 1}
                   isLoading={isLoading && !item.output}
                   disabled={false}
+                  readOnly={isReviewerMode}
                   rating_guideline={
                     selectedBatchDetail.rating_guideline ?? undefined
                   }
@@ -689,105 +753,170 @@ export default function Home() {
               );
             })}
 
-            <div
-              className={`transition-all duration-600 ease-in-out overflow-hidden ${
-                showReference
-                  ? "max-h-[600px] opacity-100"
-                  : "max-h-0 opacity-0"
-              }`}
-            >
-              <textarea
-                key={evalTask?.id}
-                id={`id_${evalTask?.id}`}
-                placeholder="Add the correct translation for the input text."
-                className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-50 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
-                name={"reference"}
-                value={evalTask?.reference ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setEvalTask((prev) => {
-                    if (!prev) return prev;
-                    return {
-                      ...prev,
-                      reference: e.target.value,
-                    };
-                  })
-                }
-              />
-            </div>
+            {isReviewerMode ? (
+              <>
+                {/* Reference (always visible, read-only in reviewer mode) */}
+                <textarea
+                  key={evalTask?.id}
+                  id={`id_${evalTask?.id}`}
+                  placeholder="Reference translation"
+                  className="w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-100 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white placeholder:text-sm placeholder:font-mono cursor-not-allowed opacity-80"
+                  name="reference"
+                  value={evalTask?.reference ?? ""}
+                  readOnly
+                />
 
-            <DomainsList
-              selectedDomains={evalTask?.domain ?? []}
-              toggleDomainSelection={(name) =>
-                setEvalTask((prev) => {
-                  if (!prev) return prev;
-
-                  const current = prev.domain ?? [];
-                  const isSelected = current.includes(name);
-
-                  return {
-                    ...prev,
-                    domain: isSelected
-                      ? current.filter((d) => d !== name) // Remove if already selected
-                      : [...current, name], // Add if not selected
-                  };
-                })
-              }
-            />
-            <div className="flex items-center justify-between space-x-2 text-right font-mono">
-              <div className="w-fit flex space-x-2 items-center">
-                <Button
-                  variant="primary"
-                  minimal
-                  size="sm"
-                  onClick={() => setShowReference(!showReference)}
-                  className="!font-semibold"
-                >
-                  {showReference ? (
-                    <>
-                      <Minus className="size-4" /> Hide
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="size-4" /> Add{" "}
-                    </>
-                  )}{" "}
-                  Reference
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 text-right">
-                {currentTaskIndex > 0 && (
-                  <Button
-                    onClick={() => handlePreviousEvaluation()}
-                    outline
-                    size="sm"
-                    text="Prev"
-                    className="!px-5 !text-current !font-semibold"
+                {/* Reviewer comment textarea */}
+                <div className="space-y-2">
+                  <label className="text-sm font-mono font-semibold text-neutral-600 dark:text-neutral-400">
+                    Reviewer Comment
+                  </label>
+                  <textarea
+                    placeholder="Add your review comment for this task..."
+                    className="w-full p-3 h-fit min-h-28 rounded-md bg-neutral-50 border border-blue-300 dark:bg-neutral-800/80 dark:border-blue-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono"
+                    value={reviewerComment}
+                    onChange={(e) => setReviewerComment(e.target.value)}
                   />
-                )}
+                </div>
 
-                {selectedBatchDetail.batch_name.toLowerCase() !==
-                  "realtime" && (
-                  <span className="text-sm font-bold">
-                    {currentTaskIndex + 1}/{batchTasks.length}
-                  </span>
-                )}
+                <div className="flex items-center justify-between space-x-2 text-right font-mono">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSaveReviewerComment}
+                    loading={savingComment}
+                    className="!font-semibold"
+                  >
+                    Save Comment
+                  </Button>
 
-                <Button
-                  outline
-                  size="sm"
-                  onClick={() => handleSubmitEvaluation()}
-                  loading={isLoading}
-                  className="!px-5 !text-current !font-semibold !text-nowrap"
+                  <div className="flex items-center justify-end space-x-2 text-right">
+                    {currentTaskIndex > 0 && (
+                      <Button
+                        onClick={handleReviewerPrev}
+                        outline
+                        size="sm"
+                        text="Prev"
+                        className="!px-5 !text-current !font-semibold"
+                      />
+                    )}
+                    <span className="text-sm font-bold">
+                      {currentTaskIndex + 1}/{batchTasks.length}
+                    </span>
+                    <Button
+                      outline
+                      size="sm"
+                      onClick={handleReviewerNext}
+                      className="!px-5 !text-current !font-semibold"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`transition-all duration-600 ease-in-out overflow-hidden ${
+                    showReference
+                      ? "max-h-[600px] opacity-100"
+                      : "max-h-0 opacity-0"
+                  }`}
                 >
-                  {selectedBatchDetail.batch_name.toLowerCase() === "realtime"
-                    ? "Submit"
-                    : isThereChangeInActiveTask()
-                    ? "Save & Next"
-                    : "Next"}
-                </Button>
-              </div>
-            </div>
+                  <textarea
+                    key={evalTask?.id}
+                    id={`id_${evalTask?.id}`}
+                    placeholder="Add the correct translation for the input text."
+                    className={`w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-50 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono`}
+                    name={"reference"}
+                    value={evalTask?.reference ?? ""}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                      setEvalTask((prev) => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          reference: e.target.value,
+                        };
+                      })
+                    }
+                  />
+                </div>
+
+                <DomainsList
+                  selectedDomains={evalTask?.domain ?? []}
+                  toggleDomainSelection={(name) =>
+                    setEvalTask((prev) => {
+                      if (!prev) return prev;
+
+                      const current = prev.domain ?? [];
+                      const isSelected = current.includes(name);
+
+                      return {
+                        ...prev,
+                        domain: isSelected
+                          ? current.filter((d) => d !== name)
+                          : [...current, name],
+                      };
+                    })
+                  }
+                />
+                <div className="flex items-center justify-between space-x-2 text-right font-mono">
+                  <div className="w-fit flex space-x-2 items-center">
+                    <Button
+                      variant="primary"
+                      minimal
+                      size="sm"
+                      onClick={() => setShowReference(!showReference)}
+                      className="!font-semibold"
+                    >
+                      {showReference ? (
+                        <>
+                          <Minus className="size-4" /> Hide
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="size-4" /> Add{" "}
+                        </>
+                      )}{" "}
+                      Reference
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-end space-x-2 text-right">
+                    {currentTaskIndex > 0 && (
+                      <Button
+                        onClick={() => handlePreviousEvaluation()}
+                        outline
+                        size="sm"
+                        text="Prev"
+                        className="!px-5 !text-current !font-semibold"
+                      />
+                    )}
+
+                    {selectedBatchDetail.batch_name.toLowerCase() !==
+                      "realtime" && (
+                      <span className="text-sm font-bold">
+                        {currentTaskIndex + 1}/{batchTasks.length}
+                      </span>
+                    )}
+
+                    <Button
+                      outline
+                      size="sm"
+                      onClick={() => handleSubmitEvaluation()}
+                      loading={isLoading}
+                      className="!px-5 !text-current !font-semibold !text-nowrap"
+                    >
+                      {selectedBatchDetail.batch_name.toLowerCase() === "realtime"
+                        ? "Submit"
+                        : isThereChangeInActiveTask()
+                        ? "Save & Next"
+                        : "Next"}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
