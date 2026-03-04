@@ -26,7 +26,7 @@ function getProgressPercent(detail: BatchDetailTypes): number {
   return total ? (annotated / total) * 100 : 0;
 }
 
-type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed";
+type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed" | "not_completed";
 
 function progressMatchesFilter(percent: number, filter: ProgressFilterValue): boolean {
   if (!filter) return true;
@@ -41,6 +41,8 @@ function progressMatchesFilter(percent: number, filter: ProgressFilterValue): bo
       return percent >= 50 && percent < 100;
     case "completed":
       return percent === 100;
+    case "not_completed":
+      return percent < 100;
     default:
       return true;
   }
@@ -675,6 +677,7 @@ export default function DatasetsTable({
                         <option value="less_than_50">Less than 50%</option>
                         <option value="completed_over_50">Completed &gt;50%</option>
                         <option value="completed">Completed (100%)</option>
+                        <option value="not_completed">Not 100% completed</option>
                       </select>
                     </th>
                   );
