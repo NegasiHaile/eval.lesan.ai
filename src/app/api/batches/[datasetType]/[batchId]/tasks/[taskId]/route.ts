@@ -33,29 +33,15 @@ export async function PATCH(
 
     // If the caller is the reviewer (and not also creator/annotator/admin), only allow reviewer_comment updates
     if (isReviewer && !isAdminOrRoot && !isCreator && !isAnnotator) {
-      // Fetch the existing task first
-      const existingBatch = await db.collection(`${datasetType}_batches`).findOne(
-        {
-          batch_id: batchId,
-          $or: [{ "tasks.id": Number(taskId) }, { "tasks.id": String(taskId) }],
-        },
-        { projection: { "tasks.$": 1 } }
-      );
-      const existingTask = existingBatch?.tasks?.[0];
-      if (!existingTask) {
-        return NextResponse.json({ message: "Task not found" }, { status: 404 });
-      }
-      // Only update reviewer_comment, keep everything else from the existing task
-      const reviewerOnlyTask = { ...existingTask, reviewer_comment: updatedTask.reviewer_comment ?? "" };
       const reviewResult = await db.collection(`${datasetType}_batches`).updateOne(
         {
           batch_id: batchId,
           $or: [{ "tasks.id": Number(taskId) }, { "tasks.id": String(taskId) }],
         },
-        { $set: { "tasks.$": reviewerOnlyTask } }
+        { $set: { "tasks.$.reviewer_comment": updatedTask.reviewer_comment ?? "" } }
       );
-      if (reviewResult.modifiedCount === 0) {
-        return NextResponse.json({ message: "Task not found or not updated" }, { status: 404 });
+      if (reviewResult.matchedCount === 0) {
+        return NextResponse.json({ message: "Task not found" }, { status: 404 });
       }
       return NextResponse.json({ message: "Reviewer comment updated successfully" });
     }
