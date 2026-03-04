@@ -277,12 +277,19 @@ export default function ASR() {
         );
       } else {
         setCurrentTaskIndex(0);
-        setEvalTask(null);
-        setSelectedBatchDetail(realtimeBatch);
-        handleResetEvalTask(2);
-        localStorage.removeItem("asr_active_batch");
+        setEvalTask(updatedTasks[0]);
         alert(
-          `End of <${selectedBatchDetail.batch_name}> ASR evaluation tasks!`
+          `End of <${selectedBatchDetail.batch_name}> ASR evaluation tasks! Back to first task.`
+        );
+        localStorage.setItem(
+          "asr_active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: 0,
+          })
         );
         return;
       }

@@ -17,6 +17,54 @@ const getProgressColor = (percentage: number): string => {
   return "bg-green-500";
 };
 
+/** Escape a CSV field (quote if needed, double internal quotes). */
+function escapeCSV(value: string): string {
+  const s = String(value ?? "");
+  if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/** Convert batch (MT or ASR) to CSV: one row per (task, model). Columns: task_id, input, output, model, domain, rate, rank, reference. */
+function batchToCSV(
+  batch: ASRBatchTasksTypes | BatchTasksTypes
+): string {
+  const headers = [
+    "task_id",
+    "input",
+    "output",
+    "model",
+    "domain",
+    "rate",
+    "rank",
+    "reference",
+  ];
+  const rows: string[][] = [headers];
+
+  for (const task of batch.tasks ?? []) {
+    const taskId = String(task.id ?? "");
+    const input = task.input ?? "";
+    const reference = task.reference ?? "";
+    const domain = Array.isArray(task.domain) ? task.domain.join("; ") : (task.domain ?? "");
+
+    for (const m of task.models ?? []) {
+      rows.push([
+        taskId,
+        input,
+        m.output ?? "",
+        m.model ?? "",
+        domain,
+        String(m.rate ?? ""),
+        String(m.rank ?? ""),
+        reference,
+      ]);
+    }
+  }
+
+  return rows.map((row) => row.map(escapeCSV).join(",")).join("\r\n");
+}
+
 type DatasetsTableProps = {
   batches_details: BatchDetailTypes[];
   setBatchDetails: Dispatch<React.SetStateAction<BatchDetailTypes[]>>;
@@ -126,24 +174,28 @@ export default function DatasetsTable({
         delete batch.task_models_shuffles; // removing mapping
       }
 
-      // TODO: Different file formates should be supports here, for now, only only JSON is supported
-      console.log("Selected file format to download:", format);
+      const isCSV = format.toLowerCase() === "csv";
+      let blob: Blob;
+      let filename: string;
 
-      const json = JSON.stringify(batch, null, 2); // Pretty print
-      const blob = new Blob([json], { type: "application/json" });
+      if (isCSV) {
+        const csv = batchToCSV(batch);
+        blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
+      } else {
+        const json = JSON.stringify(batch, null, 2);
+        blob = new Blob([json], { type: "application/json" });
+        filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`;
+      }
+
       const url = URL.createObjectURL(blob);
-
       const downloadAnchorNode = document.createElement("a");
       downloadAnchorNode.setAttribute("href", url);
-      downloadAnchorNode.setAttribute(
-        "download",
-        `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.json`
-      );
-      document.body.appendChild(downloadAnchorNode); // Required for Firefox
+      downloadAnchorNode.setAttribute("download", filename);
+      document.body.appendChild(downloadAnchorNode);
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
-
-      URL.revokeObjectURL(url); // Cleanup
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download error:", error);
       alert("Could not download the batch tasks.");
@@ -560,9 +612,7 @@ export default function DatasetsTable({
                           <p className="text-[10px] font-mono px-2 p-2 opacity-65">
                             Select file-type
                           </p>
-                          {/* {["JSON", "CSV", "TSV", "Excel"].map((format) => ( */}
-
-                          {["JSON"].map((format) => (
+                          {["JSON", "CSV"].map((format) => (
                             <div
                               key={format}
                               className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
