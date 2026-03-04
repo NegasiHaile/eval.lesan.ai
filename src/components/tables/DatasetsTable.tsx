@@ -649,7 +649,7 @@ export default function DatasetsTable({
                             handleFilterChange("source_language", e.target.value)
                           }
                           size="xs"
-                          className="flex-1 min-w-0 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
+                          className="flex-1 min-w-0"
                         />
                         <TextInput
                           type="text"
@@ -660,7 +660,7 @@ export default function DatasetsTable({
                             handleFilterChange("target_language", e.target.value)
                           }
                           size="xs"
-                          className="flex-1 min-w-0 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
+                          className="flex-1 min-w-0"
                         />
                       </div>
                     </th>
@@ -682,7 +682,7 @@ export default function DatasetsTable({
                         }
                         variant="outlined"
                         className="w-full max-w-full md:!w-full"
-                        selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs shadow-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-neutral-300 dark:hover:border-neutral-600 min-w-0"
+                        selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0"
                       />
                     </th>
                   );
@@ -698,7 +698,7 @@ export default function DatasetsTable({
                         handleFilterChange(field.key, e.target.value)
                       }
                       size="xs"
-                      className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
+                      className="w-full"
                     />
                   </th>
                 );

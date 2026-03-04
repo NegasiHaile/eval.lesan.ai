@@ -158,7 +158,7 @@ const SelectTransparent = ({
                 className={`w-full px-4 py-[14px] text-nowrap capitalize transition-colors duration-200
                   ${
                     item == value
-                      ? "bg-white dark:bg-neutral-900 font-semibold"
+                      ? "border-y border-neutral-300 dark:border-neutral-700 font-bold"
                       : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
                   }`}
                 role="option"
