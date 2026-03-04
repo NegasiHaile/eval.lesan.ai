@@ -482,11 +482,8 @@ export default function DatasetsTable({
     }
   };
 
-  const filteredBatches = batches_details.filter((detail) => {
-    const percent = getProgressPercent(detail);
-    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
-    return (
-      progressMatch &&
+  const matchesOtherFilters = useCallback(
+    (detail: BatchDetailTypes) =>
       (detail.batch_name ?? "")
         .toLowerCase()
         .includes(filters.batch_name.toLowerCase()) &&
@@ -509,9 +506,38 @@ export default function DatasetsTable({
       (detail.annotator_id ?? "")
         .toString()
         .toLowerCase()
-        .includes(filters.annotator_id.toLowerCase())
-    );
+        .includes(filters.annotator_id.toLowerCase()),
+    [
+      filters.batch_name,
+      filters.dataset_domain,
+      filters.source_language,
+      filters.target_language,
+      filters.models,
+      filters.created_by,
+      filters.annotator_id,
+    ]
+  );
+
+  const filteredBatches = batches_details.filter((detail) => {
+    const percent = getProgressPercent(detail);
+    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
+    return progressMatch && matchesOtherFilters(detail);
   });
+
+  const progressCounts = useMemo(() => {
+    const matching = batches_details.filter(matchesOtherFilters);
+    const counts: Record<string, number> = {};
+    for (const opt of PROGRESS_FILTER_OPTIONS) {
+      if (opt.value === "") {
+        counts[""] = matching.length;
+      } else {
+        counts[opt.value] = matching.filter((d) =>
+          progressMatchesFilter(getProgressPercent(d), opt.value as ProgressFilterValue)
+        ).length;
+      }
+    }
+    return counts;
+  }, [batches_details, matchesOtherFilters]);
 
   const filterFields = [
     { key: "batch_name", placeholder: "Filter by name" },
@@ -673,7 +699,9 @@ export default function DatasetsTable({
                         name="progress_filter"
                         value={filters.progress_filter}
                         optionsValues={PROGRESS_FILTER_OPTIONS.map((o) => o.value)}
-                        optionsLabels={PROGRESS_FILTER_OPTIONS.map((o) => o.label)}
+                        optionsLabels={PROGRESS_FILTER_OPTIONS.map(
+                          (o) => `${o.label} (${progressCounts[o.value] ?? 0})`
+                        )}
                         onChange={(e) =>
                           handleFilterChange(
                             "progress_filter",
