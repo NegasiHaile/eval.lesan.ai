@@ -12,6 +12,8 @@ import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
 import { Download, Expand, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
+import SelectTransparent from "../inputs/SelectTransparent";
+import TextInput from "../inputs/TextInput";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -27,6 +29,16 @@ function getProgressPercent(detail: BatchDetailTypes): number {
 }
 
 type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed" | "not_completed";
+
+const PROGRESS_FILTER_OPTIONS: { value: ProgressFilterValue; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "not_started", label: "Not started" },
+  { value: "in_progress", label: "In progress" },
+  { value: "less_than_50", label: "Less than 50%" },
+  { value: "completed_over_50", label: "Completed >50%" },
+  { value: "completed", label: "Completed (100%)" },
+  { value: "not_completed", label: "Not 100% completed" },
+];
 
 function progressMatchesFilter(percent: number, filter: ProgressFilterValue): boolean {
   if (!filter) return true;
@@ -627,28 +639,28 @@ export default function DatasetsTable({
                 if (field.type === "dual") {
                   return (
                     <th key={idx}>
-                      <div className="flex space-x-1">
-                        <input
-                          className="w-1/2 p-1 rounded"
-                          placeholder={field.placeholders?.[0]}
+                      <div className="flex gap-1 w-full">
+                        <TextInput
+                          type="text"
+                          name="source_language"
                           value={filters.source_language}
+                          placeholder={field.placeholders?.[0] ?? "From"}
                           onChange={(e) =>
-                            handleFilterChange(
-                              "source_language",
-                              e.target.value
-                            )
+                            handleFilterChange("source_language", e.target.value)
                           }
+                          size="xs"
+                          className="flex-1 min-w-0 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
                         />
-                        <input
-                          className="w-1/2 p-1 rounded"
-                          placeholder={field.placeholders?.[1]}
+                        <TextInput
+                          type="text"
+                          name="target_language"
                           value={filters.target_language}
+                          placeholder={field.placeholders?.[1] ?? "To"}
                           onChange={(e) =>
-                            handleFilterChange(
-                              "target_language",
-                              e.target.value
-                            )
+                            handleFilterChange("target_language", e.target.value)
                           }
+                          size="xs"
+                          className="flex-1 min-w-0 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
                         />
                       </div>
                     </th>
@@ -657,40 +669,36 @@ export default function DatasetsTable({
                 if (field.type === "progress") {
                   return (
                     <th key={idx}>
-                      <select
-                        className={`w-full px-2 py-1.5 rounded-md text-xs shadow-sm border bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-400 hover:border-neutral-300 dark:hover:border-neutral-600 ${
-                          filters.progress_filter
-                            ? "border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
-                            : "border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
-                        }`}
+                      <SelectTransparent
+                        name="progress_filter"
                         value={filters.progress_filter}
+                        optionsValues={PROGRESS_FILTER_OPTIONS.map((o) => o.value)}
+                        optionsLabels={PROGRESS_FILTER_OPTIONS.map((o) => o.label)}
                         onChange={(e) =>
                           handleFilterChange(
                             "progress_filter",
-                            e.target.value as ProgressFilterValue
+                            (e.target.value as ProgressFilterValue) || ""
                           )
                         }
-                      >
-                        <option value="">All</option>
-                        <option value="not_started">Not started</option>
-                        <option value="in_progress">In progress</option>
-                        <option value="less_than_50">Less than 50%</option>
-                        <option value="completed_over_50">Completed &gt;50%</option>
-                        <option value="completed">Completed (100%)</option>
-                        <option value="not_completed">Not 100% completed</option>
-                      </select>
+                        variant="outlined"
+                        className="w-full max-w-full md:!w-full"
+                        selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs shadow-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-neutral-300 dark:hover:border-neutral-600 min-w-0"
+                      />
                     </th>
                   );
                 }
                 return (
                   <th key={idx}>
-                    <input
-                      className="w-full p-1 rounded"
-                      placeholder={field.placeholder}
+                    <TextInput
+                      type="text"
+                      name={field.key}
                       value={filters[field.key as keyof typeof filters]}
+                      placeholder={field.placeholder}
                       onChange={(e) =>
                         handleFilterChange(field.key, e.target.value)
                       }
+                      size="xs"
+                      className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm focus:ring-2 focus:ring-blue-500/40"
                     />
                   </th>
                 );

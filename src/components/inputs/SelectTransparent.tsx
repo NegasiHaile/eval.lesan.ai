@@ -15,6 +15,8 @@ type SelectTypes = {
   ) => void;
   labelClass?: string;
   selectClass?: string;
+  /** Optional class for the outer wrapper (e.g. for layout/sizing in tables). */
+  className?: string;
   variant?: "transparent" | "default" | "outlined";
   disabled?: boolean;
   /** When true, show a search input to filter options; search resets on select. */
@@ -31,6 +33,7 @@ const SelectTransparent = ({
   onChange,
   labelClass,
   selectClass,
+  className,
   variant = "default",
   disabled = false,
   searchable = false,
@@ -179,7 +182,7 @@ const SelectTransparent = ({
 
   return (
     <div
-      className="w-full md:w-fit flex relative items-center"
+      className={`w-full md:w-fit flex relative items-center ${className ?? ""}`.trim()}
       ref={containerRef}
     >
       {label && (
