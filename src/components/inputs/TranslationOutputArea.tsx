@@ -24,6 +24,7 @@ type OutputProps = {
   isLastItem: boolean;
   isLoading?: boolean;
   disabled?: boolean;
+  readOnly?: boolean;
   type?: "mt" | "asr" | "tts" | null;
   rating_guideline?: guidelineTypes[] | undefined;
 };
@@ -48,6 +49,7 @@ const TranslationOutputArea = ({
   isLastItem,
   isLoading,
   disabled,
+  readOnly,
   type,
   rating_guideline,
 }: OutputProps) => {
@@ -158,6 +160,7 @@ const TranslationOutputArea = ({
 
         {
           <div className="flex items-center space-x-1">
+            {!readOnly && (
             <div className="flex items-center space-x-2 mx-6">
               {index > 0 && translation.output && (
                 <button
@@ -186,6 +189,7 @@ const TranslationOutputArea = ({
                 </button>
               )}
             </div>
+            )}
 
             {ratingGuideline.map((item) => (
               <Tooltip
@@ -214,12 +218,14 @@ const TranslationOutputArea = ({
                 <button
                   key={item?.scale}
                   className={`flex items-center ${
-                    !!translation?.output
-                      ? "cursor-pointer hover:opacity-60"
-                      : "opacity-40 cursor-auto"
+                    readOnly
+                      ? "opacity-70 cursor-not-allowed"
+                      : !!translation?.output
+                        ? "cursor-pointer hover:opacity-60"
+                        : "opacity-40 cursor-auto"
                   }`}
-                  onClick={() => onClickRate(index, item?.scale)}
-                  disabled={!!!translation?.output}
+                  onClick={() => !readOnly && onClickRate(index, item?.scale)}
+                  disabled={readOnly || !!!translation?.output}
                   // onMouseEnter={() => RateTranslation(index, star)}
                 >
                   <svg
