@@ -30,6 +30,9 @@ import DomainsList from "@/components/DomainsList";
 import Button from "@/components/utils/Button";
 import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
+import { useReviewerMode } from "@/hooks/useReviewerMode";
+import ReviewerPanel from "@/components/ReviewerPanel";
+import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
 
 export default function Home() {
   const { user } = useUser();
@@ -54,8 +57,25 @@ export default function Home() {
   const [isHorizontal, setIsHorizontal] = useState(true);
   const [outputTextareaHeight, setOutputTextareaHeight] =
     useState<string>("md:min-h-35");
-  const [reviewerComment, setReviewerComment] = useState<string>("");
-  const [savingComment, setSavingComment] = useState(false);
+
+  const {
+    isReviewerMode,
+    reviewerComment,
+    setReviewerComment,
+    savingComment,
+    handleSaveReviewerComment,
+    handleReviewerNext,
+    handleReviewerPrev,
+  } = useReviewerMode({
+    user,
+    selectedBatchDetail,
+    batchTasks,
+    currentTaskIndex,
+    evalTask,
+    setEvalTask,
+    setBatchTasks,
+    setCurrentTaskIndex,
+  });
 
   function RankTranslations(fromIndex: number, toIndex: number) {
     setEvalTask((prev) => {
@@ -287,64 +307,6 @@ export default function Home() {
     return selectedBatchDetail?.batch_name?.toLowerCase().includes("realtime");
   };
 
-  const isReviewerMode = (() => {
-    if (!user?.username || !selectedBatchDetail?.qa_id) return false;
-    const username = user.username.toLowerCase();
-    const qaId = selectedBatchDetail.qa_id.toLowerCase();
-    if (qaId !== username) return false;
-    // Not reviewer mode if user is also the annotator or creator
-    const isAnnotator = (selectedBatchDetail.annotator_id ?? "").toLowerCase() === username;
-    const isCreator = (selectedBatchDetail.created_by ?? "").toLowerCase() === username;
-    return !isAnnotator && !isCreator;
-  })();
-
-  const handleSaveReviewerComment = async () => {
-    if (!evalTask) return;
-    setSavingComment(true);
-    try {
-      const updatedTask = { ...evalTask, reviewer_comment: reviewerComment };
-      await fetch(
-        `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedTask),
-        }
-      );
-      // Update the task in local state
-      setEvalTask(updatedTask);
-      const updatedTasks = [...batchTasks];
-      updatedTasks[currentTaskIndex] = updatedTask;
-      setBatchTasks(updatedTasks);
-    } catch (error) {
-      alert("Failed to save comment.");
-      console.error(error);
-    } finally {
-      setSavingComment(false);
-    }
-  };
-
-  const handleReviewerNext = () => {
-    if (currentTaskIndex + 1 < batchTasks.length) {
-      setCurrentTaskIndex((prev) => prev + 1);
-      const nextTask = batchTasks[currentTaskIndex + 1];
-      setEvalTask(nextTask);
-      setReviewerComment(nextTask?.reviewer_comment ?? "");
-    } else {
-      alert(`End of <${selectedBatchDetail.batch_name}> review tasks!`);
-    }
-  };
-
-  const handleReviewerPrev = () => {
-    if (currentTaskIndex > 0) {
-      const prevIndex = currentTaskIndex - 1;
-      setCurrentTaskIndex(prevIndex);
-      const prevTask = batchTasks[prevIndex];
-      setEvalTask(prevTask);
-      setReviewerComment(prevTask?.reviewer_comment ?? "");
-    }
-  };
-
   const realtimeTranslate = async (
     batchDetail: BatchDetailTypes | null = null
   ) => {
@@ -477,6 +439,7 @@ export default function Home() {
               const batch_json = JSON.parse(active_batch) as BatchTasksTypes;
               setEvalTask({ ...batch_json.tasks[0] });
               setBatchTasks([...batch_json.tasks]);
+              setReviewerComment(batch_json.tasks[0]?.reviewer_comment ?? "");
 
               const existingSelectedBatch = data.find(
                 (item) => item.batch_id === batch_json.batch_id
@@ -754,66 +717,18 @@ export default function Home() {
             })}
 
             {isReviewerMode ? (
-              <>
-                {/* Reference (always visible, read-only in reviewer mode) */}
-                <textarea
-                  key={evalTask?.id}
-                  id={`id_${evalTask?.id}`}
-                  placeholder="Reference translation"
-                  className="w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-100 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white placeholder:text-sm placeholder:font-mono cursor-not-allowed opacity-80"
-                  name="reference"
-                  value={evalTask?.reference ?? ""}
-                  readOnly
-                />
-
-                {/* Reviewer comment textarea */}
-                <div className="space-y-2">
-                  <label className="text-sm font-mono font-semibold text-neutral-600 dark:text-neutral-400">
-                    Reviewer Comment
-                  </label>
-                  <textarea
-                    placeholder="Add your review comment for this task..."
-                    className="w-full p-3 h-fit min-h-28 rounded-md bg-neutral-50 border border-blue-300 dark:bg-neutral-800/80 dark:border-blue-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono"
-                    value={reviewerComment}
-                    onChange={(e) => setReviewerComment(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between space-x-2 text-right font-mono">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleSaveReviewerComment}
-                    loading={savingComment}
-                    className="!font-semibold"
-                  >
-                    Save Comment
-                  </Button>
-
-                  <div className="flex items-center justify-end space-x-2 text-right">
-                    {currentTaskIndex > 0 && (
-                      <Button
-                        onClick={handleReviewerPrev}
-                        outline
-                        size="sm"
-                        text="Prev"
-                        className="!px-5 !text-current !font-semibold"
-                      />
-                    )}
-                    <span className="text-sm font-bold">
-                      {currentTaskIndex + 1}/{batchTasks.length}
-                    </span>
-                    <Button
-                      outline
-                      size="sm"
-                      onClick={handleReviewerNext}
-                      className="!px-5 !text-current !font-semibold"
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              </>
+              <ReviewerPanel
+                evalTask={evalTask}
+                reviewerComment={reviewerComment}
+                setReviewerComment={setReviewerComment}
+                savingComment={savingComment}
+                onSaveComment={handleSaveReviewerComment}
+                onNext={handleReviewerNext}
+                onPrev={handleReviewerPrev}
+                currentTaskIndex={currentTaskIndex}
+                totalTasks={batchTasks.length}
+                referencePlaceholder="Reference translation"
+              />
             ) : (
               <>
                 <div
@@ -841,6 +756,8 @@ export default function Home() {
                     }
                   />
                 </div>
+
+                <ReviewerCommentDisplay comment={evalTask?.reviewer_comment ?? ""} />
 
                 <DomainsList
                   selectedDomains={evalTask?.domain ?? []}

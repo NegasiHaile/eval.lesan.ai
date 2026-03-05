@@ -23,6 +23,9 @@ import { TaskEvalErrorTypes } from "@/types/others";
 import Button from "@/components/utils/Button";
 import DomainsList from "@/components/DomainsList";
 import { Loader2, Minus, Plus } from "lucide-react";
+import { useReviewerMode } from "@/hooks/useReviewerMode";
+import ReviewerPanel from "@/components/ReviewerPanel";
+import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
 
 export default function ASR() {
   const { user } = useUser();
@@ -48,68 +51,28 @@ export default function ASR() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isHorizontal, setIsHorizontal] = useState(true);
   const [showReference, setShowReference] = useState(false);
-  const [reviewerComment, setReviewerComment] = useState<string>("");
-  const [savingComment, setSavingComment] = useState(false);
+
+  const {
+    isReviewerMode,
+    reviewerComment,
+    setReviewerComment,
+    savingComment,
+    handleSaveReviewerComment,
+    handleReviewerNext,
+    handleReviewerPrev,
+  } = useReviewerMode({
+    user,
+    selectedBatchDetail,
+    batchTasks,
+    currentTaskIndex,
+    evalTask,
+    setEvalTask,
+    setBatchTasks,
+    setCurrentTaskIndex,
+  });
 
   const IsRealtime = () => {
     return selectedBatchDetail?.batch_name?.toLowerCase().includes("realtime");
-  };
-
-  const isReviewerMode = (() => {
-    if (!user?.username || !selectedBatchDetail?.qa_id) return false;
-    const username = user.username.toLowerCase();
-    const qaId = selectedBatchDetail.qa_id.toLowerCase();
-    if (qaId !== username) return false;
-    const isAnnotator = (selectedBatchDetail.annotator_id ?? "").toLowerCase() === username;
-    const isCreator = (selectedBatchDetail.created_by ?? "").toLowerCase() === username;
-    return !isAnnotator && !isCreator;
-  })();
-
-  const handleSaveReviewerComment = async () => {
-    if (!evalTask) return;
-    setSavingComment(true);
-    try {
-      const updatedTask = { ...evalTask, reviewer_comment: reviewerComment };
-      await fetch(
-        `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedTask),
-        }
-      );
-      setEvalTask(updatedTask);
-      const updatedTasks = [...batchTasks];
-      updatedTasks[currentTaskIndex] = updatedTask;
-      setBatchTasks(updatedTasks);
-    } catch (error) {
-      alert("Failed to save comment.");
-      console.error(error);
-    } finally {
-      setSavingComment(false);
-    }
-  };
-
-  const handleReviewerNext = () => {
-    if (currentTaskIndex + 1 < batchTasks.length) {
-      const nextIndex = currentTaskIndex + 1;
-      setCurrentTaskIndex(nextIndex);
-      const nextTask = batchTasks[nextIndex];
-      setEvalTask(nextTask);
-      setReviewerComment(nextTask?.reviewer_comment ?? "");
-    } else {
-      alert(`End of <${selectedBatchDetail.batch_name}> review tasks!`);
-    }
-  };
-
-  const handleReviewerPrev = () => {
-    if (currentTaskIndex > 0) {
-      const prevIndex = currentTaskIndex - 1;
-      setCurrentTaskIndex(prevIndex);
-      const prevTask = batchTasks[prevIndex];
-      setEvalTask(prevTask);
-      setReviewerComment(prevTask?.reviewer_comment ?? "");
-    }
   };
 
   const handleResetEvalTask = (num_models: number) => {
@@ -607,66 +570,18 @@ export default function ASR() {
             })}
 
             {isReviewerMode ? (
-              <>
-                {/* Reference (always visible, read-only in reviewer mode) */}
-                <textarea
-                  key={evalTask?.id}
-                  id={`id_${evalTask?.id}`}
-                  placeholder="Reference transcription"
-                  className="w-full p-3 h-fit min-h-45 md:min-h-36 rounded-md bg-neutral-100 border border-neutral-300 dark:bg-neutral-800/80 dark:border-neutral-700/80 dark:text-white placeholder:text-sm placeholder:font-mono cursor-not-allowed opacity-80"
-                  name="reference"
-                  value={evalTask?.reference ?? ""}
-                  readOnly
-                />
-
-                {/* Reviewer comment textarea */}
-                <div className="space-y-2">
-                  <label className="text-sm font-mono font-semibold text-neutral-600 dark:text-neutral-400">
-                    Reviewer Comment
-                  </label>
-                  <textarea
-                    placeholder="Add your review comment for this task..."
-                    className="w-full p-3 h-fit min-h-28 rounded-md bg-neutral-50 border border-blue-300 dark:bg-neutral-800/80 dark:border-blue-700/80 dark:text-white focus:outline-blue-500 placeholder:text-sm placeholder:font-mono"
-                    value={reviewerComment}
-                    onChange={(e) => setReviewerComment(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between space-x-2 font-mono">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleSaveReviewerComment}
-                    loading={savingComment}
-                    className="!font-semibold"
-                  >
-                    Save Comment
-                  </Button>
-
-                  <div className="flex items-center justify-end space-x-2 text-right">
-                    {currentTaskIndex > 0 && (
-                      <Button
-                        onClick={handleReviewerPrev}
-                        outline
-                        size="sm"
-                        text="Prev"
-                        className="!px-8 !text-current !font-semibold"
-                      />
-                    )}
-                    <span className="text-sm font-bold">
-                      {currentTaskIndex + 1}/{batchTasks.length}
-                    </span>
-                    <Button
-                      outline
-                      size="sm"
-                      onClick={handleReviewerNext}
-                      className="!px-8 !text-current !font-semibold"
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              </>
+              <ReviewerPanel
+                evalTask={evalTask}
+                reviewerComment={reviewerComment}
+                setReviewerComment={setReviewerComment}
+                savingComment={savingComment}
+                onSaveComment={handleSaveReviewerComment}
+                onNext={handleReviewerNext}
+                onPrev={handleReviewerPrev}
+                currentTaskIndex={currentTaskIndex}
+                totalTasks={batchTasks.length}
+                referencePlaceholder="Reference transcription"
+              />
             ) : (
               <>
                 <div
@@ -694,6 +609,8 @@ export default function ASR() {
                     }
                   />
                 </div>
+
+                <ReviewerCommentDisplay comment={evalTask?.reviewer_comment ?? ""} />
 
                 <DomainsList
                   domains={selectedBatchDetail.domains ?? undefined}
