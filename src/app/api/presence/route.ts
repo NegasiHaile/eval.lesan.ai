@@ -66,22 +66,24 @@ export async function GET(req: NextRequest) {
   const docs = await col.find({ username: { $in: usernames } }).toArray();
 
   const now = Date.now();
-  const result: Record<string, "active" | "idle" | "away"> = {};
+  const result: Record<string, { status: "active" | "idle" | "away"; batch_id: string | null }> = {};
 
   for (const u of usernames) {
     const doc = docs.find((d) => d.username === u);
     if (!doc) {
-      result[u] = "away";
+      result[u] = { status: "away", batch_id: null };
       continue;
     }
     const elapsed = now - new Date(doc.last_heartbeat).getTime();
+    let status: "active" | "idle" | "away";
     if (elapsed < 45_000 && doc.status === "active") {
-      result[u] = "active";
+      status = "active";
     } else if (elapsed < 180_000) {
-      result[u] = "idle";
+      status = "idle";
     } else {
-      result[u] = "away";
+      status = "away";
     }
+    result[u] = { status, batch_id: doc.batch_id ?? null };
   }
 
   return NextResponse.json(result);

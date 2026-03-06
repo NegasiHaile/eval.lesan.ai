@@ -4,10 +4,12 @@ import { useEffect, useState, useRef } from "react";
 
 const POLL_INTERVAL = 60_000;
 
-type PresenceStatus = "active" | "idle" | "away";
+export type PresenceStatus = "active" | "idle" | "away";
+
+export type PresenceEntry = { status: PresenceStatus; batch_id: string | null };
 
 export function usePresenceStatus(usernames: string[]) {
-  const [statuses, setStatuses] = useState<Record<string, PresenceStatus>>({});
+  const [statuses, setStatuses] = useState<Record<string, PresenceEntry>>({});
   const usernamesKey = usernames.filter(Boolean).sort().join(",");
   const prevKey = useRef("");
 
