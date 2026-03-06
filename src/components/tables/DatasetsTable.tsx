@@ -879,7 +879,7 @@ export default function DatasetsTable({
                 }
                 if (field.type === "progress") {
                   return (
-                    <th key={idx}>
+                    <th key={idx} className="min-w-[220px]">
                       <SelectTransparent
                         name="progress_filter"
                         value={filters.progress_filter}

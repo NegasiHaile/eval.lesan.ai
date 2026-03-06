@@ -117,11 +117,12 @@ const SelectTransparent = ({
   const dropdown = (
     <div
       ref={dropdownRef}
-      className={`w-full absolute z-50 max-h-[600px] mt-1 overflow-hidden rounded-md ${variants[variant]} text-neutral-600 dark:text-neutral-400 shadow-md flex flex-col`}
+      className={`absolute z-50 max-h-[600px] mt-1 overflow-hidden rounded-md ${variants[variant]} text-neutral-600 dark:text-neutral-400 shadow-md flex flex-col`}
       style={{
         top: dropdownPos.top,
         left: dropdownPos.left,
-        width: dropdownPos.width,
+        width: "max-content",
+        minWidth: dropdownPos.width,
         position: "absolute",
       }}
       role="listbox"
