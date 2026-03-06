@@ -916,7 +916,7 @@ export default function DatasetsTable({
                   </th>
                 );
               })}
-              <th className="px-2 py-1 align-middle">
+              <th className="sticky right-0 z-10 min-w-0 w-[120px] px-2 py-1 align-middle text-left bg-neutral-100 dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-700 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.2)]">
                 <Button
                   type="button"
                   variant="secondary"
