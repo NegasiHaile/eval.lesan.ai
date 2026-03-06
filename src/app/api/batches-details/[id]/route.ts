@@ -14,6 +14,7 @@ export async function PATCH(
     const batch_id = (await params).id;
     const body = await req.json();
     const annotator_id = body.annotator_id !== undefined ? body.annotator_id : undefined;
+    const qa_id = body.qa_id !== undefined ? body.qa_id : undefined;
     const created_by = typeof body.created_by === "string" ? body.created_by.trim() || null : undefined;
 
     const client = await getClientPromise();
@@ -52,9 +53,20 @@ export async function PATCH(
       updates.annotator_id = annotator_id;
     }
 
+    if (qa_id !== undefined) {
+      const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
+      if (!isAdminOrRoot) {
+        return NextResponse.json(
+          { message: "Forbidden. Only root or admin can assign a reviewer." },
+          { status: 403 }
+        );
+      }
+      updates.qa_id = qa_id;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { message: "No valid fields to update (annotator_id or created_by)." },
+        { message: "No valid fields to update (annotator_id, qa_id, or created_by)." },
         { status: 400 }
       );
     }

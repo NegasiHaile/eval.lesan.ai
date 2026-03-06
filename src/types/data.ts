@@ -14,6 +14,7 @@ export type EvalTaskTypes = {
   models: EvalOutputTypes[];
   reference?: string;
   domain?: string[];
+  reviewer_comment?: string;
 };
 
 export type guidelineTypes = {

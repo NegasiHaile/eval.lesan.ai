@@ -50,7 +50,6 @@ const Datasets = () => {
   useEffect(() => {
     if (loading) setDownloadMenuOpen(false);
   }, [loading]);
-
   useEffect(() => {
     if (!updateAllMenuOpen) return;
     const close = (e: MouseEvent) => {

@@ -23,7 +23,7 @@ function sessionToUser(session: {
     fullName: u.name,
     email: u.email,
     active: (u as { active?: boolean }).active,
-    image: u.image ?? undefined,
+    image: (u as { image?: string | null }).image ?? undefined,
   };
 }
 

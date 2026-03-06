@@ -7,7 +7,7 @@ import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import getClientPromise from "@/lib/mongodb";
-import { sendEmailInBackground } from "@/lib/email";
+import { sendEmail, sendEmailInBackground } from "@/lib/email";
 import {
   getVerificationEmailHtml,
   getVerificationEmailText,
@@ -50,8 +50,8 @@ export async function getAuth() {
       sendOnSignUp: true,
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }, _request) => {
-        sendEmailInBackground({
+        sendVerificationEmail: async ({ user, url }, _request) => {
+        await sendEmail({
           to: user.email,
           subject: "Verify your email address",
           html: getVerificationEmailHtml(url, user.name ?? undefined),
