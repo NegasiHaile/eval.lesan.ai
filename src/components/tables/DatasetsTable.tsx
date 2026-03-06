@@ -12,6 +12,7 @@ import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
 import { Download, Expand, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
+import { usePresenceStatus } from "@/hooks/usePresenceStatus";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -151,6 +152,12 @@ export default function DatasetsTable({
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  const annotatorUsernames = useMemo(
+    () => [...new Set(batches_details.map((b) => b.annotator_id).filter(Boolean) as string[])],
+    [batches_details]
+  );
+  const presenceStatuses = usePresenceStatus(annotatorUsernames);
 
   // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
@@ -847,6 +854,18 @@ export default function DatasetsTable({
                             );
                           }}
                         >
+                          {batch_detail.annotator_id && (
+                            <span
+                              className={`inline-block w-2 h-2 rounded-full mr-1.5 ${
+                                presenceStatuses[batch_detail.annotator_id] === "active"
+                                  ? "bg-green-500"
+                                  : presenceStatuses[batch_detail.annotator_id] === "idle"
+                                  ? "bg-yellow-500"
+                                  : "bg-gray-400"
+                              }`}
+                              title={presenceStatuses[batch_detail.annotator_id] ?? "away"}
+                            />
+                          )}
                           {!!batch_detail.annotator_id
                             ? batch_detail.annotator_id
                             : "N/A"}
