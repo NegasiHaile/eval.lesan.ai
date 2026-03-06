@@ -10,8 +10,10 @@ import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
 import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, Trash2 } from "lucide-react";
+import { Download, Expand, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
+import SelectTransparent from "../inputs/SelectTransparent";
+import TextInput from "../inputs/TextInput";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -26,7 +28,17 @@ function getProgressPercent(detail: BatchDetailTypes): number {
   return total ? (annotated / total) * 100 : 0;
 }
 
-type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed";
+type ProgressFilterValue = "" | "not_started" | "in_progress" | "less_than_50" | "completed_over_50" | "completed" | "not_completed";
+
+const PROGRESS_FILTER_OPTIONS: { value: ProgressFilterValue; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "not_started", label: "Not started" },
+  { value: "in_progress", label: "In progress" },
+  { value: "less_than_50", label: "Less than 50%" },
+  { value: "completed_over_50", label: "Completed >50%" },
+  { value: "completed", label: "Completed (100%)" },
+  { value: "not_completed", label: "Not 100% completed" },
+];
 
 function progressMatchesFilter(percent: number, filter: ProgressFilterValue): boolean {
   if (!filter) return true;
@@ -41,6 +53,8 @@ function progressMatchesFilter(percent: number, filter: ProgressFilterValue): bo
       return percent >= 50 && percent < 100;
     case "completed":
       return percent === 100;
+    case "not_completed":
+      return percent < 100;
     default:
       return true;
   }
@@ -98,6 +112,14 @@ export type BulkDeleteToolbarProps = {
   selectedCount: number;
   onOpenConfirm: () => void;
   onDownloadClick: (format: "json" | "csv") => void;
+  /** Bulk update creator for all selected batches (root only). */
+  onBulkUpdateCreator?: (newCreatorEmail: string) => Promise<void>;
+  /** Bulk update evaluator (annotator) for all selected batches. */
+  onBulkUpdateEvaluator?: (newEvaluatorEmail: string) => Promise<void>;
+  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch. */
+  showBulkUpdate?: boolean;
+  /** True when user can bulk-update creator (root only). */
+  showBulkUpdateCreator?: boolean;
 };
 
 type DatasetsTableProps = {
@@ -110,6 +132,8 @@ type DatasetsTableProps = {
   refreshKey?: number;
   /** Called when selection changes so parent can show Delete selected button (e.g. next to Refresh/Upload). */
   onBulkDeleteToolbarChange?: (props: BulkDeleteToolbarProps | null) => void;
+  /** Called when Reset filter is clicked; parent can trigger data refetch. */
+  onResetFilters?: () => void;
 };
 
 export default function DatasetsTable({
@@ -120,6 +144,7 @@ export default function DatasetsTable({
   evalDataType,
   refreshKey = 0,
   onBulkDeleteToolbarChange,
+  onResetFilters,
 }: DatasetsTableProps) {
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
@@ -134,7 +159,7 @@ export default function DatasetsTable({
   );
   const [editReviewerFile, setEditReviewerFile] = useState<number | null>(null);
   const [editedReviewerId, setEditedReviewerId] = useState<string>("");
-  const [filters, setFilters] = useState({
+  const initialFilters = {
     batch_name: "",
     dataset_domain: "",
     source_language: "",
@@ -144,7 +169,13 @@ export default function DatasetsTable({
     annotator_id: "",
     qa_id: "",
     progress_filter: "" as ProgressFilterValue,
-  });
+  };
+  const [filters, setFilters] = useState(initialFilters);
+
+  const handleResetFilters = useCallback(() => {
+    setFilters(initialFilters);
+    onResetFilters?.();
+  }, [onResetFilters]);
   const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
     null
   );
@@ -257,12 +288,143 @@ export default function DatasetsTable({
     }
   };
 
+  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
+  const doDeleteBatch = useCallback(
+    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
+      const batch_id = batch_detail.batch_id;
+      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...batch_detail }),
+      });
+      if (!res.ok) return false;
+      if (batch_detail.dataset_type === "mt") {
+        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
+        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
+      } else if (batch_detail.dataset_type === "asr") {
+        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
+        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
+      }
+      return true;
+    },
+    []
+  );
+
+  /** Bulk update creator for all selected batches. Uses existing PATCH API; root-only. */
+  const bulkUpdateCreator = useCallback(
+    async (newCreatorEmail: string) => {
+      const email = `${newCreatorEmail}`.trim();
+      if (!email) {
+        alert("Please enter a creator email.");
+        return;
+      }
+      const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      if (toUpdate.length === 0) return;
+      setLoading(true);
+      let succeeded = 0;
+      let failed = 0;
+      try {
+        for (const batch of toUpdate) {
+          try {
+            const res = await fetch(`/api/batches-details/${batch.batch_id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ created_by: email }),
+            });
+            if (res.ok) {
+              succeeded++;
+              setBatchDetails((prev) =>
+                prev.map((d) =>
+                  d.batch_id === batch.batch_id ? { ...d, created_by: email } : d
+                )
+              );
+            } else {
+              failed++;
+              const err = await res.json().catch(() => null);
+              console.warn(`Batch ${batch.batch_name}: ${err?.message ?? res.statusText}`);
+            }
+          } catch {
+            failed++;
+          }
+        }
+        if (succeeded > 0) setSelectedBatchIds(new Set());
+        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
+        else if (succeeded > 0) alert(`Creator updated for ${succeeded} batch(es).`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [batches_details, selectedBatchIds, setBatchDetails]
+  );
+
+  /** Bulk update evaluator (annotator) for all selected batches. Uses existing PATCH API. */
+  const bulkUpdateEvaluator = useCallback(
+    async (newEvaluatorEmail: string) => {
+      const email = `${newEvaluatorEmail}`.trim();
+      if (!email) {
+        alert("Please enter an evaluator email.");
+        return;
+      }
+      const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      if (toUpdate.length === 0) return;
+      setLoading(true);
+      let succeeded = 0;
+      let failed = 0;
+      try {
+        for (const batch of toUpdate) {
+          try {
+            const res = await fetch(`/api/batches-details/${batch.batch_id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ annotator_id: email }),
+            });
+            if (res.ok) {
+              succeeded++;
+              setBatchDetails((prev) =>
+                prev.map((d) =>
+                  d.batch_id === batch.batch_id ? { ...d, annotator_id: email } : d
+                )
+              );
+            } else {
+              failed++;
+              const err = await res.json().catch(() => null);
+              console.warn(`Batch ${batch.batch_name}: ${err?.message ?? res.statusText}`);
+            }
+          } catch {
+            failed++;
+          }
+        }
+        if (succeeded > 0) setSelectedBatchIds(new Set());
+        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
+        else if (succeeded > 0) alert(`Evaluator updated for ${succeeded} batch(es).`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [batches_details, selectedBatchIds, setBatchDetails]
+  );
+
   useEffect(() => {
     if (!onBulkDeleteToolbarChange) return;
     if (selectedBatchIds.size >= 1) {
+      const isRootRole = user?.role?.toLowerCase() === "root";
+      const isAdmin = user?.role?.toLowerCase() === "admin";
+      const selectedDetails = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      const isCreatorOfAll =
+        selectedDetails.length > 0 &&
+        selectedDetails.every(
+          (b) => (b.created_by ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
+        );
+      const showBulkUpdate =
+        selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
+
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
         onOpenConfirm: () => setShowBulkDeleteConfirm(true),
+        onBulkUpdateCreator: isRootRole ? bulkUpdateCreator : undefined,
+        onBulkUpdateEvaluator: bulkUpdateEvaluator,
+        showBulkUpdate,
+        showBulkUpdateCreator: isRootRole,
         onDownloadClick: async (format: "json" | "csv") => {
           const toDownload = batches_details.filter((b) =>
             selectedBatchIds.has(b.batch_id)
@@ -303,31 +465,13 @@ export default function DatasetsTable({
     selectedBatchIds,
     onBulkDeleteToolbarChange,
     batches_details,
+    user?.role,
+    user?.username,
     doOneDownload,
     getBatchBlob,
+    bulkUpdateCreator,
+    bulkUpdateEvaluator,
   ]);
-
-  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
-  const doDeleteBatch = useCallback(
-    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
-      const batch_id = batch_detail.batch_id;
-      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...batch_detail }),
-      });
-      if (!res.ok) return false;
-      if (batch_detail.dataset_type === "mt") {
-        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
-        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
-      } else if (batch_detail.dataset_type === "asr") {
-        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
-        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
-      }
-      return true;
-    },
-    []
-  );
 
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
     const confirmed = window.confirm(
@@ -516,11 +660,8 @@ export default function DatasetsTable({
     }
   };
 
-  const filteredBatches = batches_details.filter((detail) => {
-    const percent = getProgressPercent(detail);
-    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
-    return (
-      progressMatch &&
+  const matchesOtherFilters = useCallback(
+    (detail: BatchDetailTypes) =>
       (detail.batch_name ?? "")
         .toLowerCase()
         .includes(filters.batch_name.toLowerCase()) &&
@@ -547,9 +688,39 @@ export default function DatasetsTable({
       (detail.qa_id ?? "")
         .toString()
         .toLowerCase()
-        .includes(filters.qa_id.toLowerCase())
-    );
+        .includes(filters.qa_id.toLowerCase()),
+    [
+      filters.batch_name,
+      filters.dataset_domain,
+      filters.source_language,
+      filters.target_language,
+      filters.models,
+      filters.created_by,
+      filters.annotator_id,
+      filters.qa_id,
+    ]
+  );
+
+  const filteredBatches = batches_details.filter((detail) => {
+    const percent = getProgressPercent(detail);
+    const progressMatch = progressMatchesFilter(percent, filters.progress_filter);
+    return progressMatch && matchesOtherFilters(detail);
   });
+
+  const progressCounts = useMemo(() => {
+    const matching = batches_details.filter(matchesOtherFilters);
+    const counts: Record<string, number> = {};
+    for (const opt of PROGRESS_FILTER_OPTIONS) {
+      if (opt.value === "") {
+        counts[""] = matching.length;
+      } else {
+        counts[opt.value] = matching.filter((d) =>
+          progressMatchesFilter(getProgressPercent(d), opt.value as ProgressFilterValue)
+        ).length;
+      }
+    }
+    return counts;
+  }, [batches_details, matchesOtherFilters]);
 
   const filterFields = [
     { key: "batch_name", placeholder: "Filter by name" },
@@ -655,7 +826,7 @@ export default function DatasetsTable({
                     }
                     onChange={toggleSelectAll}
                     title="Select all (deletable batches)"
-                    className="rounded border-neutral-300 dark:border-neutral-600"
+                    className="w-5 h-5 min-w-5 min-h-5 rounded border-neutral-300 dark:border-neutral-600 cursor-pointer"
                   />
                 ) : null}
               </th>
@@ -679,28 +850,28 @@ export default function DatasetsTable({
                 if (field.type === "dual") {
                   return (
                     <th key={idx}>
-                      <div className="flex space-x-1">
-                        <input
-                          className="w-1/2 p-1 rounded"
-                          placeholder={field.placeholders?.[0]}
+                      <div className="flex gap-1 w-full">
+                        <TextInput
+                          type="text"
+                          name="source_language"
                           value={filters.source_language}
+                          placeholder={field.placeholders?.[0] ?? "From"}
                           onChange={(e) =>
-                            handleFilterChange(
-                              "source_language",
-                              e.target.value
-                            )
+                            handleFilterChange("source_language", e.target.value)
                           }
+                          size="xs"
+                          className="flex-1 min-w-0"
                         />
-                        <input
-                          className="w-1/2 p-1 rounded"
-                          placeholder={field.placeholders?.[1]}
+                        <TextInput
+                          type="text"
+                          name="target_language"
                           value={filters.target_language}
+                          placeholder={field.placeholders?.[1] ?? "To"}
                           onChange={(e) =>
-                            handleFilterChange(
-                              "target_language",
-                              e.target.value
-                            )
+                            handleFilterChange("target_language", e.target.value)
                           }
+                          size="xs"
+                          className="flex-1 min-w-0"
                         />
                       </div>
                     </th>
@@ -709,43 +880,57 @@ export default function DatasetsTable({
                 if (field.type === "progress") {
                   return (
                     <th key={idx}>
-                      <select
-                        className={`w-full px-2 py-1.5 rounded-md text-xs shadow-sm border bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 dark:focus:border-blue-400 hover:border-neutral-300 dark:hover:border-neutral-600 ${
-                          filters.progress_filter
-                            ? "border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
-                            : "border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
-                        }`}
+                      <SelectTransparent
+                        name="progress_filter"
                         value={filters.progress_filter}
+                        optionsValues={PROGRESS_FILTER_OPTIONS.map((o) => o.value)}
+                        optionsLabels={PROGRESS_FILTER_OPTIONS.map(
+                          (o) => `${o.label} (${progressCounts[o.value] ?? 0})`
+                        )}
                         onChange={(e) =>
                           handleFilterChange(
                             "progress_filter",
-                            e.target.value as ProgressFilterValue
+                            (e.target.value as ProgressFilterValue) || ""
                           )
                         }
-                      >
-                        <option value="">All</option>
-                        <option value="not_started">Not started</option>
-                        <option value="in_progress">In progress</option>
-                        <option value="less_than_50">Less than 50%</option>
-                        <option value="completed_over_50">Completed &gt;50%</option>
-                        <option value="completed">Completed (100%)</option>
-                      </select>
+                        variant="outlined"
+                        className="w-full max-w-full md:!w-full"
+                        selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0"
+                      />
                     </th>
                   );
                 }
                 return (
                   <th key={idx}>
-                    <input
-                      className="w-full p-1 rounded"
-                      placeholder={field.placeholder}
+                    <TextInput
+                      type="text"
+                      name={field.key}
                       value={filters[field.key as keyof typeof filters]}
+                      placeholder={field.placeholder}
                       onChange={(e) =>
                         handleFilterChange(field.key, e.target.value)
                       }
+                      size="xs"
+                      className="w-full"
                     />
                   </th>
                 );
               })}
+              <th className="px-2 py-1 align-middle">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  minimal
+                  size="sm"
+                  disabled={loading}
+                  onClick={handleResetFilters}
+                  className="!text-xs whitespace-nowrap"
+                  title="Reset all filters and refresh data"
+                >
+                  <RotateCcw className="size-3.5 shrink-0" />
+                  Reset filter
+                </Button>
+              </th>
             </tr>
           </thead>
 
@@ -771,7 +956,7 @@ export default function DatasetsTable({
                           checked={selectedBatchIds.has(batch_detail.batch_id)}
                           onChange={() => toggleSelection(batch_detail.batch_id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-neutral-300 dark:border-neutral-600"
+                          className="w-5 h-5 min-w-5 min-h-5 rounded border-neutral-300 dark:border-neutral-600 cursor-pointer"
                         />
                       ) : null}
                     </td>

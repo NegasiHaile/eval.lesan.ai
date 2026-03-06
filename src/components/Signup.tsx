@@ -72,11 +72,22 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
     }
     if (mode === "signin") {
       setLoading("email");
-      const { error: err } = await authClient.signIn.email({
-        email: email.trim(),
-        password,
-        callbackURL: "/",
-      });
+      const { error: err } = await authClient.signIn.email(
+        {
+          email: email.trim(),
+          password,
+          callbackURL: "/",
+        },
+        {
+          onError: (ctx) => {
+            if (ctx.error.status === 403) {
+              setError("Please verify your email first. Check your inbox for the verification link.");
+            } else {
+              setError(ctx.error.message ?? "Sign in failed.");
+            }
+          },
+        }
+      );
       setLoading(null);
       if (err) {
         setError(
