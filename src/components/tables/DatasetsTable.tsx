@@ -10,7 +10,7 @@ import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
 import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, Trash2 } from "lucide-react";
+import { Download, Expand, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
 import SelectTransparent from "../inputs/SelectTransparent";
 import TextInput from "../inputs/TextInput";
@@ -112,6 +112,14 @@ export type BulkDeleteToolbarProps = {
   selectedCount: number;
   onOpenConfirm: () => void;
   onDownloadClick: (format: "json" | "csv") => void;
+  /** Bulk update creator for all selected batches (root only). */
+  onBulkUpdateCreator?: (newCreatorEmail: string) => Promise<void>;
+  /** Bulk update evaluator (annotator) for all selected batches. */
+  onBulkUpdateEvaluator?: (newEvaluatorEmail: string) => Promise<void>;
+  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch. */
+  showBulkUpdate?: boolean;
+  /** True when user can bulk-update creator (root only). */
+  showBulkUpdateCreator?: boolean;
 };
 
 type DatasetsTableProps = {
@@ -124,6 +132,8 @@ type DatasetsTableProps = {
   refreshKey?: number;
   /** Called when selection changes so parent can show Delete selected button (e.g. next to Refresh/Upload). */
   onBulkDeleteToolbarChange?: (props: BulkDeleteToolbarProps | null) => void;
+  /** Called when Reset filter is clicked; parent can trigger data refetch. */
+  onResetFilters?: () => void;
 };
 
 export default function DatasetsTable({
@@ -134,6 +144,7 @@ export default function DatasetsTable({
   evalDataType,
   refreshKey = 0,
   onBulkDeleteToolbarChange,
+  onResetFilters,
 }: DatasetsTableProps) {
   // TODO: add filter feature across the table by each of the column names
   const { user } = useUser();
@@ -146,7 +157,7 @@ export default function DatasetsTable({
   const [editedAnnotatorId, setEditedAnnotatorId] = useState<string | number>(
     ""
   );
-  const [filters, setFilters] = useState({
+  const initialFilters = {
     batch_name: "",
     dataset_domain: "",
     source_language: "",
@@ -155,7 +166,13 @@ export default function DatasetsTable({
     created_by: "",
     annotator_id: "",
     progress_filter: "" as ProgressFilterValue,
-  });
+  };
+  const [filters, setFilters] = useState(initialFilters);
+
+  const handleResetFilters = useCallback(() => {
+    setFilters(initialFilters);
+    onResetFilters?.();
+  }, [onResetFilters]);
   const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
     null
   );
@@ -268,12 +285,143 @@ export default function DatasetsTable({
     }
   };
 
+  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
+  const doDeleteBatch = useCallback(
+    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
+      const batch_id = batch_detail.batch_id;
+      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...batch_detail }),
+      });
+      if (!res.ok) return false;
+      if (batch_detail.dataset_type === "mt") {
+        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
+        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
+      } else if (batch_detail.dataset_type === "asr") {
+        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
+        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
+      }
+      return true;
+    },
+    []
+  );
+
+  /** Bulk update creator for all selected batches. Uses existing PATCH API; root-only. */
+  const bulkUpdateCreator = useCallback(
+    async (newCreatorEmail: string) => {
+      const email = `${newCreatorEmail}`.trim();
+      if (!email) {
+        alert("Please enter a creator email.");
+        return;
+      }
+      const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      if (toUpdate.length === 0) return;
+      setLoading(true);
+      let succeeded = 0;
+      let failed = 0;
+      try {
+        for (const batch of toUpdate) {
+          try {
+            const res = await fetch(`/api/batches-details/${batch.batch_id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ created_by: email }),
+            });
+            if (res.ok) {
+              succeeded++;
+              setBatchDetails((prev) =>
+                prev.map((d) =>
+                  d.batch_id === batch.batch_id ? { ...d, created_by: email } : d
+                )
+              );
+            } else {
+              failed++;
+              const err = await res.json().catch(() => null);
+              console.warn(`Batch ${batch.batch_name}: ${err?.message ?? res.statusText}`);
+            }
+          } catch {
+            failed++;
+          }
+        }
+        if (succeeded > 0) setSelectedBatchIds(new Set());
+        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
+        else if (succeeded > 0) alert(`Creator updated for ${succeeded} batch(es).`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [batches_details, selectedBatchIds, setBatchDetails]
+  );
+
+  /** Bulk update evaluator (annotator) for all selected batches. Uses existing PATCH API. */
+  const bulkUpdateEvaluator = useCallback(
+    async (newEvaluatorEmail: string) => {
+      const email = `${newEvaluatorEmail}`.trim();
+      if (!email) {
+        alert("Please enter an evaluator email.");
+        return;
+      }
+      const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      if (toUpdate.length === 0) return;
+      setLoading(true);
+      let succeeded = 0;
+      let failed = 0;
+      try {
+        for (const batch of toUpdate) {
+          try {
+            const res = await fetch(`/api/batches-details/${batch.batch_id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ annotator_id: email }),
+            });
+            if (res.ok) {
+              succeeded++;
+              setBatchDetails((prev) =>
+                prev.map((d) =>
+                  d.batch_id === batch.batch_id ? { ...d, annotator_id: email } : d
+                )
+              );
+            } else {
+              failed++;
+              const err = await res.json().catch(() => null);
+              console.warn(`Batch ${batch.batch_name}: ${err?.message ?? res.statusText}`);
+            }
+          } catch {
+            failed++;
+          }
+        }
+        if (succeeded > 0) setSelectedBatchIds(new Set());
+        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
+        else if (succeeded > 0) alert(`Evaluator updated for ${succeeded} batch(es).`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [batches_details, selectedBatchIds, setBatchDetails]
+  );
+
   useEffect(() => {
     if (!onBulkDeleteToolbarChange) return;
     if (selectedBatchIds.size >= 1) {
+      const isRootRole = user?.role?.toLowerCase() === "root";
+      const isAdmin = user?.role?.toLowerCase() === "admin";
+      const selectedDetails = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
+      const isCreatorOfAll =
+        selectedDetails.length > 0 &&
+        selectedDetails.every(
+          (b) => (b.created_by ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
+        );
+      const showBulkUpdate =
+        selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
+
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
         onOpenConfirm: () => setShowBulkDeleteConfirm(true),
+        onBulkUpdateCreator: isRootRole ? bulkUpdateCreator : undefined,
+        onBulkUpdateEvaluator: bulkUpdateEvaluator,
+        showBulkUpdate,
+        showBulkUpdateCreator: isRootRole,
         onDownloadClick: async (format: "json" | "csv") => {
           const toDownload = batches_details.filter((b) =>
             selectedBatchIds.has(b.batch_id)
@@ -314,31 +462,13 @@ export default function DatasetsTable({
     selectedBatchIds,
     onBulkDeleteToolbarChange,
     batches_details,
+    user?.role,
+    user?.username,
     doOneDownload,
     getBatchBlob,
+    bulkUpdateCreator,
+    bulkUpdateEvaluator,
   ]);
-
-  /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
-  const doDeleteBatch = useCallback(
-    async (batch_detail: BatchDetailTypes): Promise<boolean> => {
-      const batch_id = batch_detail.batch_id;
-      const res = await fetch(`/api/batches/${batch_detail.dataset_type}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...batch_detail }),
-      });
-      if (!res.ok) return false;
-      if (batch_detail.dataset_type === "mt") {
-        const actv_batch = JSON.parse(localStorage.getItem("active_batch") || "{}");
-        if (actv_batch?.batch_id === batch_id) localStorage.removeItem("active_batch");
-      } else if (batch_detail.dataset_type === "asr") {
-        const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
-        if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
-      }
-      return true;
-    },
-    []
-  );
 
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
     const confirmed = window.confirm(
@@ -642,7 +772,7 @@ export default function DatasetsTable({
                     }
                     onChange={toggleSelectAll}
                     title="Select all (deletable batches)"
-                    className="rounded border-neutral-300 dark:border-neutral-600"
+                    className="w-5 h-5 min-w-5 min-h-5 rounded border-neutral-300 dark:border-neutral-600 cursor-pointer"
                   />
                 ) : null}
               </th>
@@ -731,6 +861,21 @@ export default function DatasetsTable({
                   </th>
                 );
               })}
+              <th className="px-2 py-1 align-middle">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  minimal
+                  size="sm"
+                  disabled={loading}
+                  onClick={handleResetFilters}
+                  className="!text-xs whitespace-nowrap"
+                  title="Reset all filters and refresh data"
+                >
+                  <RotateCcw className="size-3.5 shrink-0" />
+                  Reset filter
+                </Button>
+              </th>
             </tr>
           </thead>
 
@@ -756,7 +901,7 @@ export default function DatasetsTable({
                           checked={selectedBatchIds.has(batch_detail.batch_id)}
                           onChange={() => toggleSelection(batch_detail.batch_id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-neutral-300 dark:border-neutral-600"
+                          className="w-5 h-5 min-w-5 min-h-5 rounded border-neutral-300 dark:border-neutral-600 cursor-pointer"
                         />
                       ) : null}
                     </td>
