@@ -125,6 +125,13 @@ const BatchUploaderForm = ({
     return `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
   };
 
+  /** Uploaded batch JSON may include optional creator/annotator/reviewer fields. */
+  type BatchDataWithMeta = (ASRBatchTasksTypes | BatchTasksTypes) & {
+    created_by?: string;
+    annotator_id?: string | null;
+    qa_id?: string | null;
+  };
+
   /** Returns batch detail from parsed data (no state update). Used for single and multi-file save. */
   const getBatchDetailFromData = (
     data: ASRBatchTasksTypes | BatchTasksTypes
@@ -132,6 +139,7 @@ const BatchUploaderForm = ({
     const batch_id = generateUniqueId();
     const batche_details = { ...initialBatchDetail };
     batche_details.batch_id = batch_id;
+    const withMeta = data as BatchDataWithMeta;
 
     if (data && "source_language" in data && "target_language" in data) {
       batche_details.source_language = data.source_language;
@@ -145,7 +153,18 @@ const BatchUploaderForm = ({
     batche_details.dataset_domain = data.dataset_domain;
     batche_details.batch_name = data.batch_name;
     batche_details.number_of_tasks = data.tasks.length;
-    batche_details.created_by = user?.username ?? "";
+    batche_details.created_by =
+      (typeof withMeta.created_by === "string" && withMeta.created_by.trim())
+        ? withMeta.created_by.trim()
+        : (user?.username ?? "");
+    batche_details.annotator_id =
+      typeof withMeta.annotator_id === "string" && withMeta.annotator_id.trim()
+        ? withMeta.annotator_id.trim()
+        : null;
+    batche_details.qa_id =
+      typeof withMeta.qa_id === "string" && withMeta.qa_id.trim()
+        ? withMeta.qa_id.trim()
+        : null;
     batche_details.rating_guideline = data.rating_guideline ?? [];
     batche_details.domains = data.domains ?? [];
 

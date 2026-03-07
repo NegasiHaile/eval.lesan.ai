@@ -11,7 +11,7 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { ChevronDown, Info, Languages, Loader2, Mic, Plus, RefreshCw, Trash2, Download, UserPen } from "lucide-react";
+import { ChevronDown, Info, Languages, Loader2, Link2, Mic, Plus, RefreshCw, Trash2, Download, UserPen, X } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
@@ -35,6 +35,84 @@ const Datasets = () => {
   const [showBulkEvaluatorModal, setShowBulkEvaluatorModal] = useState(false);
   const [bulkCreatorEmail, setBulkCreatorEmail] = useState("");
   const [bulkEvaluatorEmail, setBulkEvaluatorEmail] = useState("");
+  const [showUpdateAudioUrlsModal, setShowUpdateAudioUrlsModal] = useState(false);
+  const [updateAudioUrlsResults, setUpdateAudioUrlsResults] = useState<{ file: string; ok: boolean; message: string }[]>([]);
+  const [updateAudioUrlsPending, setUpdateAudioUrlsPending] = useState<{ file: File; batchName?: string; error?: string }[]>([]);
+  const [updateAudioUrlsDragging, setUpdateAudioUrlsDragging] = useState(false);
+  const updateAudioUrlsInputRef = useRef<HTMLInputElement>(null);
+
+  const addUpdateAudioUrlsFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (!fileArray.length) return;
+    const next: { file: File; batchName?: string; error?: string }[] = [];
+    for (const file of fileArray) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text) as { batch_name?: string; tasks?: Array<{ id?: string | number; input?: string }> };
+        const batchName = typeof data?.batch_name === "string" ? data.batch_name.trim() : "";
+        const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        if (!batchName) {
+          next.push({ file, error: "Missing or invalid batch_name." });
+          continue;
+        }
+        if (tasks.length === 0) {
+          next.push({ file, error: "Missing or empty tasks array." });
+          continue;
+        }
+        next.push({ file, batchName });
+      } catch (err) {
+        next.push({ file, error: err instanceof Error ? err.message : "Invalid JSON or read error." });
+      }
+    }
+    setUpdateAudioUrlsPending((prev) => [...prev, ...next]);
+  };
+
+  const removeUpdateAudioUrlsItem = (index: number) => {
+    setUpdateAudioUrlsPending((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const runUpdateAudioUrls = async () => {
+    const valid = updateAudioUrlsPending.filter((p) => p.batchName != null);
+    if (!valid.length) return;
+    setLoading(true);
+    const results: { file: string; ok: boolean; message: string }[] = [];
+    for (const { file, batchName } of valid) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text) as { batch_name?: string; tasks?: Array<{ id?: string | number; input?: string }> };
+        const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        const payload = {
+          batch_name: batchName!,
+          tasks: tasks.map((t) => ({ id: t.id, input: typeof t.input === "string" ? t.input : "" })),
+        };
+        const res = await fetch("/api/batches/asr/update-audio-urls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          results.push({
+            file: file.name,
+            ok: true,
+            message: body.tasks_updated != null ? `Updated ${body.tasks_updated} task(s).` : "Updated.",
+          });
+        } else {
+          results.push({ file: file.name, ok: false, message: body.message ?? res.statusText });
+        }
+      } catch (err) {
+        results.push({
+          file: file.name,
+          ok: false,
+          message: err instanceof Error ? err.message : "Invalid JSON or read error.",
+        });
+      }
+    }
+    setUpdateAudioUrlsResults(results);
+    setUpdateAudioUrlsPending((prev) => prev.filter((p) => !p.batchName));
+    setLoading(false);
+    if (results.some((r) => r.ok)) setRefreshKey((k) => k + 1);
+  };
 
   useEffect(() => {
     if (!downloadMenuOpen) return;
@@ -205,6 +283,142 @@ const Datasets = () => {
           </div>
         </Modal>
 
+        <Modal
+          isOpen={showUpdateAudioUrlsModal}
+          setIsOpen={setShowUpdateAudioUrlsModal}
+          className="!max-w-lg"
+        >
+          <div className="p-4 space-y-4">
+            <h3 className="text-lg font-semibold font-mono">Update Audio URLs (ASR)</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              Upload the JSON file of the batch that you want to update the audio URLs{" "}
+              <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">input</code>. The{" "}
+              <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">batch_name</code> in the file must match the batch name in the system. Each file must contain{" "}
+              <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">batch_name</code> and a{" "}
+              <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">tasks</code> array with <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">id</code> and{" "}
+              <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">input</code> per task. Only the <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">input</code> field is updated in the database.
+            </p>
+
+            <input
+              ref={updateAudioUrlsInputRef}
+              type="file"
+              accept=".json,application/json"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files?.length) addUpdateAudioUrlsFiles(files);
+                e.target.value = "";
+              }}
+            />
+
+            <div
+              onClick={() => !loading && updateAudioUrlsInputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setUpdateAudioUrlsDragging(true);
+              }}
+              onDragLeave={() => setUpdateAudioUrlsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setUpdateAudioUrlsDragging(false);
+                const files = e.dataTransfer.files;
+                if (files?.length) addUpdateAudioUrlsFiles(files);
+              }}
+              className={`relative border border-dashed rounded-lg p-6 text-center transition cursor-pointer ${
+                updateAudioUrlsDragging
+                  ? "bg-neutral-300/50 dark:bg-neutral-800/50 border-blue-500"
+                  : "border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-400 dark:hover:border-neutral-600"
+              } ${loading ? "cursor-not-allowed opacity-70 pointer-events-none" : ""}`}
+            >
+              {loading ? (
+                <p className="text-neutral-600 dark:text-neutral-400 flex items-center justify-center gap-2">
+                  <Loader2 className="size-5 animate-spin" />
+                  Processing…
+                </p>
+              ) : (
+                <p className="text-neutral-700 dark:text-neutral-300">
+                  {updateAudioUrlsDragging
+                    ? "Drop file(s) here..."
+                    : "Click or drag one or more JSON files to update audio URLs."}
+                </p>
+              )}
+            </div>
+
+            {updateAudioUrlsPending.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Batches that will be updated ({updateAudioUrlsPending.filter((p) => p.batchName).length} valid):
+                </p>
+                <ul className="text-sm space-y-1.5 max-h-48 overflow-y-auto rounded-md bg-neutral-100 dark:bg-neutral-800/50 p-3 border border-neutral-200 dark:border-neutral-700">
+                  {updateAudioUrlsPending.map((item, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between gap-2 py-1 pr-1 rounded hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.batchName != null ? (
+                          <>
+                            <span className="font-mono font-medium text-neutral-800 dark:text-neutral-200">{item.batchName}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 text-xs ml-1">({item.file.name})</span>
+                          </>
+                        ) : (
+                          <span className="text-red-600 dark:text-red-400">
+                            <span className="font-mono">{item.file.name}</span>: {item.error}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeUpdateAudioUrlsItem(i)}
+                        className="shrink-0 p-1 rounded text-neutral-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                        title="Remove"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={loading || updateAudioUrlsPending.filter((p) => p.batchName).length === 0}
+                    onClick={runUpdateAudioUrls}
+                  >
+                    {loading ? "Updating…" : "Update"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {updateAudioUrlsResults.length > 0 && (
+              <ul className="text-sm space-y-1 max-h-48 overflow-y-auto rounded-md bg-neutral-100 dark:bg-neutral-800/50 p-3">
+                {updateAudioUrlsResults.map((r, i) => (
+                  <li key={i} className={r.ok ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                    <span className="font-mono">{r.file}</span>: {r.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                minimal
+                size="sm"
+                onClick={() => {
+                  setUpdateAudioUrlsPending([]);
+                  setUpdateAudioUrlsResults([]);
+                  setShowUpdateAudioUrlsModal(false);
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
         <div className="w-full flex flex-col items-center justify-center space-y-5 mt-5">
           {user?.role === "user" && (
             <div className="flex items-center justify-center w-fit gap-3 p-4 rounded-md border border-blue-500 bg-blue-100/50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">
@@ -264,6 +478,23 @@ const Datasets = () => {
                     <span className="hidden lg:block">
                       Upload {activeTab.name} tasks
                     </span>
+                  </Button>
+                )}
+                {activeTab.value === "asr" && user?.role !== "user" && (
+                  <Button
+                    className="!w-fit !text-nowrap text-center font-mono"
+                    outline={true}
+                    minimal
+                    size="sm"
+                    disabled={loading}
+                    onClick={() => {
+                      setShowUpdateAudioUrlsModal(true);
+                      setUpdateAudioUrlsResults([]);
+                    }}
+                    title="Update expired audio URLs in existing ASR batches from JSON files"
+                  >
+                    <Link2 className="size-5 shrink-0" />
+                    <span className="hidden lg:block">Update Audio URLs</span>
                   </Button>
                 )}
                 {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 && (

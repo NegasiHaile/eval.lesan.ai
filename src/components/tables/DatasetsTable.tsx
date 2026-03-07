@@ -69,9 +69,17 @@ function escapeCSV(value: string): string {
   return s;
 }
 
-/** Convert batch (MT or ASR) to CSV: one row per (task, model). Columns: task_id, input, output, model, domain, rate, rank, reference. */
+/** Optional batch metadata to include in CSV export. */
+type BatchExportMeta = {
+  created_by?: string;
+  annotator_id?: string | null;
+  qa_id?: string | null;
+};
+
+/** Convert batch (MT or ASR) to CSV: one row per (task, model). Columns: task_id, input, output, model, domain, rate, rank, reference, plus creator/annotator/reviewer when meta provided. */
 function batchToCSV(
-  batch: ASRBatchTasksTypes | BatchTasksTypes
+  batch: ASRBatchTasksTypes | BatchTasksTypes,
+  meta?: BatchExportMeta
 ): string {
   const headers = [
     "task_id",
@@ -82,8 +90,13 @@ function batchToCSV(
     "rate",
     "rank",
     "reference",
+    ...(meta ? ["creator", "annotator", "reviewer"] : []),
   ];
   const rows: string[][] = [headers];
+
+  const creator = meta?.created_by ?? "";
+  const annotator = meta?.annotator_id ?? "";
+  const reviewer = meta?.qa_id ?? "";
 
   for (const task of batch.tasks ?? []) {
     const taskId = String(task.id ?? "");
@@ -101,6 +114,7 @@ function batchToCSV(
         String(m.rate ?? ""),
         String(m.rank ?? ""),
         reference,
+        ...(meta ? [creator, annotator, reviewer] : []),
       ]);
     }
   }
@@ -239,13 +253,21 @@ export default function DatasetsTable({
       const isCSV = format === "csv";
       let blob: Blob;
       let filename: string;
+      const exportMeta: BatchExportMeta = {
+        created_by: batch_detail.created_by,
+        annotator_id: batch_detail.annotator_id,
+        qa_id: batch_detail.qa_id,
+      };
       if (isCSV) {
-        blob = new Blob([batchToCSV(batch)], { type: "text/csv;charset=utf-8" });
+        blob = new Blob([batchToCSV(batch, exportMeta)], { type: "text/csv;charset=utf-8" });
         filename = `${batch_detail.batch_name}_${batch_detail.batch_id}_batch_tasks.csv`;
       } else {
         const batchWithDomains = {
           ...batch,
           domains: batch_detail.domains ?? batch.domains ?? [],
+          created_by: batch_detail.created_by,
+          annotator_id: batch_detail.annotator_id ?? undefined,
+          qa_id: batch_detail.qa_id ?? undefined,
         };
         blob = new Blob([JSON.stringify(batchWithDomains, null, 2)], {
           type: "application/json",
@@ -812,6 +834,20 @@ export default function DatasetsTable({
     <div className="relative min-h-[55lvh]">
       <div className="overflow-x-auto border-1 rounded-md border-neutral-300 dark:border-neutral-800 bg-neutral-200/30 dark:bg-neutral-800/30">
         <table className="min-w-full px-2 py-4 text-left border-spacing-y-2">
+          <colgroup>
+            <col className="w-10" />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col style={{ width: "1%" }} />
+          </colgroup>
           <thead className="border-b-1 rounded-3xl font-mono border-neutral-300 dark:border-neutral-800 py-5">
             <tr>
               <th className="px-2 py-4 text-left w-10">
@@ -840,7 +876,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Assigned To</th>
               <th className="px-4 py-4 text-left">Reviewer</th>
               <th className="px-4 py-4 text-left">Progress</th>
-              <th className="px-4 py-4 text-left">Actions</th>
+              <th className="px-2 py-4 text-left whitespace-nowrap">Actions</th>
             </tr>
             <tr className="bg-neutral-100 dark:bg-neutral-900 text-xs">
               <th />
@@ -916,7 +952,7 @@ export default function DatasetsTable({
                   </th>
                 );
               })}
-              <th className="sticky right-0 z-10 min-w-0 w-[120px] px-2 py-1 align-middle text-left bg-neutral-100 dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-700 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.2)]">
+              <th className="px-2 py-1 align-middle text-left">
                 <Button
                   type="button"
                   variant="secondary"
@@ -1151,7 +1187,7 @@ export default function DatasetsTable({
                         {annotatedItems}/{batch_detail.number_of_tasks}
                       </div>
                     </td>
-                    <td className="px-3 py-2 flex space-x-3 min-w-46">
+                    <td className="px-2 py-2 flex justify-start items-center gap-2 whitespace-nowrap">
                       {/* <button
                       onClick={() => handleDownload(batch_detail)}
                       className="text-blue-600 dark:text-blue-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
