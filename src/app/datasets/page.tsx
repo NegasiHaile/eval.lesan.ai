@@ -27,10 +27,8 @@ const Datasets = () => {
 
   const [showUploader, setShowUploader] = useState<boolean>(false);
   const [bulkDeleteToolbar, setBulkDeleteToolbar] = useState<BulkDeleteToolbarProps | null>(null);
-  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
-  const [updateAllMenuOpen, setUpdateAllMenuOpen] = useState(false);
-  const updateAllMenuRef = useRef<HTMLDivElement>(null);
+  const [actOnMenuOpen, setActOnMenuOpen] = useState(false);
+  const actOnMenuRef = useRef<HTMLDivElement>(null);
   const [showBulkCreatorModal, setShowBulkCreatorModal] = useState(false);
   const [showBulkEvaluatorModal, setShowBulkEvaluatorModal] = useState(false);
   const [bulkCreatorEmail, setBulkCreatorEmail] = useState("");
@@ -69,6 +67,58 @@ const Datasets = () => {
 
   const removeUpdateAudioUrlsItem = (index: number) => {
     setUpdateAudioUrlsPending((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /** Export batch files metadata for the given batches as JSON or CSV. */
+  const getLangName = (lang: BatchDetailTypes["source_language"] | undefined) =>
+    (lang as { name?: string } | undefined)?.name ?? (lang as { iso_name?: string } | undefined)?.iso_name ?? "";
+  const downloadFilesMetadata = (batches: BatchDetailTypes[], format: "json" | "csv") => {
+    if (!batches.length) return;
+    const rows = batches.map((b) => {
+      const src = getLangName(b.source_language);
+      const tgt = getLangName(b.target_language);
+      return {
+        "Batch/File ID": b.batch_name,
+        Language: src && tgt ? `${src} - ${tgt}` : src || tgt || "",
+        "Number of tasks": b.number_of_tasks,
+        "Coodinator/createdby": b.created_by,
+        "Contributor/Evaluator ID": (b.assigned_to ?? b.annotator_id) ?? "",
+        "Reviewer/QC ID": b.qa_id ?? "",
+      };
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = [
+      "Batch/File ID",
+      "Language",
+      "Number of tasks",
+      "Coodinator/createdby",
+      "Contributor/Evaluator ID",
+      "Reviewer/QC ID",
+    ];
+    if (format === "json") {
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `batch-files-metadata_${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((r) =>
+          headers.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(",")
+        ),
+      ].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `batch-files-metadata_${date}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    setActOnMenuOpen(false);
   };
 
   const runUpdateAudioUrls = async () => {
@@ -115,32 +165,18 @@ const Datasets = () => {
   };
 
   useEffect(() => {
-    if (!downloadMenuOpen) return;
+    if (!actOnMenuOpen) return;
     const close = (e: MouseEvent) => {
-      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
-        setDownloadMenuOpen(false);
+      if (actOnMenuRef.current && !actOnMenuRef.current.contains(e.target as Node)) {
+        setActOnMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [downloadMenuOpen]);
+  }, [actOnMenuOpen]);
 
   useEffect(() => {
-    if (loading) setDownloadMenuOpen(false);
-  }, [loading]);
-  useEffect(() => {
-    if (!updateAllMenuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (updateAllMenuRef.current && !updateAllMenuRef.current.contains(e.target as Node)) {
-        setUpdateAllMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [updateAllMenuOpen]);
-
-  useEffect(() => {
-    if (loading) setUpdateAllMenuOpen(false);
+    if (loading) setActOnMenuOpen(false);
   }, [loading]);
 
   // Restore active tab from localStorage (client-only; avoids SSR "localStorage is not defined")
@@ -497,95 +533,156 @@ const Datasets = () => {
                     <span className="hidden lg:block">Update Audio URLs</span>
                   </Button>
                 )}
-                {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 && (
-                  <>
-                    <div className="relative" ref={downloadMenuRef}>
-                      <Button
-                        className="!w-fit !text-nowrap text-center font-mono"
-                        variant="primary"
-                        minimal
-                        size="sm"
-                        disabled={loading}
-                        onClick={() => setDownloadMenuOpen((o) => !o)}
-                        title="Download selected batches"
-                      >
-                        <Download className="size-5 shrink-0" />
-                        <span className="hidden lg:block">
-                          Download ({bulkDeleteToolbar.selectedCount})
-                        </span>
-                      </Button>
-                      {downloadMenuOpen && (
-                        <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 py-1 shadow-lg">
-                          <button
-                            type="button"
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                            onClick={() => {
-                              bulkDeleteToolbar.onDownloadClick("json");
-                              setDownloadMenuOpen(false);
-                            }}
-                          >
-                            JSON
-                          </button>
-                          <button
-                            type="button"
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                            onClick={() => {
-                              bulkDeleteToolbar.onDownloadClick("csv");
-                              setDownloadMenuOpen(false);
-                            }}
-                          >
-                            CSV
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {bulkDeleteToolbar.selectedCount > 1 && bulkDeleteToolbar.showBulkUpdate && (
-                      <div className="relative" ref={updateAllMenuRef}>
-                        <Button
-                          className="!w-fit !text-nowrap text-center font-mono"
-                          variant="primary"
-                          minimal
-                          size="sm"
-                          disabled={loading}
-                          onClick={() => setUpdateAllMenuOpen((o) => !o)}
-                          title="Update creator or evaluator for selected batches"
-                        >
+                {batchesDetails.length > 0 && (
+                  <div className="relative" ref={actOnMenuRef}>
+                    <Button
+                      className="!w-fit !text-nowrap text-center font-mono"
+                      variant="primary"
+                      minimal
+                      size="sm"
+                      disabled={loading}
+                      onClick={() => setActOnMenuOpen((o) => !o)}
+                      title={
+                        bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1
+                          ? `Act on ${bulkDeleteToolbar.selectedCount} selected`
+                          : "Download"
+                      }
+                    >
+                      {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 ? (
+                        <>
                           <UserPen className="size-5 shrink-0" />
-                          <span className="hidden lg:block">Update ({bulkDeleteToolbar.selectedCount})</span>
-                          <ChevronDown className="size-4 shrink-0 ml-0.5" />
-                        </Button>
-                        {updateAllMenuOpen && (
-                          <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 py-1 shadow-lg">
-                            {bulkDeleteToolbar.showBulkUpdateCreator && bulkDeleteToolbar.onBulkUpdateCreator && (
-                              <button
-                                type="button"
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                                onClick={() => {
-                                  setUpdateAllMenuOpen(false);
-                                  setBulkCreatorEmail("");
-                                  setShowBulkCreatorModal(true);
-                                }}
-                              >
-                                Creator
-                              </button>
-                            )}
-                            {bulkDeleteToolbar.onBulkUpdateEvaluator && (
-                              <button
-                                type="button"
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                                onClick={() => {
-                                  setUpdateAllMenuOpen(false);
-                                  setBulkEvaluatorEmail("");
-                                  setShowBulkEvaluatorModal(true);
-                                }}
-                              >
-                                Evaluator
-                              </button>
-                            )}
-                          </div>
+                          <span className="hidden lg:block">
+                            Act on ({bulkDeleteToolbar.selectedCount})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-5 shrink-0" />
+                          <span className="hidden lg:block">Download</span>
+                        </>
+                      )}
+                      <ChevronDown className="size-4 shrink-0 ml-0.5" />
+                    </Button>
+                    {actOnMenuOpen && (
+                      <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 py-1 shadow-lg">
+                        {/* Download section */}
+                        <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700">
+                          Download
+                        </div>
+                        {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 && (
+                          <>
+                            <button
+                              type="button"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                              onClick={() => {
+                                bulkDeleteToolbar.onDownloadClick("json");
+                                setActOnMenuOpen(false);
+                              }}
+                            >
+                              <Download className="size-4 shrink-0" />
+                              {bulkDeleteToolbar.selectedCount} selected files (JSON)
+                            </button>
+                            <button
+                              type="button"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                              onClick={() => {
+                                bulkDeleteToolbar.onDownloadClick("csv");
+                                setActOnMenuOpen(false);
+                              }}
+                            >
+                              <Download className="size-4 shrink-0" />
+                              {bulkDeleteToolbar.selectedCount} selected files (CSV)
+                            </button>
+                          </>
                         )}
+                        <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 mt-1">
+                          Files metadata
+                        </div>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                          onClick={() => {
+                            const toExport =
+                              bulkDeleteToolbar &&
+                              bulkDeleteToolbar.selectedCount >= 1 &&
+                              bulkDeleteToolbar.selectedBatchDetails.length > 0
+                                ? bulkDeleteToolbar.selectedBatchDetails
+                                : batchesDetails;
+                            downloadFilesMetadata(toExport, "json");
+                            setActOnMenuOpen(false);
+                          }}
+                        >
+                          <Download className="size-4 shrink-0" />
+                          {(bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1
+                            ? bulkDeleteToolbar.selectedCount
+                            : batchesDetails.length)}{" "}
+                          files metadata (JSON)
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                          onClick={() => {
+                            const toExport =
+                              bulkDeleteToolbar &&
+                              bulkDeleteToolbar.selectedCount >= 1 &&
+                              bulkDeleteToolbar.selectedBatchDetails.length > 0
+                                ? bulkDeleteToolbar.selectedBatchDetails
+                                : batchesDetails;
+                            downloadFilesMetadata(toExport, "csv");
+                            setActOnMenuOpen(false);
+                          }}
+                        >
+                          <Download className="size-4 shrink-0" />
+                          {(bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1
+                            ? bulkDeleteToolbar.selectedCount
+                            : batchesDetails.length)}{" "}
+                          files metadata (CSV)
+                        </button>
+                        {/* Update section - when user can update creator (root, multi) and/or evaluator (root, admin, creator) */}
+                        {bulkDeleteToolbar &&
+                          (bulkDeleteToolbar.showBulkUpdate || bulkDeleteToolbar.showBulkUpdateEvaluator) && (
+                            <>
+                              <div className="px-3 py-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 mt-1">
+                                Update
+                              </div>
+                              {bulkDeleteToolbar.showBulkUpdateCreator &&
+                                bulkDeleteToolbar.selectedCount > 1 &&
+                                bulkDeleteToolbar.onBulkUpdateCreator && (
+                                  <button
+                                    type="button"
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                                    onClick={() => {
+                                      setActOnMenuOpen(false);
+                                      setBulkCreatorEmail("");
+                                      setShowBulkCreatorModal(true);
+                                    }}
+                                  >
+                                    <UserPen className="size-4 shrink-0" />
+                                    {bulkDeleteToolbar.selectedCount} selected files creator
+                                  </button>
+                                )}
+                              {bulkDeleteToolbar.showBulkUpdateEvaluator && bulkDeleteToolbar.onBulkUpdateEvaluator && (
+                                <button
+                                  type="button"
+                                  className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setActOnMenuOpen(false);
+                                    setBulkEvaluatorEmail("");
+                                    setShowBulkEvaluatorModal(true);
+                                  }}
+                                >
+                                  <UserPen className="size-4 shrink-0" />
+                                  {bulkDeleteToolbar.selectedCount} selected files evaluator
+                                </button>
+                              )}
+                            </>
+                          )}
                       </div>
                     )}
+                  </div>
+                )}
+                {bulkDeleteToolbar && bulkDeleteToolbar.selectedCount >= 1 && (
+                  <>
                     {bulkDeleteToolbar.selectedCount > 1 && (
                       <Button
                         className="!w-fit !text-nowrap text-center font-mono"

@@ -6,19 +6,22 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
-  const { url } = await params;
+  const { url: urlParam } = await params;
 
   try {
-    // Next.js automatically decodes the [url] dynamic route param,
-    // so no additional decodeURIComponent is needed. Applying it again
-    // would over-decode signed URLs (e.g. %2B → + breaking GCS signatures).
-    const remoteUrl = url;
+    let remoteUrl: URL;
+    try {
+      remoteUrl = new URL(urlParam);
+    } catch {
+      return new Response("Invalid URL in path.", { status: 400 });
+    }
+    if (remoteUrl.protocol !== "https:" && remoteUrl.protocol !== "http:") {
+      return new Response("URL must be http or https.", { status: 400 });
+    }
 
-    // Get the range header from the request
     const range = req.headers.get("range") || "bytes=0-";
 
-    // Fetch remote audio file with Range request
-    const remoteRes = await fetch(remoteUrl, {
+    const remoteRes = await fetch(remoteUrl.toString(), {
       headers: { Range: range },
     });
 
@@ -28,8 +31,24 @@ export async function GET(
       });
     }
 
-    // Prepare headers to forward to the client
-    console.log("headers", remoteRes.headers); // This console will print something like the following.
+    const passthrough = [
+      "content-type",
+      "content-length",
+      "content-range",
+      "accept-ranges",
+      "cache-control",
+      "expires",
+      "etag",
+      "last-modified",
+    ] as const;
+    const headers: Record<string, string> = {};
+    for (const key of passthrough) {
+      const v = remoteRes.headers.get(key);
+      if (v) headers[key] = v;
+    }
+
+    // Return the streaming response
+    // (Legacy path-based route; prefer ?url= query on /api/audio-stream to avoid long paths on Vercel.)
     //Header: {
     // date: 'Tue, 12 Aug 2025 09:59:56 GMT', // Date/time when the server sent this response (in GMT)
     // server: 'Apache/2.4.65 (Unix)', // Web server software and version
@@ -47,12 +66,6 @@ export async function GET(
     // 'content-type': 'audio/mpeg' // MIME type indicating the file is an MP3 audio
     // }
 
-    const headers: Record<string, string> = {};
-    remoteRes.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    // Return the streaming response
     return new Response(remoteRes.body, {
       status: remoteRes.status,
       headers,

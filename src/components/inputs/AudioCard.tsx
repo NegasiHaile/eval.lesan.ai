@@ -96,7 +96,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
               key={url}
               controls
               controlsList={nodownload ? "nodownload" : ""}
-              src={`/api/audio-stream/${encodeURIComponent(url as string)}`}
+              src={`/api/audio-stream?url=${encodeURIComponent(url as string)}`}
               className="w-full px-1 py-1 h-16 rounded-full"
               title="Reader"
             >

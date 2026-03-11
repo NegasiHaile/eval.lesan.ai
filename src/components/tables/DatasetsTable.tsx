@@ -124,16 +124,20 @@ function batchToCSV(
 
 export type BulkDeleteToolbarProps = {
   selectedCount: number;
+  /** Batch details for the currently selected rows (for export / Files metadata). */
+  selectedBatchDetails: BatchDetailTypes[];
   onOpenConfirm: () => void;
   onDownloadClick: (format: "json" | "csv") => void;
   /** Bulk update creator for all selected batches (root only). */
   onBulkUpdateCreator?: (newCreatorEmail: string) => Promise<void>;
   /** Bulk update evaluator (annotator) for all selected batches. */
   onBulkUpdateEvaluator?: (newEvaluatorEmail: string) => Promise<void>;
-  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch. */
+  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch (multiple only). */
   showBulkUpdate?: boolean;
   /** True when user can bulk-update creator (root only). */
   showBulkUpdateCreator?: boolean;
+  /** True when user can bulk-update evaluator: root, admin, or creator of selected batch(es). Shown for 1+ selected. */
+  showBulkUpdateEvaluator?: boolean;
 };
 
 type DatasetsTableProps = {
@@ -439,14 +443,18 @@ export default function DatasetsTable({
         );
       const showBulkUpdate =
         selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
+      const showBulkUpdateEvaluator =
+        selectedDetails.length >= 1 && (isRootRole || isAdmin || isCreatorOfAll);
 
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
+        selectedBatchDetails: selectedDetails,
         onOpenConfirm: () => setShowBulkDeleteConfirm(true),
         onBulkUpdateCreator: isRootRole ? bulkUpdateCreator : undefined,
-        onBulkUpdateEvaluator: bulkUpdateEvaluator,
+        onBulkUpdateEvaluator: showBulkUpdateEvaluator ? bulkUpdateEvaluator : undefined,
         showBulkUpdate,
         showBulkUpdateCreator: isRootRole,
+        showBulkUpdateEvaluator,
         onDownloadClick: async (format: "json" | "csv") => {
           const toDownload = batches_details.filter((b) =>
             selectedBatchIds.has(b.batch_id)

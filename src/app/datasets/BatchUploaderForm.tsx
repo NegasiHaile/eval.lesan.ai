@@ -137,7 +137,7 @@ const BatchUploaderForm = ({
     data: ASRBatchTasksTypes | BatchTasksTypes
   ): BatchDetailTypes => {
     const batch_id = generateUniqueId();
-    const batche_details = { ...initialBatchDetail };
+    const batche_details: BatchDetailTypes = { ...initialBatchDetail };
     batche_details.batch_id = batch_id;
     const withMeta = data as BatchDataWithMeta;
 
