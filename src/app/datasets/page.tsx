@@ -69,56 +69,92 @@ const Datasets = () => {
     setUpdateAudioUrlsPending((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /** Export batch files metadata for the given batches as JSON or CSV. */
+  /** Export batch files metadata for the given batches as JSON or CSV. Counts tasks evaluated and reviewed by fetching each batch at download time. */
   const getLangName = (lang: BatchDetailTypes["source_language"] | undefined) =>
     (lang as { name?: string } | undefined)?.name ?? (lang as { iso_name?: string } | undefined)?.iso_name ?? "";
-  const downloadFilesMetadata = (batches: BatchDetailTypes[], format: "json" | "csv") => {
+  const downloadFilesMetadata = async (
+    batches: BatchDetailTypes[],
+    format: "json" | "csv",
+    datasetType: string
+  ) => {
     if (!batches.length) return;
-    const rows = batches.map((b) => {
-      const src = getLangName(b.source_language);
-      const tgt = getLangName(b.target_language);
-      return {
-        "Batch/File ID": b.batch_name,
-        Language: src && tgt ? `${src} - ${tgt}` : src || tgt || "",
-        "Number of tasks": b.number_of_tasks,
-        "Coodinator/createdby": b.created_by,
-        "Contributor/Evaluator ID": (b.assigned_to ?? b.annotator_id) ?? "",
-        "Reviewer/QC ID": b.qa_id ?? "",
-      };
-    });
-    const date = new Date().toISOString().slice(0, 10);
-    const headers = [
-      "Batch/File ID",
-      "Language",
-      "Number of tasks",
-      "Coodinator/createdby",
-      "Contributor/Evaluator ID",
-      "Reviewer/QC ID",
-    ];
-    if (format === "json") {
-      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `batch-files-metadata_${date}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      const csvContent = [
-        headers.join(","),
-        ...rows.map((r) =>
-          headers.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(",")
-        ),
-      ].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `batch-files-metadata_${date}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+    setLoading(true);
+    try {
+      const rows = await Promise.all(
+        batches.map(async (b) => {
+          let tasksEvaluated = 0;
+          let reviewedTasks = 0;
+          try {
+            const res = await fetch(`/api/batches/${datasetType}/${b.batch_id}`);
+            if (res.ok) {
+              const batch = (await res.json()) as { tasks?: Array<{ models?: Array<{ rate?: number; rank?: number }>; reviewer_comment?: string }> };
+              const tasks = batch.tasks ?? [];
+              tasksEvaluated = tasks.filter(
+                (t) =>
+                  Array.isArray(t.models) &&
+                  t.models.length > 0 &&
+                  (t.models[0].rate ?? 0) > 0 &&
+                  (t.models[0].rank ?? 0) > 0
+              ).length;
+              reviewedTasks = tasks.filter(
+                (t) => t.reviewer_comment != null && String(t.reviewer_comment).trim() !== ""
+              ).length;
+            }
+          } catch {
+            // keep 0 if fetch fails
+          }
+          const src = getLangName(b.source_language);
+          const tgt = getLangName(b.target_language);
+          return {
+            "Batch/File ID": b.batch_name,
+            Language: src && tgt ? `${src} - ${tgt}` : src || tgt || "",
+            "Number of tasks": b.number_of_tasks,
+            "Tasks evaluated": tasksEvaluated,
+            "Reviewed tasks": reviewedTasks,
+            "Coodinator/createdby": b.created_by,
+            "Contributor/Evaluator ID": (b.assigned_to ?? b.annotator_id) ?? "",
+            "Reviewer/QC ID": b.qa_id ?? "",
+          };
+        })
+      );
+      const date = new Date().toISOString().slice(0, 10);
+      const headers = [
+        "Batch/File ID",
+        "Language",
+        "Number of tasks",
+        "Tasks evaluated",
+        "Reviewed tasks",
+        "Coodinator/createdby",
+        "Contributor/Evaluator ID",
+        "Reviewer/QC ID",
+      ];
+      if (format === "json") {
+        const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `batch-files-metadata_${date}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const csvContent = [
+          headers.join(","),
+          ...rows.map((r) =>
+            headers.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(",")
+          ),
+        ].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `batch-files-metadata_${date}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setLoading(false);
+      setActOnMenuOpen(false);
     }
-    setActOnMenuOpen(false);
   };
 
   const runUpdateAudioUrls = async () => {
@@ -601,6 +637,7 @@ const Datasets = () => {
                         <button
                           type="button"
                           className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                          disabled={loading}
                           onClick={() => {
                             const toExport =
                               bulkDeleteToolbar &&
@@ -608,8 +645,7 @@ const Datasets = () => {
                               bulkDeleteToolbar.selectedBatchDetails.length > 0
                                 ? bulkDeleteToolbar.selectedBatchDetails
                                 : batchesDetails;
-                            downloadFilesMetadata(toExport, "json");
-                            setActOnMenuOpen(false);
+                            void downloadFilesMetadata(toExport, "json", activeTab.value);
                           }}
                         >
                           <Download className="size-4 shrink-0" />
@@ -621,6 +657,7 @@ const Datasets = () => {
                         <button
                           type="button"
                           className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2"
+                          disabled={loading}
                           onClick={() => {
                             const toExport =
                               bulkDeleteToolbar &&
@@ -628,8 +665,7 @@ const Datasets = () => {
                               bulkDeleteToolbar.selectedBatchDetails.length > 0
                                 ? bulkDeleteToolbar.selectedBatchDetails
                                 : batchesDetails;
-                            downloadFilesMetadata(toExport, "csv");
-                            setActOnMenuOpen(false);
+                            void downloadFilesMetadata(toExport, "csv", activeTab.value);
                           }}
                         >
                           <Download className="size-4 shrink-0" />
@@ -695,7 +731,7 @@ const Datasets = () => {
                       >
                         <Trash2 className="size-5 shrink-0" />
                         <span className="hidden lg:block">
-                          Delete selected ({bulkDeleteToolbar.selectedCount})
+                          Delete ({bulkDeleteToolbar.selectedCount})
                         </span>
                       </Button>
                     )}

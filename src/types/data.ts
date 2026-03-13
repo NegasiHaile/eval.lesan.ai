@@ -63,7 +63,10 @@ export type BatchDetailTypes = {
   created_by: string;
   created_at: string;
   number_of_tasks: number;
+  /** Tasks with rate and rank set (evaluated). */
   annotated_tasks: number | string;
+  /** Tasks that have a reviewer_comment (reviewed by QC). Optional; populated when available from backend. */
+  reviewed_tasks?: number | string;
   qa_id: string | null;
   rating_guideline?: guidelineTypes[] | [];
   domains?: DomainTypes[] | [];
