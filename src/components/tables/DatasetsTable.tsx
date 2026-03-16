@@ -1148,9 +1148,9 @@ export default function DatasetsTable({
                           )}
                         </div>
                         <div className="w-full">
-                          <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-3 rounded-full overflow-hidden">
                             <div
-                              className={`h-2 rounded-full ${progressColor}`}
+                              className={`h-3 rounded-full ${progressColor}`}
                               style={{ width: `${percent}%` }}
                             />
                           </div>
