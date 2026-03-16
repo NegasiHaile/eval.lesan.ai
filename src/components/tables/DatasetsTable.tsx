@@ -763,10 +763,8 @@ export default function DatasetsTable({
     { key: "models", placeholder: "Model" },
     { key: "", type: "spacer" },
     { key: "created_by", placeholder: "Creator" },
-    { key: "annotator_id", placeholder: "Annotator" },
+    { type: "assigned_and_progress" },
     { key: "qa_id", placeholder: "Reviewer" },
-    { key: "progress_filter", type: "progress" },
-    { key: "", type: "spacer" },
   ];
 
   const canDelete = useCallback(
@@ -879,11 +877,10 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Domain</th>
               <th className="px-4 py-4 text-left">From-To</th>
               <th className="px-4 py-4 text-left">Models</th>
-              <th className="px-4 py-4 text-left">created At</th>
-              <th className="px-4 py-4 text-left">created By</th>
-              <th className="px-4 py-4 text-left">Assigned To</th>
+              <th className="px-4 py-4 text-left">Created_At</th>
+              <th className="px-4 py-4 text-left">Created_BY</th>
+              <th className="px-4 py-4 text-left">Evaluator_ID</th>
               <th className="px-4 py-4 text-left">Reviewer</th>
-              <th className="px-4 py-4 text-left">Progress</th>
               <th className="px-2 py-4 text-left whitespace-nowrap">Actions</th>
             </tr>
             <tr className="bg-neutral-100 dark:bg-neutral-900 text-xs">
@@ -921,29 +918,43 @@ export default function DatasetsTable({
                     </th>
                   );
                 }
-                if (field.type === "progress") {
+                if (field.type === "assigned_and_progress") {
                   return (
                     <th key={idx} className="min-w-[220px]">
-                      <SelectTransparent
-                        name="progress_filter"
-                        value={filters.progress_filter}
-                        optionsValues={PROGRESS_FILTER_OPTIONS.map((o) => o.value)}
-                        optionsLabels={PROGRESS_FILTER_OPTIONS.map(
-                          (o) => `${o.label} (${progressCounts[o.value] ?? 0})`
-                        )}
-                        onChange={(e) =>
-                          handleFilterChange(
-                            "progress_filter",
-                            (e.target.value as ProgressFilterValue) || ""
-                          )
-                        }
-                        variant="outlined"
-                        className="w-full max-w-full md:!w-full"
-                        selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0"
-                      />
+                      <div className="flex flex-col sm:flex-row gap-2 w-full p-1.5 rounded-md bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700">
+                        <TextInput
+                          type="text"
+                          name="annotator_id"
+                          value={filters.annotator_id}
+                          placeholder="Evaluator (email)"
+                          onChange={(e) =>
+                            handleFilterChange("annotator_id", e.target.value)
+                          }
+                          size="xs"
+                          className="flex-1 min-w-0 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                        <SelectTransparent
+                          name="progress_filter"
+                          value={filters.progress_filter}
+                          optionsValues={PROGRESS_FILTER_OPTIONS.map((o) => o.value)}
+                          optionsLabels={PROGRESS_FILTER_OPTIONS.map(
+                            (o) => `${o.label} (${progressCounts[o.value] ?? 0})`
+                          )}
+                          onChange={(e) =>
+                            handleFilterChange(
+                              "progress_filter",
+                              (e.target.value as ProgressFilterValue) || ""
+                            )
+                          }
+                          variant="outlined"
+                          className="flex-1 min-w-0"
+                          selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800"
+                        />
+                      </div>
                     </th>
                   );
                 }
+                if (!field.key) return <th key={idx} />;
                 return (
                   <th key={idx}>
                     <TextInput
@@ -1030,7 +1041,7 @@ export default function DatasetsTable({
                                 setEditCreatorIndex(index);
                                 setEditedCreatedBy(batch_detail.created_by ?? "");
                               }}
-                              title="Edit creator"
+                              title="Edit coordinator"
                             >
                               ✏️
                             </span>
@@ -1043,7 +1054,7 @@ export default function DatasetsTable({
                             value={editedCreatedBy}
                             onChange={(e) => setEditedCreatedBy(e.target.value)}
                             type="text"
-                            placeholder="Creator email"
+                            placeholder="Coordinator email"
                             className="border rounded p-[2px] focus:outline-none w-full max-w-[180px]"
                           />
                           <span
@@ -1066,74 +1077,88 @@ export default function DatasetsTable({
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 space-x-0.5 text-sm font-mono flex justify-between items-center">
-                      {editFile !== index && (
-                        <span
-                          onDoubleClick={() => {
-                            setEditFile(index);
-                            setEditedAnnotatorId(
-                              batch_detail.annotator_id ?? ""
-                            );
-                          }}
-                        >
-                          {!!batch_detail.annotator_id
-                            ? batch_detail.annotator_id
-                            : "N/A"}
-                        </span>
-                      )}
-                      {editFile === index && (
-                        <input
-                          name={`input_${index}`}
-                          value={editedAnnotatorId}
-                          onChange={(e) => setEditedAnnotatorId(e.target.value)}
-                          type="text"
-                          placeholder="Email"
-                          className="border rounded p-[2px] focus:outline-none w-full"
-                        />
-                      )}
-
-                      {/* Updating annotator is allowed only for the creator of the batch */}
-                      {IsAuthorized(batch_detail) && (
-                        <div className="px-0.5">
-                          {(editFile === null || editFile !== index) && (
+                    <td className="px-3 py-2 text-sm font-mono">
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <div className="flex justify-between items-center gap-1">
+                          {editFile !== index && (
                             <span
-                              className="w-full p-1 rounded cursor-pointer"
-                              onClick={() => {
+                              onDoubleClick={() => {
                                 setEditFile(index);
                                 setEditedAnnotatorId(
                                   batch_detail.annotator_id ?? ""
                                 );
                               }}
+                              className="truncate"
                             >
-                              ✏️
+                              {!!batch_detail.annotator_id
+                                ? batch_detail.annotator_id
+                                : "N/A"}
                             </span>
                           )}
-
                           {editFile === index && (
-                            <p className="flex items-center space-x-2">
-                              <span
-                                className="w-full p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                                onClick={() => {
-                                  handleAssignAnnotator(batch_detail);
-                                }}
-                                title="Save change"
-                              >
-                                ✔
-                              </span>
-                              <span
-                                className="w-full p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                                onClick={() => {
-                                  setEditFile(null);
-                                  setEditedAnnotatorId("");
-                                }}
-                                title="Cancel change"
-                              >
-                                ✖
-                              </span>
-                            </p>
+                            <input
+                              name={`input_${index}`}
+                              value={editedAnnotatorId}
+                              onChange={(e) => setEditedAnnotatorId(e.target.value)}
+                              type="text"
+                              placeholder="Email"
+                              className="border rounded p-[2px] focus:outline-none w-full min-w-0"
+                            />
+                          )}
+                          {IsAuthorized(batch_detail) && (
+                            <div className="shrink-0 flex items-center gap-0.5">
+                              {(editFile === null || editFile !== index) && (
+                                <span
+                                  className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                                  onClick={() => {
+                                    setEditFile(index);
+                                    setEditedAnnotatorId(
+                                      batch_detail.annotator_id ?? ""
+                                    );
+                                  }}
+                                  title="Edit evaluator"
+                                >
+                                  ✏️
+                                </span>
+                              )}
+                              {editFile === index && (
+                                <>
+                                  <span
+                                    className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                                    onClick={() => {
+                                      handleAssignAnnotator(batch_detail);
+                                    }}
+                                    title="Save"
+                                  >
+                                    ✔
+                                  </span>
+                                  <span
+                                    className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                                    onClick={() => {
+                                      setEditFile(null);
+                                      setEditedAnnotatorId("");
+                                    }}
+                                    title="Cancel"
+                                  >
+                                    ✖
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
+                        <div className="w-full">
+                          <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-2 rounded-full overflow-hidden">
+                            <div
+                              className={`h-2 rounded-full ${progressColor}`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5 font-mono">
+                            {annotatedItems}/{batch_detail.number_of_tasks}
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-sm font-mono" title={batch_detail.qa_id ?? ""}>
                       {editReviewerFile !== index ? (
@@ -1183,17 +1208,6 @@ export default function DatasetsTable({
                           </span>
                         </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2 w-56">
-                      <div className="w-full bg-neutral-200 dark:bg-neutral-600 h-3 rounded-full">
-                        <div
-                          className={`h-3 rounded-full ${progressColor}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <div className="text-sm text-neutral-700 dark:text-neutral-300 mt-1 font-mono">
-                        {annotatedItems}/{batch_detail.number_of_tasks}
-                      </div>
                     </td>
                     <td className="px-2 py-2 flex justify-start items-center gap-2 whitespace-nowrap">
                       {/* <button
