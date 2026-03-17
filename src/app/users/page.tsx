@@ -5,6 +5,8 @@ import { userDefaultValues } from "@/constants/initial_values";
 import { UserTypes } from "@/types/user";
 import { useEffect, useState } from "react";
 import { Loader2, Pencil, Trash2, X } from "lucide-react";
+import Modal from "@/components/utils/Modal";
+import Button from "@/components/utils/Button";
 
 const roles = ["root", "admin", "user"];
 
@@ -13,6 +15,17 @@ export default function Page() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<UserTypes>({ ...userDefaultValues });
   const [loading, setLoading] = useState<string>("");
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    variant?: "info" | "success" | "error";
+  } | null>(null);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -26,36 +39,60 @@ export default function Page() {
     }
   };
 
-  const deleteUser = async (username: string) => {
-    setLoading("delete");
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${username}?`
-    );
-    if (confirmed) {
-      try {
-        const res = await fetch(`/api/user`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username }),
-        });
+  const requestDeleteUser = (username: string) => {
+    setConfirm({
+      title: "Delete user",
+      message: `Are you sure you want to delete ${username}?`,
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        setLoading("delete");
+        try {
+          const res = await fetch(`/api/user`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username }),
+          });
 
-        if (!res.ok) throw new Error("Failed to delete user");
+          if (!res.ok) throw new Error("Failed to delete user");
 
-        const result = await res.json();
-        if (result.deletedCount === 1) {
-          alert(`User ${username} deleted successfully.`);
-          setUsers((prev) => prev.filter((user) => user.username !== username));
-        } else {
-          alert(`User ${username} not found.`);
+          const result = await res.json();
+          if (result.deletedCount === 1) {
+            setUsers((prev) =>
+              prev.filter((user) => user.username !== username)
+            );
+            setNotice({
+              title: "User deleted",
+              message: `User ${username} deleted successfully.`,
+              variant: "success",
+            });
+          } else {
+            setNotice({
+              title: "Not found",
+              message: `User ${username} not found.`,
+              variant: "info",
+            });
+          }
+        } catch (err) {
+          console.error("Error deleting user:", err);
+          setNotice({
+            title: "Delete failed",
+            message: "Failed to delete user.",
+            variant: "error",
+          });
+        } finally {
+          setLoading("");
         }
-      } catch (err) {
-        console.error("Error deleting user:", err);
-        alert("Failed to delete user.");
-      }
-    }
-    setLoading("");
+      },
+    });
+  };
+
+  const confirmAction = async () => {
+    if (!confirm) return;
+    const run = confirm.onConfirm;
+    setConfirm(null);
+    await run();
   };
 
   const updateUserRole = async (username: string, role: string) => {
@@ -78,43 +115,54 @@ export default function Page() {
       );
     } catch (err) {
       console.error("Error updating user role:", err);
-      alert("Failed to update user role.");
+      setNotice({
+        title: "Update failed",
+        message: "Failed to update user role.",
+        variant: "error",
+      });
     } finally {
       setActiveDropdown(null);
     }
     setLoading("");
   };
 
-  const updateAccountStatus = async (username: string, newStatus: boolean) => {
-    setLoading("account");
-    const confirmed = window.confirm(
-      `Are you sure you want to turn ${
-        newStatus ? "on" : "off"
-      } the account for ${username}?`
-    );
-    if (confirmed) {
-      try {
-        const res = await fetch("/api/user", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username, active: newStatus }),
-        });
+  const requestAccountStatusChange = (username: string, newStatus: boolean) => {
+    setConfirm({
+      title: "Change account status",
+      message: `Are you sure you want to turn ${newStatus ? "on" : "off"} the account for ${username}?`,
+      confirmLabel: "Confirm",
+      onConfirm: async () => {
+        setLoading("account");
+        try {
+          const res = await fetch("/api/user", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, active: newStatus }),
+          });
 
-        if (!res.ok) throw new Error("Failed to update account status");
+          if (!res.ok) throw new Error("Failed to update account status");
 
-        setUsers((prev) =>
-          prev.map((user) =>
-            user.username === username ? { ...user, active: newStatus } : user
-          )
-        );
-      } catch (err) {
-        console.error("Error updating account status:", err);
-        alert("Failed to update account status.");
-      }
-    }
-    setLoading("");
+          setUsers((prev) =>
+            prev.map((user) =>
+              user.username === username
+                ? { ...user, active: newStatus }
+                : user
+            )
+          );
+        } catch (err) {
+          console.error("Error updating account status:", err);
+          setNotice({
+            title: "Update failed",
+            message: "Failed to update account status.",
+            variant: "error",
+          });
+        } finally {
+          setLoading("");
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -213,7 +261,7 @@ export default function Page() {
                       }`}
                       onClick={() => {
                         setEditUser({ ...user });
-                        updateAccountStatus(user.username, !user.active);
+                        requestAccountStatusChange(user.username, !user.active);
                       }}
                       title={`Turn ${user.active ? "OFF" : "ON"} ${
                         user.fullName
@@ -233,7 +281,7 @@ export default function Page() {
                     <button
                       onClick={() => {
                         setEditUser(user);
-                        deleteUser(user.username);
+                        requestDeleteUser(user.username);
                       }}
                       className="text-red-600 dark:text-red-400 px-2 py-1 hover:bg-neutral-300 dark:hover:bg-neutral-900/80 rounded cursor-pointer"
                       title={`Delete ${user.fullName}'s account`}
@@ -249,7 +297,66 @@ export default function Page() {
               ))}
             </tbody>
           </table>
+      </div>
+
+      <Modal
+        isOpen={!!notice}
+        setIsOpen={(open) => {
+          if (open) return;
+          setNotice(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">
+            {notice?.title ?? "Notice"}
+          </h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {notice?.message ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setNotice(null)}>
+              OK
+            </Button>
+          </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!confirm}
+        setIsOpen={(open) => {
+          if (open) return;
+          setConfirm(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">
+            {confirm?.title ?? "Confirm"}
+          </h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {confirm?.message ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              minimal
+              size="sm"
+              onClick={() => setConfirm(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!!loading}
+              onClick={confirmAction}
+            >
+              {confirm?.confirmLabel ?? "Confirm"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
       </div>
   );
 }

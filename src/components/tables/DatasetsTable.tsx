@@ -1094,7 +1094,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Models</th>
               <th className="px-4 py-4 text-left">Created_At</th>
               <th className="px-4 py-4 text-left">Created_BY</th>
-              <th className="px-4 py-4 text-left">Evaluator_ID</th>
+              <th className="px-4 py-4 text-left">Annotator</th>
               <th className="px-4 py-4 text-left">Reviewer</th>
               <th className="px-2 py-4 text-left whitespace-nowrap">Actions</th>
             </tr>

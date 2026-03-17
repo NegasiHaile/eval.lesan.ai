@@ -22,15 +22,87 @@ import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
 import { TaskEvalErrorTypes } from "@/types/others";
 import Button from "@/components/utils/Button";
 import DomainsList from "@/components/DomainsList";
-import { Loader2, Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { useReviewerMode } from "@/hooks/useReviewerMode";
 import { usePresence } from "@/hooks/usePresence";
 import { useTaskDuration } from "@/hooks/useTaskDuration";
 import ReviewerPanel from "@/components/ReviewerPanel";
 import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
+import Modal from "@/components/utils/Modal";
+
+function SkeletonLine({
+  className = "",
+}: {
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded bg-neutral-200/80 dark:bg-neutral-700/60 animate-pulse ${className}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+function AudioCardSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={`w-full flex flex-col ${className}`}>
+      <div className="w-full bg-neutral-200/70 dark:bg-neutral-800/30 border border-neutral-200/80 dark:border-neutral-800/70 shadow-md rounded-lg py-8">
+        <div className="w-full p-2 flex space-x-2 items-center">
+          {/* audio element placeholder */}
+          <div className="w-full px-1 py-1 h-16 rounded-full bg-neutral-300/80 dark:bg-neutral-700/70 animate-pulse" />
+          {/* record button placeholder (roughly same size) */}
+          <div className="shrink-0 size-12 rounded-full bg-neutral-300/80 dark:bg-neutral-700/70 animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OutputCardSkeleton({
+  outputTextareaHeight,
+}: {
+  outputTextareaHeight: string | number;
+}) {
+  return (
+    <div className="relative w-full rounded-lg border border-transparent bg-neutral-200/80 dark:bg-neutral-800/80">
+      <div className={`w-full p-3 h-auto min-h-35 ${outputTextareaHeight} rounded-t-md`}>
+        <div className="space-y-2">
+          <SkeletonLine className="h-4 w-11/12" />
+          <SkeletonLine className="h-4 w-10/12" />
+          <SkeletonLine className="h-4 w-9/12" />
+          <SkeletonLine className="h-4 w-8/12" />
+        </div>
+      </div>
+
+      <div className="w-full flex justify-between rounded-b-md items-center space-x-1 px-3 py-2">
+        <div className="w-fit flex items-center gap-2">
+          <div className="h-8 w-36 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-24 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse hidden sm:block" />
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="size-6 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse"
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+          <div className="h-6 w-8 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ASR() {
   const { user } = useUser();
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    variant?: "info" | "success" | "error";
+  } | null>(null);
   const [outputTextareaHeight, setOutputTextareaHeight] =
     useState<string>("md:min-h-25");
 
@@ -71,6 +143,7 @@ export default function ASR() {
     setEvalTask,
     setBatchTasks,
     setCurrentTaskIndex,
+    onNotice: (title, message, variant) => setNotice({ title, message, variant }),
   });
 
   usePresence(user, selectedBatchDetail?.batch_id);
@@ -199,7 +272,11 @@ export default function ASR() {
         );
       }
     } else {
-      alert("You are already at the first task!");
+      setNotice({
+        title: "First task",
+        message: "You are already at the first task.",
+        variant: "info",
+      });
     }
   };
 
@@ -288,7 +365,11 @@ export default function ASR() {
             annotated_tasks: evaluatedTasks.length,
           });
         } catch {
-          alert("Failed to save evaluation. Please try again.");
+          setNotice({
+            title: "Save failed",
+            message: "Failed to save evaluation. Please try again.",
+            variant: "error",
+          });
           return;
         }
       }
@@ -311,9 +392,11 @@ export default function ASR() {
       } else {
         setCurrentTaskIndex(0);
         setEvalTask(updatedTasks[0]);
-        alert(
-          `End of <${selectedBatchDetail.batch_name}> ASR evaluation tasks! Back to first task.`
-        );
+        setNotice({
+          title: "End of batch",
+          message: `End of <${selectedBatchDetail.batch_name}> ASR evaluation tasks! Back to first task.`,
+          variant: "info",
+        });
         localStorage.setItem(
           "asr_active_batch",
           JSON.stringify({
@@ -328,9 +411,12 @@ export default function ASR() {
       }
     } else {
       if (evalTask?.input) {
-        alert(
-          "Realtime transcription is coming soon. For now, this is only for dataset evaluation."
-        );
+        setNotice({
+          title: "Coming soon",
+          message:
+            "Realtime transcription is coming soon. For now, this is only for dataset evaluation.",
+          variant: "info",
+        });
         handleResetEvalTask(2);
       }
     }
@@ -535,14 +621,17 @@ export default function ASR() {
           }`}
         >
           {isLoading ? (
-            <div className="w-full min-h-[280px] flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/30">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="size-8 animate-spin text-blue-500" />
-                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                  Loading…
-                </span>
+            <>
+              <AudioCardSkeleton className={`${isHorizontal ? "md:max-w-[40%]" : ""}`} />
+              <div
+                className={`${
+                  isHorizontal ? "md:max-w-[60%] w-full" : "w-full"
+                } space-y-3`}
+              >
+                <OutputCardSkeleton outputTextareaHeight={outputTextareaHeight} />
+                <OutputCardSkeleton outputTextareaHeight={outputTextareaHeight} />
               </div>
-            </div>
+            </>
           ) : (
             <>
           <AudioCard
@@ -696,6 +785,29 @@ export default function ASR() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={!!notice}
+        setIsOpen={(open) => {
+          if (open) return;
+          setNotice(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">
+            {notice?.title ?? "Notice"}
+          </h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {notice?.message ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setNotice(null)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Container>
   );
 }
