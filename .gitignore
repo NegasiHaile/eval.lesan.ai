@@ -11,6 +11,8 @@
 !.yarn/releases
 !.yarn/versions
 
+lesan-ai-googleapis-tokens.json
+
 # testing
 /coverage
 
