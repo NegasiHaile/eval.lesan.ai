@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, { Dispatch, SetStateAction, useState } from "react";
 import TextInput from "@/components/inputs/TextInput";
 import {
   ASRBatchTasksTypes,
@@ -30,10 +30,8 @@ import { date_DDMMYYYY } from "@/helpers/format-date";
 
 import { LanguageTypes } from "@/types/languages";
 import DragDropFile, { type BatchData } from "@/components/inputs/DragDropFile";
-import { UserTypes } from "@/types/user";
-
-import { userDefaultValues } from "@/constants/initial_values";
 import { shuffleAndAnonymizeModels } from "@/helpers/task_models_shuffler";
+import { useUser } from "@/context/UserContext";
 
 type PropsType = {
   setBatchesDetailTable: Dispatch<SetStateAction<BatchDetailTypes[]>>;
@@ -91,7 +89,7 @@ const BatchUploaderForm = ({
   setLoading,
   setShowUploader,
 }: PropsType) => {
-  const [user, setUser] = useState<UserTypes>({ ...userDefaultValues });
+  const { user } = useUser();
   const [addingCategory, setAddingCategory] = useState<boolean>(false);
   const [category, setCategory] = useState<categoryType>(categoryItem);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -124,12 +122,6 @@ const BatchUploaderForm = ({
   const [newBatchTasks, setNewBatchTasks] = useState<
     ASRBatchTasksTypes | BatchTasksTypes | null
   >();
-
-  // Load saved file content from localStorage on mount
-  useEffect(() => {
-    const usr = JSON.parse(localStorage.getItem("user") || JSON.stringify(""));
-    setUser(usr);
-  }, []);
 
   const removeCategoryByIndex = (nameToRemove: string) => {
     setNewBatchDetail((prev) => ({

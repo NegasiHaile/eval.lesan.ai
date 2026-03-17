@@ -4,11 +4,9 @@ import {
   useState,
   DragEvent,
   ChangeEvent,
-  useEffect,
   Dispatch,
   SetStateAction,
 } from "react";
-import { UserTypes } from "@/types/user";
 import {
   ASRBatchTasksTypes,
   BatchDetailTypes,
@@ -17,9 +15,9 @@ import {
   guidelineTypes,
   EvalOutputTypes,
 } from "@/types/data";
-import { userDefaultValues } from "@/constants/initial_values";
 import { isValidBatchData } from "@/helpers/validate_uploading_batch";
 import { DomainTypes, EvalTypeTypes } from "@/types/others";
+import { useUser } from "@/context/UserContext";
 
 const formatDate = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, "0");
@@ -72,13 +70,7 @@ export default function NativeDragDrop({
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [user, setUser] = useState<UserTypes>({ ...userDefaultValues });
-
-  // Load saved file content from localStorage on mount
-  useEffect(() => {
-    const usr = JSON.parse(localStorage.getItem("user") || JSON.stringify(""));
-    setUser(usr);
-  }, []);
+  const { user } = useUser();
 
   const readFileContent = (file: File) => {
     const reader = new FileReader();
