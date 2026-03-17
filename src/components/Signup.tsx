@@ -153,6 +153,40 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
           </div>
         ) : (
           <>
+            {mode !== "forgot" && (
+              <div className="flex flex-col gap-2 mb-6">
+                {PROVIDERS.map(({ id, label, iconSrc }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={!!loading}
+                    onClick={() => handleSignInSocial(id)}
+                    className="w-full flex items-center justify-center gap-2.5 rounded-lg py-2.5 px-4 text-sm font-medium border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading === id ? (
+                      <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />
+                    ) : (
+                      <Image src={iconSrc} alt="" width={20} height={20} className="shrink-0" aria-hidden />
+                    )}
+                    <span>{mode === "signin" ? "Continue with" : "Sign up with"} {label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {mode !== "forgot" && (
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-neutral-200 dark:border-neutral-700" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white dark:bg-neutral-900 px-2 text-neutral-500 dark:text-neutral-400">
+                    {mode === "signin" ? "Or sign in with email" : "Or sign up with email"}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleEmailSubmit} className="text-left space-y-4">
               {mode === "forgot" && (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -247,37 +281,6 @@ export default function Signup({ isOpen, setIsOpen }: ModalProps) {
                 </div>
               )}
             </form>
-
-            {mode !== "forgot" && (
-              <>
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-neutral-200 dark:border-neutral-700" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="bg-white dark:bg-neutral-900 px-2 text-neutral-500 dark:text-neutral-400">Or continue with</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {PROVIDERS.map(({ id, label, iconSrc }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      disabled={!!loading}
-                      onClick={() => handleSignInSocial(id)}
-                      className="w-full flex items-center justify-center gap-2.5 rounded-lg py-2.5 px-4 text-sm font-medium border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {loading === id ? (
-                        <Loader2 className="shrink-0 size-5 animate-spin" aria-hidden />
-                      ) : (
-                        <Image src={iconSrc} alt="" width={20} height={20} className="shrink-0" aria-hidden />
-                      )}
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
 
             {(mode === "signin" || mode === "signup") && (
               <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-700">
