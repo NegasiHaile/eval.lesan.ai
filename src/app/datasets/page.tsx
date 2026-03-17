@@ -269,7 +269,7 @@ const Datasets = () => {
           <div className="p-2">
             <h3 className="text-lg font-semibold mb-3">Update creator for selected batches</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-              Enter the new creator email. Only root users can change the creator.
+              Enter the new creator email. Root can update any selected batches; creators can transfer ownership only for batches they created.
             </p>
             <input
               type="email"
@@ -307,7 +307,7 @@ const Datasets = () => {
           <div className="p-2">
             <h3 className="text-lg font-semibold mb-3">Update evaluator for selected batches</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-              Enter the new evaluator (assigned to) email.
+              Enter the new evaluator (assigned to) email. Only root or the batch creator can update evaluator assignments.
             </p>
             <input
               type="email"

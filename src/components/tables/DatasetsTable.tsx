@@ -130,15 +130,15 @@ export type BulkDeleteToolbarProps = {
   selectedBatchDetails: BatchDetailTypes[];
   onOpenConfirm: () => void;
   onDownloadClick: (format: "json" | "csv") => void;
-  /** Bulk update creator for all selected batches (root only). */
+  /** Bulk update creator for all selected batches (root or creator of all selected). */
   onBulkUpdateCreator?: (newCreatorEmail: string) => Promise<void>;
   /** Bulk update evaluator (annotator) for all selected batches. */
   onBulkUpdateEvaluator?: (newEvaluatorEmail: string) => Promise<void>;
-  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch (multiple only). */
+  /** True when Update all dropdown should be shown: root or creator of every selected batch (multiple only). */
   showBulkUpdate?: boolean;
-  /** True when user can bulk-update creator (root only). */
+  /** True when user can bulk-update creator (root or creator of all selected). */
   showBulkUpdateCreator?: boolean;
-  /** True when user can bulk-update evaluator: root, admin, or creator of selected batch(es). Shown for 1+ selected. */
+  /** True when user can bulk-update evaluator: root or creator of selected batch(es). Shown for 1+ selected. */
   showBulkUpdateEvaluator?: boolean;
 };
 
@@ -566,32 +566,28 @@ export default function DatasetsTable({
     if (!onBulkDeleteToolbarChange) return;
     if (selectedBatchIds.size >= 1) {
       const isRootRole = user?.role?.toLowerCase() === "root";
-      const isAdmin = user?.role?.toLowerCase() === "admin";
       const selectedDetails = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
       const isCreatorOfAll =
         selectedDetails.length > 0 &&
         selectedDetails.every(
           (b) => (b.created_by ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
         );
-      const isAssignedAnnotatorOfAll =
-        selectedDetails.length > 0 &&
-        selectedDetails.every(
-          (b) => (b.annotator_id ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
-        );
       const showBulkUpdate =
-        selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
+        selectedDetails.length > 1 && (isRootRole || isCreatorOfAll);
+      const showBulkUpdateCreator =
+        selectedDetails.length > 1 && (isRootRole || isCreatorOfAll);
       const showBulkUpdateEvaluator =
         selectedDetails.length >= 1 &&
-        (isRootRole || isAdmin || isCreatorOfAll || isAssignedAnnotatorOfAll);
+        (isRootRole || isCreatorOfAll);
 
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
         selectedBatchDetails: selectedDetails,
         onOpenConfirm: () => setShowBulkDeleteConfirm(true),
-        onBulkUpdateCreator: isRootRole ? bulkUpdateCreator : undefined,
+        onBulkUpdateCreator: showBulkUpdateCreator ? bulkUpdateCreator : undefined,
         onBulkUpdateEvaluator: showBulkUpdateEvaluator ? bulkUpdateEvaluator : undefined,
         showBulkUpdate,
-        showBulkUpdateCreator: isRootRole,
+        showBulkUpdateCreator,
         showBulkUpdateEvaluator,
         onDownloadClick: async (format: "json" | "csv") => {
           const toDownload = batches_details.filter((b) =>
@@ -775,18 +771,22 @@ export default function DatasetsTable({
   };
 
   const IsAuthorized = (batch_detail: BatchDetailTypes) => {
-    return batch_detail.created_by === user?.username;
+    return (
+      (batch_detail.created_by ?? "").toLowerCase() ===
+      (user?.username ?? "").toLowerCase()
+    );
   };
+  const canTransferOwnership = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
+  const canEditEvaluator = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
+  const canEditReviewer = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
   const canEditAnnotator = (batch_detail: BatchDetailTypes) => {
-    const isCreator = batch_detail.created_by === user?.username;
-    const isAssigned =
-      (batch_detail.annotator_id ?? "").toLowerCase() ===
-      (user?.username ?? "").toLowerCase();
-    return isAdminOrRoot || isCreator || isAssigned;
+    return canEditEvaluator(batch_detail);
   };
 
   const isRoot = user?.role?.toLowerCase() === "root";
-  const isAdminOrRoot = ["root", "admin"].includes(user?.role?.toLowerCase() ?? "");
 
   const handleAssignCreator = async (batch_detail: BatchDetailTypes) => {
     const creator_email = `${editedCreatedBy}`.trim() ?? null;
@@ -1249,7 +1249,7 @@ export default function DatasetsTable({
                           {(batch_detail.created_by ?? "").length > 15
                             ? `${(batch_detail.created_by ?? "").slice(0, 15)}...`
                             : batch_detail.created_by ?? ""}
-                          {isRoot && (
+                          {canTransferOwnership(batch_detail) && (
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {
@@ -1412,7 +1412,7 @@ export default function DatasetsTable({
                           {(batch_detail.qa_id ?? "").length > 15
                             ? `${(batch_detail.qa_id ?? "").slice(0, 15)}...`
                             : batch_detail.qa_id ?? "N/A"}
-                          {isAdminOrRoot && (
+                          {canEditReviewer(batch_detail) && (
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {

@@ -31,9 +31,15 @@ export async function PATCH(
     const updates: Record<string, unknown> = {};
 
     if (created_by !== undefined) {
-      if (auth.role.toLowerCase() !== "root") {
+      const isRoot = auth.role.toLowerCase() === "root";
+      const isCreator =
+        (batch.created_by ?? "").toLowerCase() === auth.username.toLowerCase();
+      if (!isRoot && !isCreator) {
         return NextResponse.json(
-          { message: "Forbidden. Only root can update the batch creator." },
+          {
+            message:
+              "Forbidden. Only root or the current batch creator can transfer ownership.",
+          },
           { status: 403 }
         );
       }
@@ -41,12 +47,15 @@ export async function PATCH(
     }
 
     if (annotator_id !== undefined) {
-      const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
-      const isCreator = batch.created_by?.toLowerCase() === auth.username.toLowerCase();
-      const isAssignedAnnotator = batch.annotator_id?.toLowerCase() === auth.username.toLowerCase();
-      if (!isAdminOrRoot && !isCreator && !isAssignedAnnotator) {
+      const isRoot = auth.role.toLowerCase() === "root";
+      const isCreator =
+        (batch.created_by ?? "").toLowerCase() === auth.username.toLowerCase();
+      if (!isRoot && !isCreator) {
         return NextResponse.json(
-          { message: "Forbidden. Only the batch creator, assigned annotator, or an admin can assign annotators." },
+          {
+            message:
+              "Forbidden. Only root or the batch creator can assign evaluators.",
+          },
           { status: 403 }
         );
       }
@@ -54,10 +63,15 @@ export async function PATCH(
     }
 
     if (qa_id !== undefined) {
-      const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
-      if (!isAdminOrRoot) {
+      const isRoot = auth.role.toLowerCase() === "root";
+      const isCreator =
+        (batch.created_by ?? "").toLowerCase() === auth.username.toLowerCase();
+      if (!isRoot && !isCreator) {
         return NextResponse.json(
-          { message: "Forbidden. Only root or admin can assign a reviewer." },
+          {
+            message:
+              "Forbidden. Only root or the batch creator can assign a reviewer.",
+          },
           { status: 403 }
         );
       }
