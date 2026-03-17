@@ -6,7 +6,8 @@ import {
   BatchTasksTypes,
 } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
-import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
+import { useState, useEffect, Dispatch, useMemo, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
@@ -155,6 +156,12 @@ type DatasetsTableProps = {
   onResetFilters?: () => void;
 };
 
+type NoticeState = {
+  title: string;
+  message: string;
+  variant?: "info" | "success" | "error";
+};
+
 export default function DatasetsTable({
   batches_details,
   setBatchDetails,
@@ -195,12 +202,30 @@ export default function DatasetsTable({
     setFilters(initialFilters);
     onResetFilters?.();
   }, [onResetFilters]);
-  const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
-    null
-  );
+  const [downloadMenu, setDownloadMenu] = useState<{
+    index: number;
+    anchor: {
+      top: number;
+      bottom: number;
+      left: number;
+      right: number;
+      width: number;
+    };
+  } | null>(null);
+  const downloadMenuRef = useRef<HTMLDivElement | null>(null);
+  const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<BatchDetailTypes | null>(null);
+
+  const showNotice = useCallback(
+    (title: string, message: string, variant: NoticeState["variant"] = "info") => {
+      setNotice({ title, message, variant });
+    },
+    []
+  );
 
   const annotatorUsernames = useMemo(
     () => [...new Set(batches_details.map((b) => b.annotator_id).filter(Boolean) as string[])],
@@ -340,11 +365,64 @@ export default function DatasetsTable({
       await doOneDownload(batch_detail, format);
     } catch (error) {
       console.error("Download error:", error);
-      alert("Could not download the batch tasks.");
+      showNotice("Download failed", "Could not download the batch tasks.", "error");
     } finally {
       setLoading(false);
     }
   };
+
+  const closeDownloadMenu = useCallback(() => {
+    setDownloadMenu(null);
+    downloadMenuButtonRef.current = null;
+  }, []);
+
+  const updateDownloadMenuAnchor = useCallback(() => {
+    if (!downloadMenuButtonRef.current) return;
+    const r = downloadMenuButtonRef.current.getBoundingClientRect();
+    setDownloadMenu((prev) =>
+      prev
+        ? {
+            ...prev,
+            anchor: {
+              top: r.top,
+              bottom: r.bottom,
+              left: r.left,
+              right: r.right,
+              width: r.width,
+            },
+          }
+        : prev
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!downloadMenu) return;
+
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inMenu = downloadMenuRef.current?.contains(target);
+      const inButton = downloadMenuButtonRef.current?.contains(target);
+      if (!inMenu && !inButton) closeDownloadMenu();
+    };
+
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDownloadMenu();
+    };
+
+    const onLayoutChange = () => updateDownloadMenuAnchor();
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("resize", onLayoutChange);
+    window.addEventListener("scroll", onLayoutChange, true);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("resize", onLayoutChange);
+      window.removeEventListener("scroll", onLayoutChange, true);
+    };
+  }, [downloadMenu, closeDownloadMenu, updateDownloadMenuAnchor]);
 
   /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
   const doDeleteBatch = useCallback(
@@ -373,7 +451,7 @@ export default function DatasetsTable({
     async (newCreatorEmail: string) => {
       const email = `${newCreatorEmail}`.trim();
       if (!email) {
-        alert("Please enter a creator email.");
+        showNotice("Missing email", "Please enter a creator email.", "error");
         return;
       }
       const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
@@ -406,13 +484,24 @@ export default function DatasetsTable({
           }
         }
         if (succeeded > 0) setSelectedBatchIds(new Set());
-        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
-        else if (succeeded > 0) alert(`Creator updated for ${succeeded} batch(es).`);
+        if (failed > 0) {
+          showNotice(
+            "Creator update completed",
+            `Updated ${succeeded} batch(es). ${failed} failed (check console).`,
+            failed > 0 ? "error" : "success"
+          );
+        } else if (succeeded > 0) {
+          showNotice(
+            "Creator updated",
+            `Creator updated for ${succeeded} batch(es).`,
+            "success"
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [batches_details, selectedBatchIds, setBatchDetails]
+    [batches_details, selectedBatchIds, setBatchDetails, showNotice]
   );
 
   /** Bulk update evaluator (annotator) for all selected batches. Uses existing PATCH API. */
@@ -420,7 +509,7 @@ export default function DatasetsTable({
     async (newEvaluatorEmail: string) => {
       const email = `${newEvaluatorEmail}`.trim();
       if (!email) {
-        alert("Please enter an evaluator email.");
+        showNotice("Missing email", "Please enter an evaluator email.", "error");
         return;
       }
       const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
@@ -453,13 +542,24 @@ export default function DatasetsTable({
           }
         }
         if (succeeded > 0) setSelectedBatchIds(new Set());
-        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
-        else if (succeeded > 0) alert(`Evaluator updated for ${succeeded} batch(es).`);
+        if (failed > 0) {
+          showNotice(
+            "Evaluator update completed",
+            `Updated ${succeeded} batch(es). ${failed} failed (check console).`,
+            failed > 0 ? "error" : "success"
+          );
+        } else if (succeeded > 0) {
+          showNotice(
+            "Evaluator updated",
+            `Evaluator updated for ${succeeded} batch(es).`,
+            "success"
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [batches_details, selectedBatchIds, setBatchDetails]
+    [batches_details, selectedBatchIds, setBatchDetails, showNotice]
   );
 
   useEffect(() => {
@@ -473,10 +573,16 @@ export default function DatasetsTable({
         selectedDetails.every(
           (b) => (b.created_by ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
         );
+      const isAssignedAnnotatorOfAll =
+        selectedDetails.length > 0 &&
+        selectedDetails.every(
+          (b) => (b.annotator_id ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
+        );
       const showBulkUpdate =
         selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
       const showBulkUpdateEvaluator =
-        selectedDetails.length >= 1 && (isRootRole || isAdmin || isCreatorOfAll);
+        selectedDetails.length >= 1 &&
+        (isRootRole || isAdmin || isCreatorOfAll || isAssignedAnnotatorOfAll);
 
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
@@ -514,7 +620,7 @@ export default function DatasetsTable({
             setSelectedBatchIds(new Set());
           } catch (err) {
             console.error("Bulk download error:", err);
-            alert("Some downloads failed.");
+            showNotice("Bulk download failed", "Some downloads failed.", "error");
           } finally {
             setLoading(false);
           }
@@ -533,34 +639,47 @@ export default function DatasetsTable({
     getBatchBlob,
     bulkUpdateCreator,
     bulkUpdateEvaluator,
+    showNotice,
   ]);
 
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this batch? This action cannot be undone."
-    );
-    if (!confirmed) return;
+    setSingleDeleteTarget(batch_detail);
+  };
+
+  const handleSingleDeleteConfirm = async () => {
+    if (!singleDeleteTarget) return;
     setLoading(true);
-    const ok = await doDeleteBatch(batch_detail);
+    const ok = await doDeleteBatch(singleDeleteTarget);
     setLoading(false);
+
     if (!ok) {
-      alert("Deleting batch failed!");
+      showNotice("Delete failed", "Deleting batch failed!", "error");
       return;
     }
-    setBatchDetails((prev) => prev.filter((t) => t.batch_id !== batch_detail.batch_id));
+
+    setBatchDetails((prev) =>
+      prev.filter((t) => t.batch_id !== singleDeleteTarget.batch_id)
+    );
+    setSingleDeleteTarget(null);
+    showNotice("Batch deleted", "The batch was deleted successfully.", "success");
   };
 
   const handleAssignAnnotator = async (batch_detail: BatchDetailTypes) => {
     const anno_email = `${editedAnnotatorId}`.trim().toLocaleString() ?? null;
 
     if (batch_detail.annotator_id?.trim().toLocaleLowerCase() === anno_email) {
-      alert(`The batch is already assigned to ${anno_email}.`);
+      showNotice(
+        "No change",
+        `The batch is already assigned to ${anno_email}.`,
+        "info"
+      );
       setEditFile(null);
       return null;
     }
 
     if (!user?.email && !user?.username) {
-      alert(
+      showNotice(
+        "Unauthorized",
         "Unautorized user or your session is expired. Please signin again."
       );
       setEditFile(null);
@@ -593,7 +712,11 @@ export default function DatasetsTable({
       setEditedAnnotatorId("");
       // alert(res?.message);
     } catch (error) {
-      alert(error);
+      showNotice(
+        "Update failed",
+        error instanceof Error ? error.message : String(error),
+        "error"
+      );
     }
 
     setLoading(false);
@@ -609,7 +732,11 @@ export default function DatasetsTable({
     }
 
     if (!user?.email && !user?.username) {
-      alert("Unauthorized user or your session has expired. Please sign in again.");
+      showNotice(
+        "Unauthorized",
+        "Unauthorized user or your session has expired. Please sign in again.",
+        "error"
+      );
       setEditReviewerFile(null);
       return;
     }
@@ -637,7 +764,11 @@ export default function DatasetsTable({
       setEditReviewerFile(null);
       setEditedReviewerId("");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to assign reviewer.");
+      showNotice(
+        "Reviewer update failed",
+        error instanceof Error ? error.message : "Failed to assign reviewer.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -645,6 +776,13 @@ export default function DatasetsTable({
 
   const IsAuthorized = (batch_detail: BatchDetailTypes) => {
     return batch_detail.created_by === user?.username;
+  };
+  const canEditAnnotator = (batch_detail: BatchDetailTypes) => {
+    const isCreator = batch_detail.created_by === user?.username;
+    const isAssigned =
+      (batch_detail.annotator_id ?? "").toLowerCase() ===
+      (user?.username ?? "").toLowerCase();
+    return isAdminOrRoot || isCreator || isAssigned;
   };
 
   const isRoot = user?.role?.toLowerCase() === "root";
@@ -660,7 +798,11 @@ export default function DatasetsTable({
     }
 
     if (!user?.email && !user?.username) {
-      alert("Unauthorized user or your session has expired. Please sign in again.");
+      showNotice(
+        "Unauthorized",
+        "Unauthorized user or your session has expired. Please sign in again.",
+        "error"
+      );
       setEditCreatorIndex(null);
       return;
     }
@@ -688,7 +830,11 @@ export default function DatasetsTable({
       setEditCreatorIndex(null);
       setEditedCreatedBy("");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to update creator.");
+      showNotice(
+        "Creator update failed",
+        error instanceof Error ? error.message : "Failed to update creator.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -718,7 +864,11 @@ export default function DatasetsTable({
       setActiveBatch(batch);
       setLoading(false);
     } catch (error) {
-      alert(error);
+      showNotice(
+        "Load failed",
+        error instanceof Error ? error.message : String(error),
+        "error"
+      );
     }
   };
 
@@ -853,10 +1003,12 @@ export default function DatasetsTable({
     });
     setShowBulkDeleteConfirm(false);
     setLoading(false);
-    alert(
+    showNotice(
+      succeeded.size === toDelete.length ? "Batches deleted" : "Delete completed",
       succeeded.size === toDelete.length
         ? `${succeeded.size} batch(es) deleted.`
-        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`
+        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`,
+      succeeded.size === toDelete.length ? "success" : "error"
     );
   };
 
@@ -867,6 +1019,37 @@ export default function DatasetsTable({
       ),
     [batches_details, selectedBatchIds, canDelete]
   );
+
+  const activeDownloadBatch =
+    downloadMenu != null ? filteredBatches[downloadMenu.index] : null;
+  const downloadMenuStyle = useMemo(() => {
+    if (!downloadMenu) return null;
+    const MENU_WIDTH = 220;
+    const MARGIN = 8;
+    const OFFSET = 6;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const anchor = downloadMenu.anchor;
+
+    let left = anchor.left;
+    if (left + MENU_WIDTH + MARGIN > vw) left = anchor.right - MENU_WIDTH;
+    left = Math.max(MARGIN, Math.min(left, vw - MENU_WIDTH - MARGIN));
+
+    const spaceBelow = vh - anchor.bottom - MARGIN;
+    const spaceAbove = anchor.top - MARGIN;
+    const openBelow = spaceBelow >= 220 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(160, (openBelow ? spaceBelow : spaceAbove) - OFFSET);
+    const top = openBelow
+      ? anchor.bottom + OFFSET
+      : Math.max(MARGIN, anchor.top - maxHeight - OFFSET);
+
+    return {
+      top,
+      left,
+      width: MENU_WIDTH,
+      maxHeight,
+    };
+  }, [downloadMenu]);
 
   return (
     <div className="relative min-h-[55lvh]">
@@ -1115,12 +1298,15 @@ export default function DatasetsTable({
                           {editFile !== index && (
                             <span
                               onDoubleClick={() => {
+                                if (!canEditAnnotator(batch_detail)) return;
                                 setEditFile(index);
                                 setEditedAnnotatorId(
                                   batch_detail.annotator_id ?? ""
                                 );
                               }}
-                              className="truncate"
+                              className={`truncate ${
+                                canEditAnnotator(batch_detail) ? "cursor-pointer" : ""
+                              }`}
                             >
                               {batch_detail.annotator_id && (() => {
                                 const p = presenceStatuses[batch_detail.annotator_id];
@@ -1165,7 +1351,7 @@ export default function DatasetsTable({
                               className="border rounded p-[2px] focus:outline-none w-full min-w-0"
                             />
                           )}
-                          {IsAuthorized(batch_detail) && (
+                          {canEditAnnotator(batch_detail) && (
                             <div className="shrink-0 flex items-center gap-0.5">
                               {(editFile === null || editFile !== index) && (
                                 <span
@@ -1278,66 +1464,30 @@ export default function DatasetsTable({
                       <Download className="size-6" />
                     </button> */}
                       <button
-                        onClick={() => {
-                          if (downloadMenuIndex === index) {
-                            setDownloadMenuIndex(null);
-                          } else {
-                            setDownloadMenuIndex(index);
+                        onClick={(e) => {
+                          const btn = e.currentTarget;
+                          if (downloadMenu?.index === index) {
+                            closeDownloadMenu();
+                            return;
                           }
+                          const r = btn.getBoundingClientRect();
+                          downloadMenuButtonRef.current = btn;
+                          setDownloadMenu({
+                            index,
+                            anchor: {
+                              top: r.top,
+                              bottom: r.bottom,
+                              left: r.left,
+                              right: r.right,
+                              width: r.width,
+                            },
+                          });
                         }}
                         className="text-blue-600 dark:text-blue-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                         title="Download"
                       >
                         <Download className="size-6" />
                       </button>
-                      {downloadMenuIndex === index && (
-                        <div className="absolute overflow-hidden z-50 mt-9 bg-white dark:bg-neutral-800 shadow-lg rounded-md border border-neutral-200 dark:border-neutral-700">
-                          <p className="text-[10px] font-mono p-2 opacity-65">
-                            Select the data that you want to download
-                          </p>
-                          <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-neutral-300 dark:dark:border-neutral-700 space-y-1 text-xs">
-                            <button
-                              // minimal={!dwnldOriginalData}
-                              onClick={() => setDwnldOriginalData(true)}
-                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
-                                dwnldOriginalData
-                                  ? "bg-neutral-300 dark:bg-neutral-700"
-                                  : ""
-                              }`}
-                            >
-                              Original
-                            </button>
-                            <button
-                              onClick={() => setDwnldOriginalData(false)}
-                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
-                                !dwnldOriginalData
-                                  ? "bg-neutral-300 dark:bg-neutral-700"
-                                  : ""
-                              }`}
-                            >
-                              Shuffled
-                            </button>
-                          </div>
-                          <p className="text-[10px] font-mono px-2 p-2 opacity-65">
-                            Select file-type
-                          </p>
-                          {["JSON", "CSV"].map((format) => (
-                            <div
-                              key={format}
-                              className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
-                              onClick={() => {
-                                handleDownload(
-                                  batch_detail,
-                                  format.toLowerCase()
-                                );
-                                setDownloadMenuIndex(null);
-                              }}
-                            >
-                              {format}
-                            </div>
-                          ))}
-                        </div>
-                      )}
 
                       {(IsAuthorized(batch_detail) || isRoot) && (
                         <button
@@ -1445,6 +1595,96 @@ export default function DatasetsTable({
           </Modal>
         )}
 
+        {singleDeleteTarget && (
+          <Modal
+            isOpen={!!singleDeleteTarget}
+            setIsOpen={() => setSingleDeleteTarget(null)}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">Delete this batch?</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                This action cannot be undone.
+              </p>
+              <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-2 text-sm font-mono">
+                {singleDeleteTarget.batch_name ?? singleDeleteTarget.batch_id}
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  minimal
+                  onClick={() => setSingleDeleteTarget(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleSingleDeleteConfirm}
+                  loading={loading}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {!!downloadMenu &&
+          !!downloadMenuStyle &&
+          !!activeDownloadBatch &&
+          ReactDOM.createPortal(
+            <div
+              ref={downloadMenuRef}
+              className="fixed overflow-hidden z-[70] bg-white dark:bg-neutral-800 shadow-lg rounded-md border border-neutral-200 dark:border-neutral-700"
+              style={{
+                top: downloadMenuStyle.top,
+                left: downloadMenuStyle.left,
+                width: downloadMenuStyle.width,
+                maxHeight: downloadMenuStyle.maxHeight,
+              }}
+            >
+              <p className="text-[10px] font-mono p-2 opacity-65">
+                Select the data that you want to download
+              </p>
+              <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-neutral-300 dark:dark:border-neutral-700 space-y-1 text-xs">
+                <button
+                  onClick={() => setDwnldOriginalData(true)}
+                  className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
+                    dwnldOriginalData ? "bg-neutral-300 dark:bg-neutral-700" : ""
+                  }`}
+                >
+                  Original
+                </button>
+                <button
+                  onClick={() => setDwnldOriginalData(false)}
+                  className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
+                    !dwnldOriginalData ? "bg-neutral-300 dark:bg-neutral-700" : ""
+                  }`}
+                >
+                  Shuffled
+                </button>
+              </div>
+              <p className="text-[10px] font-mono px-2 p-2 opacity-65">
+                Select file-type
+              </p>
+              {["JSON", "CSV"].map((format) => (
+                <div
+                  key={format}
+                  className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
+                  onClick={() => {
+                    handleDownload(activeDownloadBatch, format.toLowerCase());
+                    closeDownloadMenu();
+                  }}
+                >
+                  {format}
+                </div>
+              ))}
+            </div>,
+            document.body
+          )}
+
         {showBulkDeleteConfirm && (
           <Modal
             isOpen={showBulkDeleteConfirm}
@@ -1479,6 +1719,40 @@ export default function DatasetsTable({
                   loading={loading}
                 >
                   Delete
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {notice && (
+          <Modal
+            isOpen={!!notice}
+            setIsOpen={() => setNotice(null)}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">
+                {notice.title}
+              </h3>
+              <p
+                className={`text-sm ${
+                  notice.variant === "error"
+                    ? "text-red-600 dark:text-red-400"
+                    : notice.variant === "success"
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-neutral-600 dark:text-neutral-300"
+                }`}
+              >
+                {notice.message}
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant={notice.variant === "error" ? "danger" : "primary"}
+                  onClick={() => setNotice(null)}
+                >
+                  OK
                 </Button>
               </div>
             </div>

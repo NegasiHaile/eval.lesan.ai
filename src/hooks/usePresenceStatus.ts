@@ -10,11 +10,11 @@ export type PresenceEntry = { status: PresenceStatus; batch_id: string | null };
 
 export function usePresenceStatus(usernames: string[]) {
   const [statuses, setStatuses] = useState<Record<string, PresenceEntry>>({});
-  const usernamesKey = usernames.filter(Boolean).sort().join(",");
+  const unique = [...new Set(usernames.filter(Boolean))];
+  const usernamesKey = unique.sort().join(",");
   const prevKey = useRef("");
 
   useEffect(() => {
-    const unique = [...new Set(usernames.filter(Boolean))];
     if (unique.length === 0) {
       if (prevKey.current !== "") {
         setStatuses({});
@@ -27,9 +27,11 @@ export function usePresenceStatus(usernames: string[]) {
 
     async function fetchStatuses() {
       try {
-        const res = await fetch(
-          `/api/presence?usernames=${unique.join(",")}`
-        );
+        const params = new URLSearchParams();
+        for (const username of unique) {
+          params.append("username", username);
+        }
+        const res = await fetch(`/api/presence?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setStatuses(data);

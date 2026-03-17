@@ -51,39 +51,90 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if (auth instanceof Response) return auth;
 
-  const usernamesParam = req.nextUrl.searchParams.get("usernames");
-  if (!usernamesParam) {
+  const fromRepeated = req.nextUrl.searchParams.getAll("username");
+  const fromCsv = (req.nextUrl.searchParams.get("usernames") ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const requestedUsernames = [...new Set([...fromRepeated, ...fromCsv])].slice(
+    0,
+    100
+  );
+  if (requestedUsernames.length === 0) {
     return NextResponse.json({});
   }
 
-  const usernames = usernamesParam.split(",").filter(Boolean).slice(0, 100);
-  if (usernames.length === 0) {
-    return NextResponse.json({});
+  const role = auth.role.toLowerCase();
+  let usernames = requestedUsernames;
+
+  if (!["root", "admin"].includes(role)) {
+    const escaped = auth.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`^${escaped}$`, "i");
+
+    const client = await getClientPromise();
+    const db = client.db();
+    const visibleBatches = await db
+      .collection("batches_details")
+      .find(
+        {
+          $or: [
+            { created_by: { $regex: pattern } },
+            { annotator_id: { $regex: pattern } },
+            { qa_id: { $regex: pattern } },
+          ],
+        },
+        {
+          projection: { created_by: 1, annotator_id: 1, qa_id: 1 },
+        }
+      )
+      .toArray();
+
+    const allowed = new Set<string>([auth.username.toLowerCase()]);
+    for (const b of visibleBatches) {
+      for (const raw of [b.created_by, b.annotator_id, b.qa_id]) {
+        if (typeof raw === "string" && raw.trim()) {
+          allowed.add(raw.toLowerCase());
+        }
+      }
+    }
+
+    usernames = requestedUsernames.filter((u) => allowed.has(u.toLowerCase()));
+    if (usernames.length === 0) {
+      return NextResponse.json({});
+    }
   }
 
   const client = await getClientPromise();
   const col = client.db().collection("user_presence");
   const docs = await col.find({ username: { $in: usernames } }).toArray();
+  const byUsername = new Map<string, Record<string, unknown>>();
+  for (const d of docs) {
+    const key = String(d.username ?? "");
+    if (key) byUsername.set(key, d as Record<string, unknown>);
+  }
 
   const now = Date.now();
   const result: Record<string, { status: "active" | "idle" | "away"; batch_id: string | null }> = {};
 
   for (const u of usernames) {
-    const doc = docs.find((d) => d.username === u);
+    const doc = byUsername.get(u);
     if (!doc) {
       result[u] = { status: "away", batch_id: null };
       continue;
     }
-    const elapsed = now - new Date(doc.last_heartbeat).getTime();
+    const lastHeartbeatRaw = doc.last_heartbeat;
+    const lastHeartbeat = new Date(String(lastHeartbeatRaw)).getTime();
+    const elapsed = Number.isFinite(lastHeartbeat) ? now - lastHeartbeat : Number.MAX_SAFE_INTEGER;
+    const currentStatus = String(doc.status ?? "");
     let status: "active" | "idle" | "away";
-    if (elapsed < 45_000 && doc.status === "active") {
+    if (elapsed < 45_000 && currentStatus === "active") {
       status = "active";
     } else if (elapsed < 180_000) {
       status = "idle";
     } else {
       status = "away";
     }
-    result[u] = { status, batch_id: doc.batch_id ?? null };
+    result[u] = { status, batch_id: (doc.batch_id as string | null | undefined) ?? null };
   }
 
   return NextResponse.json(result);
