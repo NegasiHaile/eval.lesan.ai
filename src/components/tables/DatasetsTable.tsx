@@ -14,6 +14,7 @@ import { Download, Expand, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
 import SelectTransparent from "../inputs/SelectTransparent";
 import TextInput from "../inputs/TextInput";
+import { usePresenceStatus } from "@/hooks/usePresenceStatus";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -201,6 +202,16 @@ export default function DatasetsTable({
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
+  const annotatorUsernames = useMemo(
+    () => [...new Set(batches_details.map((b) => b.annotator_id).filter(Boolean) as string[])],
+    [batches_details]
+  );
+  const presenceStatuses = usePresenceStatus(annotatorUsernames);
+  const hasActiveAnnotator = useMemo(
+    () => Object.values(presenceStatuses).some((p) => p.status === "active"),
+    [presenceStatuses]
+  );
+
   // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
     if (!user?.username) return;
@@ -227,6 +238,27 @@ export default function DatasetsTable({
       cancelled = true;
     };
   }, [user?.username, evalDataType.value, refreshKey, setBatchDetails, setLoading]);
+
+  // Auto-refresh batch details every 60s while any annotator is active
+  useEffect(() => {
+    if (!user?.username || !hasActiveAnnotator) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/batches-details?username=${user.username}&dataset_type=${evalDataType.value}`
+        );
+        if (res.ok) {
+          const data: BatchDetailTypes[] = await res.json();
+          setBatchDetails(data);
+        }
+      } catch {
+        // ignore
+      }
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, [user?.username, evalDataType.value, hasActiveAnnotator, setBatchDetails]);
 
   useEffect(() => {
     setSelectedBatchIds(new Set());
@@ -1090,6 +1122,34 @@ export default function DatasetsTable({
                               }}
                               className="truncate"
                             >
+                              {batch_detail.annotator_id && (() => {
+                                const p = presenceStatuses[batch_detail.annotator_id];
+                                const isOnThisBatch =
+                                  p?.status === "active" &&
+                                  p?.batch_id === batch_detail.batch_id;
+                                const isIdle =
+                                  p?.status === "idle" ||
+                                  (p?.status === "active" &&
+                                    p?.batch_id !== batch_detail.batch_id);
+                                return (
+                                  <span
+                                    className={`inline-block w-2 h-2 rounded-full mr-1.5 ${
+                                      isOnThisBatch
+                                        ? "bg-green-500"
+                                        : isIdle
+                                        ? "bg-yellow-500"
+                                        : "bg-gray-400"
+                                    }`}
+                                    title={
+                                      isOnThisBatch
+                                        ? "active"
+                                        : isIdle
+                                        ? "idle"
+                                        : "away"
+                                    }
+                                  />
+                                );
+                              })()}
                               {!!batch_detail.annotator_id
                                 ? batch_detail.annotator_id
                                 : "N/A"}

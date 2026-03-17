@@ -15,6 +15,9 @@ export type EvalTaskTypes = {
   reference?: string;
   domain?: string[];
   reviewer_comment?: string;
+  started_at?: string;
+  completed_at?: string;
+  active_duration_ms?: number;
 };
 
 export type guidelineTypes = {

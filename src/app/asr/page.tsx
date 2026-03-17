@@ -24,6 +24,8 @@ import Button from "@/components/utils/Button";
 import DomainsList from "@/components/DomainsList";
 import { Loader2, Minus, Plus } from "lucide-react";
 import { useReviewerMode } from "@/hooks/useReviewerMode";
+import { usePresence } from "@/hooks/usePresence";
+import { useTaskDuration } from "@/hooks/useTaskDuration";
 import ReviewerPanel from "@/components/ReviewerPanel";
 import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
 
@@ -70,6 +72,9 @@ export default function ASR() {
     setBatchTasks,
     setCurrentTaskIndex,
   });
+
+  usePresence(user, selectedBatchDetail?.batch_id);
+  const { getStartedAt, getActiveDurationMs } = useTaskDuration(evalTask?.id);
 
   const IsRealtime = () => {
     return selectedBatchDetail?.batch_name?.toLowerCase().includes("realtime");
@@ -231,6 +236,12 @@ export default function ASR() {
 
   const handleSaveTaskChanges = async () => {
     if (!evalTask) return null;
+    const taskWithDuration = {
+      ...evalTask,
+      started_at: getStartedAt(),
+      completed_at: new Date().toISOString(),
+      active_duration_ms: getActiveDurationMs(),
+    };
     const res = await fetch(
       `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
       {
@@ -238,7 +249,7 @@ export default function ASR() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(evalTask),
+        body: JSON.stringify(taskWithDuration),
       }
     );
     if (!res.ok) throw new Error("Failed to save task changes");

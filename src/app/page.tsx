@@ -31,6 +31,8 @@ import Button from "@/components/utils/Button";
 import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
 import { useReviewerMode } from "@/hooks/useReviewerMode";
+import { usePresence } from "@/hooks/usePresence";
+import { useTaskDuration } from "@/hooks/useTaskDuration";
 import ReviewerPanel from "@/components/ReviewerPanel";
 import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
 
@@ -76,6 +78,9 @@ export default function Home() {
     setBatchTasks,
     setCurrentTaskIndex,
   });
+
+  usePresence(user, selectedBatchDetail?.batch_id);
+  const { getStartedAt, getActiveDurationMs } = useTaskDuration(evalTask?.id);
 
   function RankTranslations(fromIndex: number, toIndex: number) {
     setEvalTask((prev) => {
@@ -151,6 +156,12 @@ export default function Home() {
 
   const handleSaveTaskChanges = async () => {
     if (!evalTask) return null;
+    const taskWithDuration = {
+      ...evalTask,
+      started_at: getStartedAt(),
+      completed_at: new Date().toISOString(),
+      active_duration_ms: getActiveDurationMs(),
+    };
     await fetch(
       `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
       {
@@ -158,7 +169,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(evalTask),
+        body: JSON.stringify(taskWithDuration),
       }
     );
   };
