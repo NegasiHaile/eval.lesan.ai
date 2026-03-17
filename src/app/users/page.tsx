@@ -4,9 +4,11 @@ import CopyText from "@/components/utils/CopyText";
 import { userDefaultValues } from "@/constants/initial_values";
 import { UserTypes } from "@/types/user";
 import { useEffect, useState } from "react";
-import { Loader2, Pencil, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FilterX, Loader2, Pencil, Trash2, X } from "lucide-react";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
+import SelectTransparent from "@/components/inputs/SelectTransparent";
+import TextInput from "@/components/inputs/TextInput";
 
 const roles = ["root", "admin", "user"];
 
@@ -15,6 +17,14 @@ export default function Page() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<UserTypes>({ ...userDefaultValues });
   const [loading, setLoading] = useState<string>("");
+  const [isFetchingUsers, setIsFetchingUsers] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [filters, setFilters] = useState({
+    name: "",
+    email: "",
+    role: "",
+  });
   const [notice, setNotice] = useState<{
     title: string;
     message: string;
@@ -28,6 +38,7 @@ export default function Page() {
   } | null>(null);
 
   const fetchUsers = async () => {
+    setIsFetchingUsers(true);
     try {
       const res = await fetch("/api/user");
 
@@ -36,8 +47,26 @@ export default function Page() {
       setUsers(data);
     } catch (err) {
       console.error("Error fetching users:", err);
+    } finally {
+      setIsFetchingUsers(false);
     }
   };
+
+  const filteredUsers = users.filter((u) => {
+    const nameMatch = (u.fullName ?? "")
+      .toLowerCase()
+      .includes(filters.name.toLowerCase());
+    const emailMatch = (u.username ?? u.email ?? "")
+      .toLowerCase()
+      .includes(filters.email.toLowerCase());
+    const roleMatch = !filters.role || (u.role ?? "").toLowerCase() === filters.role.toLowerCase();
+    return nameMatch && emailMatch && roleMatch;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / rowsPerPage));
+  const pageStart = (currentPage - 1) * rowsPerPage;
+  const pageEnd = pageStart + rowsPerPage;
+  const paginatedUsers = filteredUsers.slice(pageStart, pageEnd);
 
   const requestDeleteUser = (username: string) => {
     setConfirm({
@@ -169,10 +198,22 @@ export default function Page() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rowsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.name, filters.email, filters.role]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="w-full flex flex-col justify-center items-center p-3">
-        <div className="w-full h-auto pb-32 max-w-6xl md:pt-6 overflow-x-auto">
-          <table className="min-w-full h-full bg-neutral-200/70 dark:bg-neutral-800/50 rounded p-1">
+      <div className="w-full h-auto pb-32 max-w-6xl md:pt-6 overflow-x-auto">
+        <table className="min-w-full h-full bg-neutral-200/70 dark:bg-neutral-800/50 rounded p-1">
             <thead className="border-b border-neutral-300 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200">
               <tr className="">
                 <th className="px-4 py-4 text-left">#</th>
@@ -182,14 +223,85 @@ export default function Page() {
                 <th className="px-4 py-4 text-left">Status</th>
                 <th className="px-4 py-4 text-left">Actions</th>
               </tr>
+              <tr className="py-0">
+                <th />
+                <th className="px-2 py-2">
+                  <TextInput
+                    type="text"
+                    name="filter_name"
+                    placeholder="Filter by name"
+                    value={filters.name}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, name: e.target.value }))}
+                    size="sm"
+                    className="w-full"
+                  />
+                </th>
+                <th className="px-2 py-2">
+                  <TextInput
+                    type="text"
+                    name="filter_email"
+                    placeholder="Filter by email"
+                    value={filters.email}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, email: e.target.value }))}
+                    size="sm"
+                    className="w-full"
+                  />
+                </th>
+                <th className="px-2 py-2">
+                  <SelectTransparent
+                    name="role_filter"
+                    value={filters.role}
+                    optionsValues={["", ...roles]}
+                    optionsLabels={["All roles", ...roles]}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, role: String(e.target.value) }))
+                    }
+                    variant="outlined"
+                    className="w-full"
+                    selectClass="!h-9 !py-1 !px-2 !text-xs "
+                  />
+                </th>
+                <th />
+                <th className="px-2 py-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    outline
+                    size="xs"
+                    className="h-8"
+                    onClick={() => setFilters({ name: "", email: "", role: "" })}
+                    text="Reset"
+                  >
+                    <FilterX className="size-4 shrink-0" />
+                  </Button>
+                </th>
+              </tr>
             </thead>
             <tbody className="text-neutral-900 dark:text-neutral-100">
-              {users.map((user: UserTypes, i: number) => (
+              {isFetchingUsers ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center">
+                    <div className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+                      <Loader2 className="size-5 animate-spin" />
+                      <span>Loading users...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-300">
+                    No users found for the selected filters.
+                  </td>
+                </tr>
+              ) : (
+                paginatedUsers.map((user: UserTypes, i: number) => {
+                  const rowIndex = pageStart + i;
+                  return (
                 <tr
-                  key={i}
+                  key={`${user.username}-${rowIndex}`}
                   className="border-b last:border-b-0 border-white dark:border-neutral-800"
                 >
-                  <td className="px-4 py-2">{i + 1}</td>
+                  <td className="px-4 py-2">{rowIndex + 1}</td>
                   <td className="px-4 py-2">{user.fullName}</td>
                   <td className="px-4 py-2 flex justify-between items-center pr-5">
                     <span> {user.username} </span>
@@ -294,9 +406,65 @@ export default function Page() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+                })
+              )}
             </tbody>
-          </table>
+        </table>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 py-3 border border-t-0 rounded-b border-neutral-300 dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900/20">
+          <div className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
+            Showing{" "}
+            <span className="font-medium">{filteredUsers.length ? pageStart + 1 : 0}</span>
+            {" - "}
+            <span className="font-medium">{Math.min(pageEnd, filteredUsers.length)}</span>
+            {" of "}
+            <span className="font-medium">{filteredUsers.length}</span> users
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Rows</span>
+              <SelectTransparent
+                name="rows_per_page"
+                value={rowsPerPage}
+                optionsValues={[10, 20, 50, 100]}
+                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                variant="outlined"
+                className="min-w-[74px]"
+                selectClass="!h-8 !py-1 !px-2 !text-xs rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800"
+              />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="!px-2"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-xs sm:text-sm font-mono px-2">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="!px-2"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Modal
@@ -357,6 +525,6 @@ export default function Page() {
           </div>
         </div>
       </Modal>
-      </div>
+    </div>
   );
 }

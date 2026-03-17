@@ -11,7 +11,7 @@ import ReactDOM from "react-dom";
 import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Expand, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
 import SelectTransparent from "../inputs/SelectTransparent";
 import TextInput from "../inputs/TextInput";
@@ -203,7 +203,7 @@ export default function DatasetsTable({
     onResetFilters?.();
   }, [onResetFilters]);
   const [downloadMenu, setDownloadMenu] = useState<{
-    index: number;
+    batchId: string;
     anchor: {
       top: number;
       bottom: number;
@@ -216,6 +216,8 @@ export default function DatasetsTable({
   const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [singleDeleteTarget, setSingleDeleteTarget] = useState<BatchDetailTypes | null>(null);
@@ -919,6 +921,34 @@ export default function DatasetsTable({
     return progressMatch && matchesOtherFilters(detail);
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredBatches.length / rowsPerPage));
+  const pageStart = (currentPage - 1) * rowsPerPage;
+  const pageEnd = pageStart + rowsPerPage;
+  const paginatedBatches = useMemo(
+    () => filteredBatches.slice(pageStart, pageEnd),
+    [filteredBatches, pageStart, pageEnd]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    evalDataType.value,
+    filters.batch_name,
+    filters.dataset_domain,
+    filters.source_language,
+    filters.target_language,
+    filters.models,
+    filters.created_by,
+    filters.annotator_id,
+    filters.qa_id,
+    filters.progress_filter,
+    rowsPerPage,
+  ]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   const progressCounts = useMemo(() => {
     const matching = batches_details.filter(matchesOtherFilters);
     const counts: Record<string, number> = {};
@@ -956,8 +986,8 @@ export default function DatasetsTable({
   );
 
   const deletableBatches = useMemo(
-    () => filteredBatches.filter((b) => canDelete(b)),
-    [filteredBatches, canDelete]
+    () => paginatedBatches.filter((b) => canDelete(b)),
+    [paginatedBatches, canDelete]
   );
 
   const toggleSelection = (batchId: string) => {
@@ -1021,7 +1051,9 @@ export default function DatasetsTable({
   );
 
   const activeDownloadBatch =
-    downloadMenu != null ? filteredBatches[downloadMenu.index] : null;
+    downloadMenu != null
+      ? filteredBatches.find((b) => b.batch_id === downloadMenu.batchId) ?? null
+      : null;
   const downloadMenuStyle = useMemo(() => {
     if (!downloadMenu) return null;
     const MENU_WIDTH = 220;
@@ -1205,8 +1237,9 @@ export default function DatasetsTable({
           </thead>
 
           <tbody className="relative md:static">
-            {filteredBatches.length > 0 ? (
-              filteredBatches.map((batch_detail, index) => {
+            {paginatedBatches.length > 0 ? (
+              paginatedBatches.map((batch_detail, index) => {
+                const rowIndex = pageStart + index;
                 const annotatedItems = parseInt(
                   `${batch_detail.annotated_tasks}`
                 );
@@ -1216,7 +1249,7 @@ export default function DatasetsTable({
 
                 return (
                   <tr
-                    key={`${batch_detail.batch_id}, ${index}`}
+                    key={`${batch_detail.batch_id}, ${rowIndex}`}
                     className="border-t border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors"
                   >
                     <td className="px-2 py-2 w-10 align-middle">
@@ -1230,7 +1263,7 @@ export default function DatasetsTable({
                         />
                       ) : null}
                     </td>
-                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">{rowIndex + 1}</td>
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
                     <td className="px-3 py-2">{batch_detail.dataset_domain}</td>
                     <td className="px-3 py-2">
@@ -1244,7 +1277,7 @@ export default function DatasetsTable({
                     </td>
                     <td className="px-3 py-2">{batch_detail.created_at}</td>
                     <td className="px-3 py-2 text-sm font-mono" title={batch_detail.created_by}>
-                      {editCreatorIndex !== index ? (
+                      {editCreatorIndex !== rowIndex ? (
                         <>
                           {(batch_detail.created_by ?? "").length > 15
                             ? `${(batch_detail.created_by ?? "").slice(0, 15)}...`
@@ -1253,7 +1286,7 @@ export default function DatasetsTable({
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {
-                                setEditCreatorIndex(index);
+                                setEditCreatorIndex(rowIndex);
                                 setEditedCreatedBy(batch_detail.created_by ?? "");
                               }}
                               title="Edit coordinator"
@@ -1265,7 +1298,7 @@ export default function DatasetsTable({
                       ) : (
                         <span className="flex flex-wrap items-center gap-1">
                           <input
-                            name={`creator_${index}`}
+                            name={`creator_${rowIndex}`}
                             value={editedCreatedBy}
                             onChange={(e) => setEditedCreatedBy(e.target.value)}
                             type="text"
@@ -1295,11 +1328,11 @@ export default function DatasetsTable({
                     <td className="px-3 py-2 text-sm font-mono">
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <div className="flex justify-between items-center gap-1">
-                          {editFile !== index && (
+                          {editFile !== rowIndex && (
                             <span
                               onDoubleClick={() => {
                                 if (!canEditAnnotator(batch_detail)) return;
-                                setEditFile(index);
+                                setEditFile(rowIndex);
                                 setEditedAnnotatorId(
                                   batch_detail.annotator_id ?? ""
                                 );
@@ -1341,9 +1374,9 @@ export default function DatasetsTable({
                                 : "N/A"}
                             </span>
                           )}
-                          {editFile === index && (
+                          {editFile === rowIndex && (
                             <input
-                              name={`input_${index}`}
+                              name={`input_${rowIndex}`}
                               value={editedAnnotatorId}
                               onChange={(e) => setEditedAnnotatorId(e.target.value)}
                               type="text"
@@ -1353,11 +1386,11 @@ export default function DatasetsTable({
                           )}
                           {canEditAnnotator(batch_detail) && (
                             <div className="shrink-0 flex items-center gap-0.5">
-                              {(editFile === null || editFile !== index) && (
+                              {(editFile === null || editFile !== rowIndex) && (
                                 <span
                                   className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                                   onClick={() => {
-                                    setEditFile(index);
+                                    setEditFile(rowIndex);
                                     setEditedAnnotatorId(
                                       batch_detail.annotator_id ?? ""
                                     );
@@ -1367,7 +1400,7 @@ export default function DatasetsTable({
                                   ✏️
                                 </span>
                               )}
-                              {editFile === index && (
+                              {editFile === rowIndex && (
                                 <>
                                   <span
                                     className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
@@ -1407,7 +1440,7 @@ export default function DatasetsTable({
                       </div>
                     </td>
                     <td className="px-3 py-2 text-sm font-mono" title={batch_detail.qa_id ?? ""}>
-                      {editReviewerFile !== index ? (
+                      {editReviewerFile !== rowIndex ? (
                         <>
                           {(batch_detail.qa_id ?? "").length > 15
                             ? `${(batch_detail.qa_id ?? "").slice(0, 15)}...`
@@ -1416,7 +1449,7 @@ export default function DatasetsTable({
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {
-                                setEditReviewerFile(index);
+                                setEditReviewerFile(rowIndex);
                                 setEditedReviewerId(batch_detail.qa_id ?? "");
                               }}
                               title="Edit reviewer"
@@ -1428,7 +1461,7 @@ export default function DatasetsTable({
                       ) : (
                         <span className="flex flex-wrap items-center gap-1">
                           <input
-                            name={`reviewer_${index}`}
+                            name={`reviewer_${rowIndex}`}
                             value={editedReviewerId}
                             onChange={(e) => setEditedReviewerId(e.target.value)}
                             type="text"
@@ -1466,14 +1499,14 @@ export default function DatasetsTable({
                       <button
                         onClick={(e) => {
                           const btn = e.currentTarget;
-                          if (downloadMenu?.index === index) {
+                          if (downloadMenu?.batchId === batch_detail.batch_id) {
                             closeDownloadMenu();
                             return;
                           }
                           const r = btn.getBoundingClientRect();
                           downloadMenuButtonRef.current = btn;
                           setDownloadMenu({
-                            index,
+                            batchId: batch_detail.batch_id,
                             anchor: {
                               top: r.top,
                               bottom: r.bottom,
@@ -1583,6 +1616,64 @@ export default function DatasetsTable({
             )}
           </tbody>
         </table>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 py-3 border-t border-neutral-300 dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900/20">
+          <div className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
+            Showing{" "}
+            <span className="font-medium">{filteredBatches.length ? pageStart + 1 : 0}</span>
+            {" - "}
+            <span className="font-medium">{Math.min(pageEnd, filteredBatches.length)}</span>
+            {" of "}
+            <span className="font-medium">{filteredBatches.length}</span> batches
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Rows</span>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                className="h-8 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 text-xs"
+                aria-label="Rows per page"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="!px-2"
+                title="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-xs sm:text-sm font-mono px-2">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="!px-2"
+                title="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {!!activeBatch && (
           <Modal
