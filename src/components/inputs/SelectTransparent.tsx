@@ -38,12 +38,19 @@ const SelectTransparent = ({
   disabled = false,
   searchable = false,
 }: SelectTypes) => {
+  const VIEWPORT_MARGIN = 8;
+  const OFFSET = 4;
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPos, setDropdownPos] = useState({
+    top: 0,
+    left: 0,
+    minWidth: 0,
+    maxHeight: 320,
+  });
 
   const baseStyles =
     "w-full min-w-32 py-3 text-neutral-600 dark:text-neutral-400 rounded-md cursor-pointer focus:outline-none transition-colors duration-200";
@@ -74,20 +81,69 @@ const SelectTransparent = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-      if (searchable) {
-        setSearchQuery("");
-        setTimeout(() => searchInputRef.current?.focus(), 0);
-      }
-    } else if (!isOpen && searchable) {
-      setSearchQuery("");
+    if (!isOpen) {
+      if (searchable) setSearchQuery("");
+      return;
     }
+
+    const updateDropdownPos = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const minWidth = rect.width;
+
+      const measuredWidth = dropdownRef.current?.offsetWidth ?? minWidth;
+      const measuredHeight = dropdownRef.current?.offsetHeight ?? 320;
+      const dropdownWidth = Math.max(minWidth, measuredWidth);
+
+      let left = rect.left;
+      if (left + dropdownWidth + VIEWPORT_MARGIN > viewportW) {
+        left = rect.right - dropdownWidth;
+      }
+      left = Math.max(
+        VIEWPORT_MARGIN,
+        Math.min(left, viewportW - dropdownWidth - VIEWPORT_MARGIN)
+      );
+
+      const spaceBelow = viewportH - rect.bottom - VIEWPORT_MARGIN;
+      const spaceAbove = rect.top - VIEWPORT_MARGIN;
+      const openBelow =
+        spaceBelow >= Math.min(220, measuredHeight) || spaceBelow >= spaceAbove;
+
+      let top: number;
+      let maxHeight: number;
+      if (openBelow) {
+        top = rect.bottom + OFFSET;
+        maxHeight = Math.max(140, spaceBelow - OFFSET);
+      } else {
+        maxHeight = Math.max(140, spaceAbove - OFFSET);
+        const heightToUse = Math.min(measuredHeight, maxHeight);
+        top = rect.top - heightToUse - OFFSET;
+      }
+
+      top = Math.max(VIEWPORT_MARGIN, top);
+
+      setDropdownPos({ top, left, minWidth, maxHeight });
+    };
+
+    updateDropdownPos();
+    const raf = requestAnimationFrame(updateDropdownPos);
+    window.addEventListener("resize", updateDropdownPos);
+    window.addEventListener("scroll", updateDropdownPos, true);
+
+    if (searchable) {
+      setSearchQuery("");
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", updateDropdownPos);
+      window.removeEventListener("scroll", updateDropdownPos, true);
+    };
   }, [isOpen, searchable]);
 
   const handleSelect = (optionValue: string | number) => {
@@ -117,13 +173,15 @@ const SelectTransparent = ({
   const dropdown = (
     <div
       ref={dropdownRef}
-      className={`absolute z-50 max-h-[600px] mt-1 overflow-hidden rounded-md ${variants[variant]} text-neutral-600 dark:text-neutral-400 shadow-md flex flex-col`}
+      className={`z-50 overflow-hidden rounded-md ${variants[variant]} text-neutral-600 dark:text-neutral-400 shadow-md flex flex-col`}
       style={{
         top: dropdownPos.top,
         left: dropdownPos.left,
         width: "max-content",
-        minWidth: dropdownPos.width,
-        position: "absolute",
+        minWidth: dropdownPos.minWidth,
+        maxWidth: `calc(100vw - ${VIEWPORT_MARGIN * 2}px)`,
+        maxHeight: dropdownPos.maxHeight,
+        position: "fixed",
       }}
       role="listbox"
       aria-labelledby={id ?? "select-item"}

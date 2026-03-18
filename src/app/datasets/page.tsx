@@ -69,40 +69,23 @@ const Datasets = () => {
     setUpdateAudioUrlsPending((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /** Export batch files metadata for the given batches as JSON or CSV. Counts tasks evaluated and reviewed by fetching each batch at download time. */
+  /** Export batch files metadata for the given batches as JSON or CSV using precomputed batch detail counts. */
   const getLangName = (lang: BatchDetailTypes["source_language"] | undefined) =>
     (lang as { name?: string } | undefined)?.name ?? (lang as { iso_name?: string } | undefined)?.iso_name ?? "";
+  const toCount = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  };
   const downloadFilesMetadata = async (
     batches: BatchDetailTypes[],
-    format: "json" | "csv",
-    datasetType: string
+    format: "json" | "csv"
   ) => {
     if (!batches.length) return;
     setLoading(true);
     try {
-      const rows = await Promise.all(
-        batches.map(async (b) => {
-          let tasksEvaluated = 0;
-          let reviewedTasks = 0;
-          try {
-            const res = await fetch(`/api/batches/${datasetType}/${b.batch_id}`);
-            if (res.ok) {
-              const batch = (await res.json()) as { tasks?: Array<{ models?: Array<{ rate?: number; rank?: number }>; reviewer_comment?: string }> };
-              const tasks = batch.tasks ?? [];
-              tasksEvaluated = tasks.filter(
-                (t) =>
-                  Array.isArray(t.models) &&
-                  t.models.length > 0 &&
-                  (t.models[0].rate ?? 0) > 0 &&
-                  (t.models[0].rank ?? 0) > 0
-              ).length;
-              reviewedTasks = tasks.filter(
-                (t) => t.reviewer_comment != null && String(t.reviewer_comment).trim() !== ""
-              ).length;
-            }
-          } catch {
-            // keep 0 if fetch fails
-          }
+      const rows = batches.map((b) => {
+          const tasksEvaluated = toCount(b.annotated_tasks);
+          const reviewedTasks = toCount(b.reviewed_tasks);
           const src = getLangName(b.source_language);
           const tgt = getLangName(b.target_language);
           return {
@@ -115,8 +98,7 @@ const Datasets = () => {
             "Contributor/Evaluator ID": (b.assigned_to ?? b.annotator_id) ?? "",
             "Reviewer/QC ID": b.qa_id ?? "",
           };
-        })
-      );
+        });
       const date = new Date().toISOString().slice(0, 10);
       const headers = [
         "Batch/File ID",
@@ -287,7 +269,7 @@ const Datasets = () => {
           <div className="p-2">
             <h3 className="text-lg font-semibold mb-3">Update creator for selected batches</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-              Enter the new creator email. Only root users can change the creator.
+              Enter the new creator email. Root can update any selected batches; creators can transfer ownership only for batches they created.
             </p>
             <input
               type="email"
@@ -325,7 +307,7 @@ const Datasets = () => {
           <div className="p-2">
             <h3 className="text-lg font-semibold mb-3">Update evaluator for selected batches</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-              Enter the new evaluator (assigned to) email.
+              Enter the new evaluator (assigned to) email. Only root or the batch creator can update evaluator assignments.
             </p>
             <input
               type="email"
@@ -645,7 +627,7 @@ const Datasets = () => {
                               bulkDeleteToolbar.selectedBatchDetails.length > 0
                                 ? bulkDeleteToolbar.selectedBatchDetails
                                 : batchesDetails;
-                            void downloadFilesMetadata(toExport, "json", activeTab.value);
+                            void downloadFilesMetadata(toExport, "json");
                           }}
                         >
                           <Download className="size-4 shrink-0" />
@@ -665,7 +647,7 @@ const Datasets = () => {
                               bulkDeleteToolbar.selectedBatchDetails.length > 0
                                 ? bulkDeleteToolbar.selectedBatchDetails
                                 : batchesDetails;
-                            void downloadFilesMetadata(toExport, "csv", activeTab.value);
+                            void downloadFilesMetadata(toExport, "csv");
                           }}
                         >
                           <Download className="size-4 shrink-0" />

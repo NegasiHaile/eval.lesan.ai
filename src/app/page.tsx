@@ -30,12 +30,20 @@ import DomainsList from "@/components/DomainsList";
 import Button from "@/components/utils/Button";
 import { Minus, Plus } from "lucide-react";
 import MTEvaluationGuide from "@/components/MTEvaluationGuide";
+import Modal from "@/components/utils/Modal";
 import { useReviewerMode } from "@/hooks/useReviewerMode";
+import { usePresence } from "@/hooks/usePresence";
+import { useTaskDuration } from "@/hooks/useTaskDuration";
 import ReviewerPanel from "@/components/ReviewerPanel";
 import ReviewerCommentDisplay from "@/components/ReviewerCommentDisplay";
 
 export default function Home() {
   const { user } = useUser();
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    variant?: "info" | "success" | "error";
+  } | null>(null);
 
   // BATCH DETAIL STATE
   const [selectedBatchDetail, setSelectedBatchDetail] =
@@ -75,7 +83,11 @@ export default function Home() {
     setEvalTask,
     setBatchTasks,
     setCurrentTaskIndex,
+    onNotice: (title, message, variant) => setNotice({ title, message, variant }),
   });
+
+  usePresence(user, selectedBatchDetail?.batch_id);
+  const { getStartedAt, getActiveDurationMs } = useTaskDuration(evalTask?.id);
 
   function RankTranslations(fromIndex: number, toIndex: number) {
     setEvalTask((prev) => {
@@ -151,6 +163,12 @@ export default function Home() {
 
   const handleSaveTaskChanges = async () => {
     if (!evalTask) return null;
+    const taskWithDuration = {
+      ...evalTask,
+      started_at: getStartedAt(),
+      completed_at: new Date().toISOString(),
+      active_duration_ms: getActiveDurationMs(),
+    };
     await fetch(
       `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
       {
@@ -158,7 +176,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(evalTask),
+        body: JSON.stringify(taskWithDuration),
       }
     );
   };
@@ -203,8 +221,6 @@ export default function Home() {
       // STEP 4. Update the state with the updated task
       setBatchTasks(updatedTasks);
 
-      setCurrentTaskIndex((prev) => prev + 1);
-
       // STEP 5. Save the updated task into database if there is a change only
       if (isThereChangeInActiveTask()) {
         handleSaveTaskChanges();
@@ -220,19 +236,42 @@ export default function Home() {
 
         localStorage.setItem(
           "active_batch",
-          JSON.stringify({ ...selectedBatchDetail, tasks: updatedTasks })
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: Math.min(currentTaskIndex + 1, updatedTasks.length - 1),
+          })
         );
       }
 
-      if (currentTaskIndex + 1 < batchTasks.length) {
-        const nextTask = batchTasks[currentTaskIndex + 1];
+      const nextIndex = currentTaskIndex + 1;
+      if (nextIndex < updatedTasks.length) {
+        const nextTask = updatedTasks[nextIndex];
         setEvalTask(nextTask);
+        setCurrentTaskIndex(nextIndex);
+        localStorage.setItem(
+          "active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: nextIndex,
+          })
+        );
       } else {
-        alert(`End of <${selectedBatchDetail.batch_name}> evaluation tasks!`);
+        setNotice({
+          title: "End of batch",
+          message: `End of <${selectedBatchDetail.batch_name}> evaluation tasks.`,
+          variant: "info",
+        });
         setCurrentTaskIndex(0);
         setEvalTask(null);
         setSelectedBatchDetail(realtimeBatch);
         handleResetEvalTask(2);
+        localStorage.removeItem("active_batch");
         return;
       }
     } else {
@@ -258,11 +297,28 @@ export default function Home() {
   const handlePreviousEvaluation = () => {
     if (currentTaskIndex > 0) {
       setError(null); // Clear any previous errors
-      setCurrentTaskIndex((prev) => prev - 1);
-      const previousTask = batchTasks[currentTaskIndex - 1];
+      const prevIndex = currentTaskIndex - 1;
+      setCurrentTaskIndex(prevIndex);
+      const previousTask = batchTasks[prevIndex];
       setEvalTask(previousTask);
+      if (!selectedBatchDetail.batch_name.toLowerCase().includes("realtime")) {
+        localStorage.setItem(
+          "active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: batchTasks,
+            currentTaskIndex: prevIndex,
+          })
+        );
+      }
     } else {
-      alert("You are already at the first task!");
+      setNotice({
+        title: "First task",
+        message: "You are already at the first task.",
+        variant: "info",
+      });
     }
   };
 
@@ -296,7 +352,15 @@ export default function Home() {
         setEvalTask({ ...this_batchTasks.tasks[0] });
         setBatchTasks([...this_batchTasks.tasks]);
         setReviewerComment(this_batchTasks.tasks[0]?.reviewer_comment ?? "");
-        localStorage.setItem("active_batch", JSON.stringify(this_batchTasks));
+        localStorage.setItem(
+          "active_batch",
+          JSON.stringify({
+            ...this_batchTasks,
+            batch_id: batch.batch_id,
+            dataset_type: batch.dataset_type,
+            currentTaskIndex: 0,
+          })
+        );
       } else {
         handleResetEvalTask(modelsToEval);
       }
@@ -366,12 +430,18 @@ export default function Home() {
 
       // Check if responses are OK
       if (!response1.ok) {
-        alert(
-          `HTTP error! Status: ${response1.status} for ${url1}, may be daily limit exceeded!`
-        );
+        setNotice({
+          title: "Translation error",
+          message: `HTTP error! Status: ${response1.status} for ${url1}, may be daily limit exceeded!`,
+          variant: "error",
+        });
       }
       if (!response2.ok) {
-        alert(`HTTP error! Status: ${response2.status} for ${url2}`);
+        setNotice({
+          title: "Translation error",
+          message: `HTTP error! Status: ${response2.status} for ${url2}`,
+          variant: "error",
+        });
       }
 
       // Parse the JSON data from both responses
@@ -401,8 +471,11 @@ export default function Home() {
     } catch (error) {
       setIsLoading(false);
       console.error("Error fetching translations concurrently:", error);
-      // Handle the error appropriately, e.g., show an error message to the user
-      alert(`Failed to translate: ${error}`); // Use error.message for more specific error details
+      setNotice({
+        title: "Translation failed",
+        message: `Failed to translate: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "error",
+      });
     }
   };
 
@@ -433,22 +506,46 @@ export default function Home() {
           if (data.length > 0) {
             setBatchesDetails((prev) => [...data, ...prev]);
 
-            // STEP 2. Check if there is already a batch task stored in localstorage
+            // STEP 2. Restore last active batch (like ASR): validate + refetch fresh tasks + resume index.
             const active_batch = localStorage.getItem("active_batch") || null;
             if (active_batch) {
-              const batch_json = JSON.parse(active_batch) as BatchTasksTypes;
-              setEvalTask({ ...batch_json.tasks[0] });
-              setBatchTasks([...batch_json.tasks]);
-              setReviewerComment(batch_json.tasks[0]?.reviewer_comment ?? "");
+              try {
+                const batch_json = JSON.parse(active_batch) as BatchTasksTypes & {
+                  currentTaskIndex?: number;
+                };
+                const storedBatchId = batch_json.batch_id;
+                const storedIndex = Math.max(0, batch_json.currentTaskIndex ?? 0);
 
-              const existingSelectedBatch = data.find(
-                (item) => item.batch_id === batch_json.batch_id
-              );
+                const existingSelectedBatch = data.find(
+                  (item) => item.batch_id === storedBatchId
+                );
 
-              if (existingSelectedBatch)
-                setSelectedBatchDetail(existingSelectedBatch);
-
-              return;
+                if (existingSelectedBatch) {
+                  const freshBatch = await FetchBatchTasks(existingSelectedBatch);
+                  const tasks = Array.isArray(freshBatch?.tasks) ? freshBatch.tasks : [];
+                  if (tasks.length > 0) {
+                    const idx = Math.min(storedIndex, tasks.length - 1);
+                    setSelectedBatchDetail(existingSelectedBatch);
+                    setBatchTasks([...tasks]);
+                    setCurrentTaskIndex(idx);
+                    setEvalTask({ ...tasks[idx] });
+                    setReviewerComment(tasks[idx]?.reviewer_comment ?? "");
+                    localStorage.setItem(
+                      "active_batch",
+                      JSON.stringify({
+                        ...freshBatch,
+                        batch_id: existingSelectedBatch.batch_id,
+                        dataset_type: existingSelectedBatch.dataset_type,
+                        tasks,
+                        currentTaskIndex: idx,
+                      })
+                    );
+                    return;
+                  }
+                }
+              } catch {
+                // Invalid stored data; fall through to load first batch.
+              }
             }
 
             // STEP 3. Fetch all the data of the first batch in the detials as a default batch
@@ -460,7 +557,7 @@ export default function Home() {
               setBatchTasks([...this_batchTasks.tasks]);
               localStorage.setItem(
                 "active_batch",
-                JSON.stringify(this_batchTasks)
+                JSON.stringify({ ...this_batchTasks, currentTaskIndex: 0 })
               );
             }
             return; // This will prevent excution of next line of codes wich should excute on fail of one of these if statements
@@ -521,21 +618,24 @@ export default function Home() {
                 batchesDetails.map((item) => item.batch_name)
               ),
             ]}
-            onChange={(e) => {
+            searchable
+            onChange={async (e) => {
               setIsLoading(true);
               setError(null);
               const value = e.target.value;
               const batchDetails = batchesDetails.find(
                 (item) => item.batch_id === value
               );
-              if (batchDetails) {
-                setSelectedBatchDetail(batchDetails);
-                handleSelectedBatchUpdate(batchDetails);
-              } else {
-                setSelectedBatchDetail(realtimeBatch);
+              try {
+                if (batchDetails) {
+                  setSelectedBatchDetail(batchDetails);
+                  await handleSelectedBatchUpdate(batchDetails);
+                } else {
+                  setSelectedBatchDetail(realtimeBatch);
+                }
+              } finally {
+                setIsLoading(false);
               }
-
-              setIsLoading(false);
             }}
             labelClass="absolute left-3 border-r-2 pr-2"
             selectClass="pl-16 !min-w-full md:!min-w-[230px]"
@@ -844,6 +944,33 @@ export default function Home() {
         isOpen={isSigninOpen}
         setIsOpen={setIsSigninOpen}
       />
+
+      <Modal
+        isOpen={!!notice}
+        setIsOpen={(open) => {
+          if (open) return;
+          setNotice(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">
+            {notice?.title ?? "Notice"}
+          </h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {notice?.message ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setNotice(null)}
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Container>
   );
 }

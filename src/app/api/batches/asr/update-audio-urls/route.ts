@@ -49,6 +49,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isAdminOrRoot = ["root", "admin"].includes(auth.role.toLowerCase());
+    const isCreator =
+      (detail.created_by ?? "").toLowerCase() === auth.username.toLowerCase();
+    const isAssignedAnnotator =
+      (detail.annotator_id ?? "").toLowerCase() === auth.username.toLowerCase();
+    if (!isAdminOrRoot && !isCreator && !isAssignedAnnotator) {
+      return NextResponse.json(
+        {
+          message:
+            "Forbidden. Only the batch creator, assigned annotator, or an admin can update audio URLs.",
+        },
+        { status: 403 }
+      );
+    }
+
     const batchId = detail.batch_id;
     const asrBatch = await db
       .collection("asr_batches")

@@ -6,14 +6,16 @@ import {
   BatchTasksTypes,
 } from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
-import { useState, useEffect, Dispatch, useMemo, useCallback } from "react";
+import { useState, useEffect, Dispatch, useMemo, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import JSZip from "jszip";
 import TasksDetail from "./TasksDetail";
 import Modal from "../utils/Modal";
-import { Download, Expand, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Expand, RotateCcw, Trash2 } from "lucide-react";
 import Button from "../utils/Button";
 import SelectTransparent from "../inputs/SelectTransparent";
 import TextInput from "../inputs/TextInput";
+import { usePresenceStatus } from "@/hooks/usePresenceStatus";
 
 const getProgressColor = (percentage: number): string => {
   if (percentage < 40) return "bg-red-500";
@@ -128,15 +130,15 @@ export type BulkDeleteToolbarProps = {
   selectedBatchDetails: BatchDetailTypes[];
   onOpenConfirm: () => void;
   onDownloadClick: (format: "json" | "csv") => void;
-  /** Bulk update creator for all selected batches (root only). */
+  /** Bulk update creator for all selected batches (root or creator of all selected). */
   onBulkUpdateCreator?: (newCreatorEmail: string) => Promise<void>;
   /** Bulk update evaluator (annotator) for all selected batches. */
   onBulkUpdateEvaluator?: (newEvaluatorEmail: string) => Promise<void>;
-  /** True when Update all dropdown should be shown: root, admin, or creator of every selected batch (multiple only). */
+  /** True when Update all dropdown should be shown: root or creator of every selected batch (multiple only). */
   showBulkUpdate?: boolean;
-  /** True when user can bulk-update creator (root only). */
+  /** True when user can bulk-update creator (root or creator of all selected). */
   showBulkUpdateCreator?: boolean;
-  /** True when user can bulk-update evaluator: root, admin, or creator of selected batch(es). Shown for 1+ selected. */
+  /** True when user can bulk-update evaluator: root or creator of selected batch(es). Shown for 1+ selected. */
   showBulkUpdateEvaluator?: boolean;
 };
 
@@ -152,6 +154,12 @@ type DatasetsTableProps = {
   onBulkDeleteToolbarChange?: (props: BulkDeleteToolbarProps | null) => void;
   /** Called when Reset filter is clicked; parent can trigger data refetch. */
   onResetFilters?: () => void;
+};
+
+type NoticeState = {
+  title: string;
+  message: string;
+  variant?: "info" | "success" | "error";
 };
 
 export default function DatasetsTable({
@@ -194,12 +202,42 @@ export default function DatasetsTable({
     setFilters(initialFilters);
     onResetFilters?.();
   }, [onResetFilters]);
-  const [downloadMenuIndex, setDownloadMenuIndex] = useState<number | null>(
-    null
-  );
+  const [downloadMenu, setDownloadMenu] = useState<{
+    batchId: string;
+    anchor: {
+      top: number;
+      bottom: number;
+      left: number;
+      right: number;
+      width: number;
+    };
+  } | null>(null);
+  const downloadMenuRef = useRef<HTMLDivElement | null>(null);
+  const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [dwnldOriginalData, setDwnldOriginalData] = useState<boolean>(true);
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<BatchDetailTypes | null>(null);
+
+  const showNotice = useCallback(
+    (title: string, message: string, variant: NoticeState["variant"] = "info") => {
+      setNotice({ title, message, variant });
+    },
+    []
+  );
+
+  const annotatorUsernames = useMemo(
+    () => [...new Set(batches_details.map((b) => b.annotator_id).filter(Boolean) as string[])],
+    [batches_details]
+  );
+  const presenceStatuses = usePresenceStatus(annotatorUsernames);
+  const hasActiveAnnotator = useMemo(
+    () => Object.values(presenceStatuses).some((p) => p.status === "active"),
+    [presenceStatuses]
+  );
 
   // Fetch only on mount (when username is ready), tab change, or manual refresh
   useEffect(() => {
@@ -227,6 +265,27 @@ export default function DatasetsTable({
       cancelled = true;
     };
   }, [user?.username, evalDataType.value, refreshKey, setBatchDetails, setLoading]);
+
+  // Auto-refresh batch details every 60s while any annotator is active
+  useEffect(() => {
+    if (!user?.username || !hasActiveAnnotator) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/batches-details?username=${user.username}&dataset_type=${evalDataType.value}`
+        );
+        if (res.ok) {
+          const data: BatchDetailTypes[] = await res.json();
+          setBatchDetails(data);
+        }
+      } catch {
+        // ignore
+      }
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, [user?.username, evalDataType.value, hasActiveAnnotator, setBatchDetails]);
 
   useEffect(() => {
     setSelectedBatchIds(new Set());
@@ -308,11 +367,64 @@ export default function DatasetsTable({
       await doOneDownload(batch_detail, format);
     } catch (error) {
       console.error("Download error:", error);
-      alert("Could not download the batch tasks.");
+      showNotice("Download failed", "Could not download the batch tasks.", "error");
     } finally {
       setLoading(false);
     }
   };
+
+  const closeDownloadMenu = useCallback(() => {
+    setDownloadMenu(null);
+    downloadMenuButtonRef.current = null;
+  }, []);
+
+  const updateDownloadMenuAnchor = useCallback(() => {
+    if (!downloadMenuButtonRef.current) return;
+    const r = downloadMenuButtonRef.current.getBoundingClientRect();
+    setDownloadMenu((prev) =>
+      prev
+        ? {
+            ...prev,
+            anchor: {
+              top: r.top,
+              bottom: r.bottom,
+              left: r.left,
+              right: r.right,
+              width: r.width,
+            },
+          }
+        : prev
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!downloadMenu) return;
+
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inMenu = downloadMenuRef.current?.contains(target);
+      const inButton = downloadMenuButtonRef.current?.contains(target);
+      if (!inMenu && !inButton) closeDownloadMenu();
+    };
+
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDownloadMenu();
+    };
+
+    const onLayoutChange = () => updateDownloadMenuAnchor();
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEsc);
+    window.addEventListener("resize", onLayoutChange);
+    window.addEventListener("scroll", onLayoutChange, true);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("resize", onLayoutChange);
+      window.removeEventListener("scroll", onLayoutChange, true);
+    };
+  }, [downloadMenu, closeDownloadMenu, updateDownloadMenuAnchor]);
 
   /** Performs DELETE API call and clears localStorage for the batch. Does not update table state. Returns true if deleted. */
   const doDeleteBatch = useCallback(
@@ -341,7 +453,7 @@ export default function DatasetsTable({
     async (newCreatorEmail: string) => {
       const email = `${newCreatorEmail}`.trim();
       if (!email) {
-        alert("Please enter a creator email.");
+        showNotice("Missing email", "Please enter a creator email.", "error");
         return;
       }
       const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
@@ -374,13 +486,24 @@ export default function DatasetsTable({
           }
         }
         if (succeeded > 0) setSelectedBatchIds(new Set());
-        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
-        else if (succeeded > 0) alert(`Creator updated for ${succeeded} batch(es).`);
+        if (failed > 0) {
+          showNotice(
+            "Creator update completed",
+            `Updated ${succeeded} batch(es). ${failed} failed (check console).`,
+            failed > 0 ? "error" : "success"
+          );
+        } else if (succeeded > 0) {
+          showNotice(
+            "Creator updated",
+            `Creator updated for ${succeeded} batch(es).`,
+            "success"
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [batches_details, selectedBatchIds, setBatchDetails]
+    [batches_details, selectedBatchIds, setBatchDetails, showNotice]
   );
 
   /** Bulk update evaluator (annotator) for all selected batches. Uses existing PATCH API. */
@@ -388,7 +511,7 @@ export default function DatasetsTable({
     async (newEvaluatorEmail: string) => {
       const email = `${newEvaluatorEmail}`.trim();
       if (!email) {
-        alert("Please enter an evaluator email.");
+        showNotice("Missing email", "Please enter an evaluator email.", "error");
         return;
       }
       const toUpdate = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
@@ -421,20 +544,30 @@ export default function DatasetsTable({
           }
         }
         if (succeeded > 0) setSelectedBatchIds(new Set());
-        if (failed > 0) alert(`Updated ${succeeded} batch(es). ${failed} failed (check console).`);
-        else if (succeeded > 0) alert(`Evaluator updated for ${succeeded} batch(es).`);
+        if (failed > 0) {
+          showNotice(
+            "Evaluator update completed",
+            `Updated ${succeeded} batch(es). ${failed} failed (check console).`,
+            failed > 0 ? "error" : "success"
+          );
+        } else if (succeeded > 0) {
+          showNotice(
+            "Evaluator updated",
+            `Evaluator updated for ${succeeded} batch(es).`,
+            "success"
+          );
+        }
       } finally {
         setLoading(false);
       }
     },
-    [batches_details, selectedBatchIds, setBatchDetails]
+    [batches_details, selectedBatchIds, setBatchDetails, showNotice]
   );
 
   useEffect(() => {
     if (!onBulkDeleteToolbarChange) return;
     if (selectedBatchIds.size >= 1) {
       const isRootRole = user?.role?.toLowerCase() === "root";
-      const isAdmin = user?.role?.toLowerCase() === "admin";
       const selectedDetails = batches_details.filter((b) => selectedBatchIds.has(b.batch_id));
       const isCreatorOfAll =
         selectedDetails.length > 0 &&
@@ -442,18 +575,21 @@ export default function DatasetsTable({
           (b) => (b.created_by ?? "").toLowerCase() === (user?.username ?? "").toLowerCase()
         );
       const showBulkUpdate =
-        selectedDetails.length > 1 && (isRootRole || isAdmin || isCreatorOfAll);
+        selectedDetails.length > 1 && (isRootRole || isCreatorOfAll);
+      const showBulkUpdateCreator =
+        selectedDetails.length > 1 && (isRootRole || isCreatorOfAll);
       const showBulkUpdateEvaluator =
-        selectedDetails.length >= 1 && (isRootRole || isAdmin || isCreatorOfAll);
+        selectedDetails.length >= 1 &&
+        (isRootRole || isCreatorOfAll);
 
       onBulkDeleteToolbarChange({
         selectedCount: selectedBatchIds.size,
         selectedBatchDetails: selectedDetails,
         onOpenConfirm: () => setShowBulkDeleteConfirm(true),
-        onBulkUpdateCreator: isRootRole ? bulkUpdateCreator : undefined,
+        onBulkUpdateCreator: showBulkUpdateCreator ? bulkUpdateCreator : undefined,
         onBulkUpdateEvaluator: showBulkUpdateEvaluator ? bulkUpdateEvaluator : undefined,
         showBulkUpdate,
-        showBulkUpdateCreator: isRootRole,
+        showBulkUpdateCreator,
         showBulkUpdateEvaluator,
         onDownloadClick: async (format: "json" | "csv") => {
           const toDownload = batches_details.filter((b) =>
@@ -482,7 +618,7 @@ export default function DatasetsTable({
             setSelectedBatchIds(new Set());
           } catch (err) {
             console.error("Bulk download error:", err);
-            alert("Some downloads failed.");
+            showNotice("Bulk download failed", "Some downloads failed.", "error");
           } finally {
             setLoading(false);
           }
@@ -501,34 +637,47 @@ export default function DatasetsTable({
     getBatchBlob,
     bulkUpdateCreator,
     bulkUpdateEvaluator,
+    showNotice,
   ]);
 
   const handleDelete = async (batch_detail: BatchDetailTypes) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this batch? This action cannot be undone."
-    );
-    if (!confirmed) return;
+    setSingleDeleteTarget(batch_detail);
+  };
+
+  const handleSingleDeleteConfirm = async () => {
+    if (!singleDeleteTarget) return;
     setLoading(true);
-    const ok = await doDeleteBatch(batch_detail);
+    const ok = await doDeleteBatch(singleDeleteTarget);
     setLoading(false);
+
     if (!ok) {
-      alert("Deleting batch failed!");
+      showNotice("Delete failed", "Deleting batch failed!", "error");
       return;
     }
-    setBatchDetails((prev) => prev.filter((t) => t.batch_id !== batch_detail.batch_id));
+
+    setBatchDetails((prev) =>
+      prev.filter((t) => t.batch_id !== singleDeleteTarget.batch_id)
+    );
+    setSingleDeleteTarget(null);
+    showNotice("Batch deleted", "The batch was deleted successfully.", "success");
   };
 
   const handleAssignAnnotator = async (batch_detail: BatchDetailTypes) => {
     const anno_email = `${editedAnnotatorId}`.trim().toLocaleString() ?? null;
 
     if (batch_detail.annotator_id?.trim().toLocaleLowerCase() === anno_email) {
-      alert(`The batch is already assigned to ${anno_email}.`);
+      showNotice(
+        "No change",
+        `The batch is already assigned to ${anno_email}.`,
+        "info"
+      );
       setEditFile(null);
       return null;
     }
 
     if (!user?.email && !user?.username) {
-      alert(
+      showNotice(
+        "Unauthorized",
         "Unautorized user or your session is expired. Please signin again."
       );
       setEditFile(null);
@@ -561,7 +710,11 @@ export default function DatasetsTable({
       setEditedAnnotatorId("");
       // alert(res?.message);
     } catch (error) {
-      alert(error);
+      showNotice(
+        "Update failed",
+        error instanceof Error ? error.message : String(error),
+        "error"
+      );
     }
 
     setLoading(false);
@@ -577,7 +730,11 @@ export default function DatasetsTable({
     }
 
     if (!user?.email && !user?.username) {
-      alert("Unauthorized user or your session has expired. Please sign in again.");
+      showNotice(
+        "Unauthorized",
+        "Unauthorized user or your session has expired. Please sign in again.",
+        "error"
+      );
       setEditReviewerFile(null);
       return;
     }
@@ -605,18 +762,33 @@ export default function DatasetsTable({
       setEditReviewerFile(null);
       setEditedReviewerId("");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to assign reviewer.");
+      showNotice(
+        "Reviewer update failed",
+        error instanceof Error ? error.message : "Failed to assign reviewer.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const IsAuthorized = (batch_detail: BatchDetailTypes) => {
-    return batch_detail.created_by === user?.username;
+    return (
+      (batch_detail.created_by ?? "").toLowerCase() ===
+      (user?.username ?? "").toLowerCase()
+    );
+  };
+  const canTransferOwnership = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
+  const canEditEvaluator = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
+  const canEditReviewer = (batch_detail: BatchDetailTypes) =>
+    isRoot || IsAuthorized(batch_detail);
+  const canEditAnnotator = (batch_detail: BatchDetailTypes) => {
+    return canEditEvaluator(batch_detail);
   };
 
   const isRoot = user?.role?.toLowerCase() === "root";
-  const isAdminOrRoot = ["root", "admin"].includes(user?.role?.toLowerCase() ?? "");
 
   const handleAssignCreator = async (batch_detail: BatchDetailTypes) => {
     const creator_email = `${editedCreatedBy}`.trim() ?? null;
@@ -628,7 +800,11 @@ export default function DatasetsTable({
     }
 
     if (!user?.email && !user?.username) {
-      alert("Unauthorized user or your session has expired. Please sign in again.");
+      showNotice(
+        "Unauthorized",
+        "Unauthorized user or your session has expired. Please sign in again.",
+        "error"
+      );
       setEditCreatorIndex(null);
       return;
     }
@@ -656,7 +832,11 @@ export default function DatasetsTable({
       setEditCreatorIndex(null);
       setEditedCreatedBy("");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to update creator.");
+      showNotice(
+        "Creator update failed",
+        error instanceof Error ? error.message : "Failed to update creator.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -686,7 +866,11 @@ export default function DatasetsTable({
       setActiveBatch(batch);
       setLoading(false);
     } catch (error) {
-      alert(error);
+      showNotice(
+        "Load failed",
+        error instanceof Error ? error.message : String(error),
+        "error"
+      );
     }
   };
 
@@ -737,6 +921,34 @@ export default function DatasetsTable({
     return progressMatch && matchesOtherFilters(detail);
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredBatches.length / rowsPerPage));
+  const pageStart = (currentPage - 1) * rowsPerPage;
+  const pageEnd = pageStart + rowsPerPage;
+  const paginatedBatches = useMemo(
+    () => filteredBatches.slice(pageStart, pageEnd),
+    [filteredBatches, pageStart, pageEnd]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    evalDataType.value,
+    filters.batch_name,
+    filters.dataset_domain,
+    filters.source_language,
+    filters.target_language,
+    filters.models,
+    filters.created_by,
+    filters.annotator_id,
+    filters.qa_id,
+    filters.progress_filter,
+    rowsPerPage,
+  ]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   const progressCounts = useMemo(() => {
     const matching = batches_details.filter(matchesOtherFilters);
     const counts: Record<string, number> = {};
@@ -774,8 +986,8 @@ export default function DatasetsTable({
   );
 
   const deletableBatches = useMemo(
-    () => filteredBatches.filter((b) => canDelete(b)),
-    [filteredBatches, canDelete]
+    () => paginatedBatches.filter((b) => canDelete(b)),
+    [paginatedBatches, canDelete]
   );
 
   const toggleSelection = (batchId: string) => {
@@ -821,10 +1033,12 @@ export default function DatasetsTable({
     });
     setShowBulkDeleteConfirm(false);
     setLoading(false);
-    alert(
+    showNotice(
+      succeeded.size === toDelete.length ? "Batches deleted" : "Delete completed",
       succeeded.size === toDelete.length
         ? `${succeeded.size} batch(es) deleted.`
-        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`
+        : `${succeeded.size} of ${toDelete.length} deleted; some failed.`,
+      succeeded.size === toDelete.length ? "success" : "error"
     );
   };
 
@@ -835,6 +1049,39 @@ export default function DatasetsTable({
       ),
     [batches_details, selectedBatchIds, canDelete]
   );
+
+  const activeDownloadBatch =
+    downloadMenu != null
+      ? filteredBatches.find((b) => b.batch_id === downloadMenu.batchId) ?? null
+      : null;
+  const downloadMenuStyle = useMemo(() => {
+    if (!downloadMenu) return null;
+    const MENU_WIDTH = 220;
+    const MARGIN = 8;
+    const OFFSET = 6;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const anchor = downloadMenu.anchor;
+
+    let left = anchor.left;
+    if (left + MENU_WIDTH + MARGIN > vw) left = anchor.right - MENU_WIDTH;
+    left = Math.max(MARGIN, Math.min(left, vw - MENU_WIDTH - MARGIN));
+
+    const spaceBelow = vh - anchor.bottom - MARGIN;
+    const spaceAbove = anchor.top - MARGIN;
+    const openBelow = spaceBelow >= 220 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(160, (openBelow ? spaceBelow : spaceAbove) - OFFSET);
+    const top = openBelow
+      ? anchor.bottom + OFFSET
+      : Math.max(MARGIN, anchor.top - maxHeight - OFFSET);
+
+    return {
+      top,
+      left,
+      width: MENU_WIDTH,
+      maxHeight,
+    };
+  }, [downloadMenu]);
 
   return (
     <div className="relative min-h-[55lvh]">
@@ -879,7 +1126,7 @@ export default function DatasetsTable({
               <th className="px-4 py-4 text-left">Models</th>
               <th className="px-4 py-4 text-left">Created_At</th>
               <th className="px-4 py-4 text-left">Created_BY</th>
-              <th className="px-4 py-4 text-left">Evaluator_ID</th>
+              <th className="px-4 py-4 text-left">Annotator</th>
               <th className="px-4 py-4 text-left">Reviewer</th>
               <th className="px-2 py-4 text-left whitespace-nowrap">Actions</th>
             </tr>
@@ -990,8 +1237,9 @@ export default function DatasetsTable({
           </thead>
 
           <tbody className="relative md:static">
-            {filteredBatches.length > 0 ? (
-              filteredBatches.map((batch_detail, index) => {
+            {paginatedBatches.length > 0 ? (
+              paginatedBatches.map((batch_detail, index) => {
+                const rowIndex = pageStart + index;
                 const annotatedItems = parseInt(
                   `${batch_detail.annotated_tasks}`
                 );
@@ -1001,7 +1249,7 @@ export default function DatasetsTable({
 
                 return (
                   <tr
-                    key={`${batch_detail.batch_id}, ${index}`}
+                    key={`${batch_detail.batch_id}, ${rowIndex}`}
                     className="border-t border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors"
                   >
                     <td className="px-2 py-2 w-10 align-middle">
@@ -1015,7 +1263,7 @@ export default function DatasetsTable({
                         />
                       ) : null}
                     </td>
-                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">{rowIndex + 1}</td>
                     <td className="px-3 py-2">{batch_detail.batch_name}</td>
                     <td className="px-3 py-2">{batch_detail.dataset_domain}</td>
                     <td className="px-3 py-2">
@@ -1029,16 +1277,16 @@ export default function DatasetsTable({
                     </td>
                     <td className="px-3 py-2">{batch_detail.created_at}</td>
                     <td className="px-3 py-2 text-sm font-mono" title={batch_detail.created_by}>
-                      {editCreatorIndex !== index ? (
+                      {editCreatorIndex !== rowIndex ? (
                         <>
                           {(batch_detail.created_by ?? "").length > 15
                             ? `${(batch_detail.created_by ?? "").slice(0, 15)}...`
                             : batch_detail.created_by ?? ""}
-                          {isRoot && (
+                          {canTransferOwnership(batch_detail) && (
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {
-                                setEditCreatorIndex(index);
+                                setEditCreatorIndex(rowIndex);
                                 setEditedCreatedBy(batch_detail.created_by ?? "");
                               }}
                               title="Edit coordinator"
@@ -1050,7 +1298,7 @@ export default function DatasetsTable({
                       ) : (
                         <span className="flex flex-wrap items-center gap-1">
                           <input
-                            name={`creator_${index}`}
+                            name={`creator_${rowIndex}`}
                             value={editedCreatedBy}
                             onChange={(e) => setEditedCreatedBy(e.target.value)}
                             type="text"
@@ -1080,24 +1328,55 @@ export default function DatasetsTable({
                     <td className="px-3 py-2 text-sm font-mono">
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <div className="flex justify-between items-center gap-1">
-                          {editFile !== index && (
+                          {editFile !== rowIndex && (
                             <span
                               onDoubleClick={() => {
-                                setEditFile(index);
+                                if (!canEditAnnotator(batch_detail)) return;
+                                setEditFile(rowIndex);
                                 setEditedAnnotatorId(
                                   batch_detail.annotator_id ?? ""
                                 );
                               }}
-                              className="truncate"
+                              className={`truncate ${
+                                canEditAnnotator(batch_detail) ? "cursor-pointer" : ""
+                              }`}
                             >
+                              {batch_detail.annotator_id && (() => {
+                                const p = presenceStatuses[batch_detail.annotator_id];
+                                const isOnThisBatch =
+                                  p?.status === "active" &&
+                                  p?.batch_id === batch_detail.batch_id;
+                                const isIdle =
+                                  p?.status === "idle" ||
+                                  (p?.status === "active" &&
+                                    p?.batch_id !== batch_detail.batch_id);
+                                return (
+                                  <span
+                                    className={`inline-block w-2 h-2 rounded-full mr-1.5 ${
+                                      isOnThisBatch
+                                        ? "bg-green-500"
+                                        : isIdle
+                                        ? "bg-yellow-500"
+                                        : "bg-gray-400"
+                                    }`}
+                                    title={
+                                      isOnThisBatch
+                                        ? "active"
+                                        : isIdle
+                                        ? "idle"
+                                        : "away"
+                                    }
+                                  />
+                                );
+                              })()}
                               {!!batch_detail.annotator_id
                                 ? batch_detail.annotator_id
                                 : "N/A"}
                             </span>
                           )}
-                          {editFile === index && (
+                          {editFile === rowIndex && (
                             <input
-                              name={`input_${index}`}
+                              name={`input_${rowIndex}`}
                               value={editedAnnotatorId}
                               onChange={(e) => setEditedAnnotatorId(e.target.value)}
                               type="text"
@@ -1105,13 +1384,13 @@ export default function DatasetsTable({
                               className="border rounded p-[2px] focus:outline-none w-full min-w-0"
                             />
                           )}
-                          {IsAuthorized(batch_detail) && (
+                          {canEditAnnotator(batch_detail) && (
                             <div className="shrink-0 flex items-center gap-0.5">
-                              {(editFile === null || editFile !== index) && (
+                              {(editFile === null || editFile !== rowIndex) && (
                                 <span
                                   className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                                   onClick={() => {
-                                    setEditFile(index);
+                                    setEditFile(rowIndex);
                                     setEditedAnnotatorId(
                                       batch_detail.annotator_id ?? ""
                                     );
@@ -1121,7 +1400,7 @@ export default function DatasetsTable({
                                   ✏️
                                 </span>
                               )}
-                              {editFile === index && (
+                              {editFile === rowIndex && (
                                 <>
                                   <span
                                     className="p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
@@ -1161,16 +1440,16 @@ export default function DatasetsTable({
                       </div>
                     </td>
                     <td className="px-3 py-2 text-sm font-mono" title={batch_detail.qa_id ?? ""}>
-                      {editReviewerFile !== index ? (
+                      {editReviewerFile !== rowIndex ? (
                         <>
                           {(batch_detail.qa_id ?? "").length > 15
                             ? `${(batch_detail.qa_id ?? "").slice(0, 15)}...`
                             : batch_detail.qa_id ?? "N/A"}
-                          {isAdminOrRoot && (
+                          {canEditReviewer(batch_detail) && (
                             <span
                               className="ml-1 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                               onClick={() => {
-                                setEditReviewerFile(index);
+                                setEditReviewerFile(rowIndex);
                                 setEditedReviewerId(batch_detail.qa_id ?? "");
                               }}
                               title="Edit reviewer"
@@ -1182,7 +1461,7 @@ export default function DatasetsTable({
                       ) : (
                         <span className="flex flex-wrap items-center gap-1">
                           <input
-                            name={`reviewer_${index}`}
+                            name={`reviewer_${rowIndex}`}
                             value={editedReviewerId}
                             onChange={(e) => setEditedReviewerId(e.target.value)}
                             type="text"
@@ -1218,66 +1497,30 @@ export default function DatasetsTable({
                       <Download className="size-6" />
                     </button> */}
                       <button
-                        onClick={() => {
-                          if (downloadMenuIndex === index) {
-                            setDownloadMenuIndex(null);
-                          } else {
-                            setDownloadMenuIndex(index);
+                        onClick={(e) => {
+                          const btn = e.currentTarget;
+                          if (downloadMenu?.batchId === batch_detail.batch_id) {
+                            closeDownloadMenu();
+                            return;
                           }
+                          const r = btn.getBoundingClientRect();
+                          downloadMenuButtonRef.current = btn;
+                          setDownloadMenu({
+                            batchId: batch_detail.batch_id,
+                            anchor: {
+                              top: r.top,
+                              bottom: r.bottom,
+                              left: r.left,
+                              right: r.right,
+                              width: r.width,
+                            },
+                          });
                         }}
                         className="text-blue-600 dark:text-blue-400 cursor-pointer rounded-md border border-transparent hover:border-current p-1"
                         title="Download"
                       >
                         <Download className="size-6" />
                       </button>
-                      {downloadMenuIndex === index && (
-                        <div className="absolute overflow-hidden z-50 mt-9 bg-white dark:bg-neutral-800 shadow-lg rounded-md border border-neutral-200 dark:border-neutral-700">
-                          <p className="text-[10px] font-mono p-2 opacity-65">
-                            Select the data that you want to download
-                          </p>
-                          <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-neutral-300 dark:dark:border-neutral-700 space-y-1 text-xs">
-                            <button
-                              // minimal={!dwnldOriginalData}
-                              onClick={() => setDwnldOriginalData(true)}
-                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
-                                dwnldOriginalData
-                                  ? "bg-neutral-300 dark:bg-neutral-700"
-                                  : ""
-                              }`}
-                            >
-                              Original
-                            </button>
-                            <button
-                              onClick={() => setDwnldOriginalData(false)}
-                              className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
-                                !dwnldOriginalData
-                                  ? "bg-neutral-300 dark:bg-neutral-700"
-                                  : ""
-                              }`}
-                            >
-                              Shuffled
-                            </button>
-                          </div>
-                          <p className="text-[10px] font-mono px-2 p-2 opacity-65">
-                            Select file-type
-                          </p>
-                          {["JSON", "CSV"].map((format) => (
-                            <div
-                              key={format}
-                              className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
-                              onClick={() => {
-                                handleDownload(
-                                  batch_detail,
-                                  format.toLowerCase()
-                                );
-                                setDownloadMenuIndex(null);
-                              }}
-                            >
-                              {format}
-                            </div>
-                          ))}
-                        </div>
-                      )}
 
                       {(IsAuthorized(batch_detail) || isRoot) && (
                         <button
@@ -1373,6 +1616,64 @@ export default function DatasetsTable({
             )}
           </tbody>
         </table>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 py-3 border-t border-neutral-300 dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900/20">
+          <div className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
+            Showing{" "}
+            <span className="font-medium">{filteredBatches.length ? pageStart + 1 : 0}</span>
+            {" - "}
+            <span className="font-medium">{Math.min(pageEnd, filteredBatches.length)}</span>
+            {" of "}
+            <span className="font-medium">{filteredBatches.length}</span> batches
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Rows</span>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                className="h-8 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 text-xs"
+                aria-label="Rows per page"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="!px-2"
+                title="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-xs sm:text-sm font-mono px-2">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                minimal
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="!px-2"
+                title="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {!!activeBatch && (
           <Modal
@@ -1384,6 +1685,96 @@ export default function DatasetsTable({
             <TasksDetail data={activeBatch} />
           </Modal>
         )}
+
+        {singleDeleteTarget && (
+          <Modal
+            isOpen={!!singleDeleteTarget}
+            setIsOpen={() => setSingleDeleteTarget(null)}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">Delete this batch?</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                This action cannot be undone.
+              </p>
+              <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-2 text-sm font-mono">
+                {singleDeleteTarget.batch_name ?? singleDeleteTarget.batch_id}
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  minimal
+                  onClick={() => setSingleDeleteTarget(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleSingleDeleteConfirm}
+                  loading={loading}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {!!downloadMenu &&
+          !!downloadMenuStyle &&
+          !!activeDownloadBatch &&
+          ReactDOM.createPortal(
+            <div
+              ref={downloadMenuRef}
+              className="fixed overflow-hidden z-[70] bg-white dark:bg-neutral-800 shadow-lg rounded-md border border-neutral-200 dark:border-neutral-700"
+              style={{
+                top: downloadMenuStyle.top,
+                left: downloadMenuStyle.left,
+                width: downloadMenuStyle.width,
+                maxHeight: downloadMenuStyle.maxHeight,
+              }}
+            >
+              <p className="text-[10px] font-mono p-2 opacity-65">
+                Select the data that you want to download
+              </p>
+              <div className="w-full px-2 flex space-x-1 justify-between items-center border-b border-neutral-300 dark:dark:border-neutral-700 space-y-1 text-xs">
+                <button
+                  onClick={() => setDwnldOriginalData(true)}
+                  className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
+                    dwnldOriginalData ? "bg-neutral-300 dark:bg-neutral-700" : ""
+                  }`}
+                >
+                  Original
+                </button>
+                <button
+                  onClick={() => setDwnldOriginalData(false)}
+                  className={`text-current border px-2 py-1 rounded border-neutral-300 dark:border-neutral-700 cursor-pointer ${
+                    !dwnldOriginalData ? "bg-neutral-300 dark:bg-neutral-700" : ""
+                  }`}
+                >
+                  Shuffled
+                </button>
+              </div>
+              <p className="text-[10px] font-mono px-2 p-2 opacity-65">
+                Select file-type
+              </p>
+              {["JSON", "CSV"].map((format) => (
+                <div
+                  key={format}
+                  className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer text-sm"
+                  onClick={() => {
+                    handleDownload(activeDownloadBatch, format.toLowerCase());
+                    closeDownloadMenu();
+                  }}
+                >
+                  {format}
+                </div>
+              ))}
+            </div>,
+            document.body
+          )}
 
         {showBulkDeleteConfirm && (
           <Modal
@@ -1419,6 +1810,40 @@ export default function DatasetsTable({
                   loading={loading}
                 >
                   Delete
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {notice && (
+          <Modal
+            isOpen={!!notice}
+            setIsOpen={() => setNotice(null)}
+            className="!max-w-md"
+          >
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold font-mono">
+                {notice.title}
+              </h3>
+              <p
+                className={`text-sm ${
+                  notice.variant === "error"
+                    ? "text-red-600 dark:text-red-400"
+                    : notice.variant === "success"
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-neutral-600 dark:text-neutral-300"
+                }`}
+              >
+                {notice.message}
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant={notice.variant === "error" ? "danger" : "primary"}
+                  onClick={() => setNotice(null)}
+                >
+                  OK
                 </Button>
               </div>
             </div>

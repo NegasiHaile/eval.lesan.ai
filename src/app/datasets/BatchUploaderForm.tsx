@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, { Dispatch, SetStateAction, useState } from "react";
 import TextInput from "@/components/inputs/TextInput";
 import {
   ASRBatchTasksTypes,
@@ -16,6 +16,7 @@ import Button from "@/components/utils/Button";
 import TextareaInput from "@/components/inputs/TextareaInput";
 import DomainsList from "@/components/DomainsList";
 import DatasetUploadGuidelines from "./DatasetUploadGuidelines";
+import Modal from "@/components/utils/Modal";
 
 import {
   ArrowLeft,
@@ -29,10 +30,8 @@ import { date_DDMMYYYY } from "@/helpers/format-date";
 
 import { LanguageTypes } from "@/types/languages";
 import DragDropFile, { type BatchData } from "@/components/inputs/DragDropFile";
-import { UserTypes } from "@/types/user";
-
-import { userDefaultValues } from "@/constants/initial_values";
 import { shuffleAndAnonymizeModels } from "@/helpers/task_models_shuffler";
+import { useUser } from "@/context/UserContext";
 
 type PropsType = {
   setBatchesDetailTable: Dispatch<SetStateAction<BatchDetailTypes[]>>;
@@ -90,22 +89,39 @@ const BatchUploaderForm = ({
   setLoading,
   setShowUploader,
 }: PropsType) => {
-  const [user, setUser] = useState<UserTypes>({ ...userDefaultValues });
+  const { user } = useUser();
   const [addingCategory, setAddingCategory] = useState<boolean>(false);
   const [category, setCategory] = useState<categoryType>(categoryItem);
   const [showGuidelines, setShowGuidelines] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    title: string;
+    message: string;
+    variant: "info" | "success" | "error";
+    closeUploaderOnClose?: boolean;
+  } | null>(null);
+
+  const showFeedback = (
+    title: string,
+    message: string,
+    variant: "info" | "success" | "error" = "info",
+    closeUploaderOnClose = false
+  ) => {
+    setFeedback({ title, message, variant, closeUploaderOnClose });
+  };
+
+  const setFeedbackOpen: Dispatch<SetStateAction<boolean>> = (next) => {
+    const open = typeof next === "function" ? next(!!feedback) : next;
+    if (open) return;
+    const shouldClose = feedback?.closeUploaderOnClose;
+    setFeedback(null);
+    if (shouldClose) setShowUploader(false);
+  };
 
   const [newBatchDetail, setNewBatchDetail] =
     useState<BatchDetailTypes>(initialBatchDetail);
   const [newBatchTasks, setNewBatchTasks] = useState<
     ASRBatchTasksTypes | BatchTasksTypes | null
   >();
-
-  // Load saved file content from localStorage on mount
-  useEffect(() => {
-    const usr = JSON.parse(localStorage.getItem("user") || JSON.stringify(""));
-    setUser(usr);
-  }, []);
 
   const removeCategoryByIndex = (nameToRemove: string) => {
     setNewBatchDetail((prev) => ({
@@ -300,7 +316,7 @@ const BatchUploaderForm = ({
 
         if (res.status === 409) {
           const data = await res.json();
-          alert(data.message);
+          showFeedback("Upload conflict", data.message, "error");
           setLoading(false);
           return;
         }
@@ -312,7 +328,11 @@ const BatchUploaderForm = ({
         setBatchesDetailTable((prev) => [newBatchDetail, ...prev]);
       } catch (error) {
         console.error("API error:", error);
-        alert("Error saving data to server. Data is saved locally.");
+        showFeedback(
+          "Upload failed",
+          "Error saving data to server. Data is saved locally.",
+          "error"
+        );
       }
 
       // Reset UI state
@@ -320,10 +340,14 @@ const BatchUploaderForm = ({
       setLoading(false);
       setNewBatchDetail(initialBatchDetail);
       setNewBatchTasks(null);
-      setShowUploader(false);
-      alert("File content saved successfully.");
+      showFeedback(
+        "Upload successful",
+        "File content saved successfully.",
+        "success",
+        true
+      );
     } else {
-      alert("Data doesnt exist ");
+      showFeedback("No data", "Data doesnt exist.", "error");
       return [null, null];
     }
   };
@@ -392,15 +416,24 @@ const BatchUploaderForm = ({
                       }
                     }
                     setLoading(false);
-                    setShowUploader(false);
                     if (saved.length > 0) {
-                      alert(
+                      showFeedback(
+                        errors.length > 0
+                          ? "Upload partially successful"
+                          : "Upload successful",
                         errors.length > 0
                           ? `${saved.length} batch(es) uploaded. ${errors.length} failed: ${errors.join("; ")}`
-                          : `${saved.length} batch(es) uploaded successfully.`
+                          : `${saved.length} batch(es) uploaded successfully.`,
+                        errors.length > 0 ? "error" : "success",
+                        true
                       );
                     } else if (errors.length > 0) {
-                      alert(`Upload failed: ${errors.join("; ")}`);
+                      showFeedback(
+                        "Upload failed",
+                        `Upload failed: ${errors.join("; ")}`,
+                        "error",
+                        true
+                      );
                     }
                     return;
                   }
@@ -621,6 +654,37 @@ const BatchUploaderForm = ({
             </div>
           </form>
         </>
+      )}
+      {feedback && (
+        <Modal
+          isOpen={!!feedback}
+          setIsOpen={setFeedbackOpen}
+          className="!max-w-xs"
+        >
+          <div className="p-4 space-y-3">
+            <h3 className="text-base font-semibold font-mono">{feedback.title}</h3>
+            <p
+              className={`text-sm ${
+                feedback.variant === "error"
+                  ? "text-red-600 dark:text-red-400"
+                  : feedback.variant === "success"
+                  ? "text-green-700 dark:text-green-400"
+                  : "text-neutral-600 dark:text-neutral-300"
+              }`}
+            >
+              {feedback.message}
+            </p>
+            <div className="flex justify-end pt-1">
+              <Button
+                size="sm"
+                variant={feedback.variant === "error" ? "danger" : "primary"}
+                onClick={() => setFeedbackOpen(false)}
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

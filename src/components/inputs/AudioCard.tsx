@@ -2,6 +2,7 @@
 import { EvalOutputTypes } from "@/types/data";
 import React, { useRef, useState } from "react";
 import Button from "../utils/Button";
+import Modal from "../utils/Modal";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -36,6 +37,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
 
   const [recording, setRecording] = useState(false);
   const [audioURL, setAudioURL] = useState<string | undefined>(undefined);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const startRecording = async () => {
     setAudioURL(undefined);
@@ -77,9 +79,9 @@ const AudioCard: React.FC<AudioCardProps> = ({
   const transcribe = async () => {
     if (!audioURL) return;
     setAudioURL(undefined);
-    alert(
+    setNotice(
       "Realtime transcription is coming soon, for now this is only for dataset evaluation!"
-    ); // Placeholder for actual transcription logic
+    );
   };
 
   return (
@@ -225,6 +227,27 @@ const AudioCard: React.FC<AudioCardProps> = ({
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={!!notice}
+        setIsOpen={(open) => {
+          if (open) return;
+          setNotice(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">Notice</h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {notice ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setNotice(null)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
