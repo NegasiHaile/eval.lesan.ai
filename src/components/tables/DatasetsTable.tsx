@@ -1137,7 +1137,7 @@ export default function DatasetsTable({
                 if (field.type === "spacer") return <th key={idx} />;
                 if (field.type === "dual") {
                   return (
-                    <th key={idx}>
+                    <th key={idx} className="px-1">
                       <div className="flex gap-1 w-full">
                         <TextInput
                           type="text"
@@ -1167,8 +1167,8 @@ export default function DatasetsTable({
                 }
                 if (field.type === "assigned_and_progress") {
                   return (
-                    <th key={idx} className="min-w-[220px]">
-                      <div className="flex flex-col sm:flex-row gap-2 w-full p-1.5 rounded-md bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700">
+                    <th key={idx} className="min-w-[220px] px-1">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full px-1.5">
                         <TextInput
                           type="text"
                           name="annotator_id"
@@ -1178,7 +1178,7 @@ export default function DatasetsTable({
                             handleFilterChange("annotator_id", e.target.value)
                           }
                           size="xs"
-                          className="flex-1 min-w-0 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          className="flex-1 min-w-0"
                         />
                         <SelectTransparent
                           name="progress_filter"
@@ -1195,7 +1195,7 @@ export default function DatasetsTable({
                           }
                           variant="outlined"
                           className="flex-1 min-w-0"
-                          selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800"
+                          selectClass="!px-2 !py-1.5 !h-auto !w-full text-xs min-w-0"
                         />
                       </div>
                     </th>
@@ -1203,7 +1203,7 @@ export default function DatasetsTable({
                 }
                 if (!field.key) return <th key={idx} />;
                 return (
-                  <th key={idx}>
+                  <th key={idx}  className="px-1">
                     <TextInput
                       type="text"
                       name={field.key}
@@ -1213,7 +1213,7 @@ export default function DatasetsTable({
                         handleFilterChange(field.key, e.target.value)
                       }
                       size="xs"
-                      className="w-full"
+                      className="w-full min-w-0"
                     />
                   </th>
                 );
