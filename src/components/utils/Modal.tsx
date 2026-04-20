@@ -22,7 +22,7 @@ export default function Modal({
           onClick={() => setIsOpen(false)}
         >
           <div
-            className={`relative w-fit bg-white dark:bg-neutral-900 rounded-lg md:p-6 mx-4 md:mx-5 shadow-lg ${className}`}
+            className={`relative w-fit min-w-[min(20rem,calc(100vw-2rem))] bg-white dark:bg-neutral-900 rounded-lg md:p-6 mx-4 md:mx-5 shadow-lg ${className}`}
             onClick={(e) => e.stopPropagation()}
           >
             {children}

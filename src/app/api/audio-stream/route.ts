@@ -1,37 +1,25 @@
+/**
+ * Stream remote audio via GET /api/audio-stream?url=<encoded-url>.
+ * Used by ASR page to proxy any remote audio URL so the browser can play it
+ * without CORS. Query param avoids long paths that break on Vercel.
+ * Accepts any http/https URL.
+ */
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import { proxyAudioRequest } from "@/lib/audioProxy";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req);
+  if (auth instanceof Response) return auth;
+
   try {
-    const REMOTE_URL =
-      "https://archive.org/download/testmp3testfile/mpthreetest.mp3";
-
-    // Get the "range" header from the request
-    const range = req.headers.get("range") || "bytes=0-";
-
-    // Forward request to remote server with the range header
-    const remoteRes = await fetch(REMOTE_URL, {
-      headers: { Range: range },
-    });
-
-    if (!remoteRes.ok && remoteRes.status !== 206) {
-      return new NextResponse("Error fetching remote audio", {
-        status: remoteRes.status,
-      });
+    const urlParam = req.nextUrl.searchParams.get("url");
+    if (!urlParam) {
+      return new NextResponse("Missing 'url' query parameter.", { status: 400 });
     }
-
-    // Pass through headers from the remote file
-    const headers = new Headers();
-    remoteRes.headers.forEach((value, key) => {
-      headers.set(key, value);
-    });
-
-    // Stream remote audio back to the client
-    return new Response(remoteRes.body, {
-      status: remoteRes.status,
-      headers,
-    });
+    return proxyAudioRequest(req, urlParam);
   } catch (err) {
     console.error(err);
     return new NextResponse("Error streaming remote audio", { status: 500 });

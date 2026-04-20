@@ -1,13 +1,15 @@
 import React from "react";
 
 type TextInputProps = {
-  type: string;
+  type?: string;
   name?: string;
   value: string;
   required?: boolean;
   placeholder?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   size?: "xs" | "sm" | "md" | "lg";
+  /** Optional class for the input element (e.g. for layout in tables). */
+  className?: string;
 };
 
 const sizeClassMap = {
@@ -25,6 +27,7 @@ const TextInput = ({
   placeholder = "Enter text",
   onChange,
   size = "md",
+  className,
 }: TextInputProps) => {
   const sizeStyle = sizeClassMap[size] || sizeClassMap.md;
 
@@ -36,7 +39,7 @@ const TextInput = ({
       required={required}
       placeholder={placeholder}
       onChange={onChange}
-      className={`w-full bg-transparent rounded border-[0.5px] border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 focus:border-blue-500 focus:outline-none ${sizeStyle}`}
+      className={`w-full bg-transparent rounded border-[0.5px] border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 focus:border-blue-500 focus:outline-none ${sizeStyle} ${className ?? ""}`.trim()}
     />
   );
 };

@@ -10,6 +10,7 @@ type UseReviewerModeParams = {
   setEvalTask: (task: EvalTaskTypes | null) => void;
   setBatchTasks: React.Dispatch<React.SetStateAction<EvalTaskTypes[]>>;
   setCurrentTaskIndex: React.Dispatch<React.SetStateAction<number>>;
+  onNotice?: (title: string, message: string, variant?: "info" | "success" | "error") => void;
 };
 
 export function useReviewerMode({
@@ -21,6 +22,7 @@ export function useReviewerMode({
   setEvalTask,
   setBatchTasks,
   setCurrentTaskIndex,
+  onNotice,
 }: UseReviewerModeParams) {
   const [reviewerComment, setReviewerComment] = useState("");
   const [savingComment, setSavingComment] = useState(false);
@@ -56,12 +58,12 @@ export function useReviewerMode({
       updatedTasks[currentTaskIndex] = updatedTask;
       setBatchTasks(updatedTasks);
     } catch (error) {
-      alert("Failed to save comment.");
+      onNotice?.("Save failed", "Failed to save comment.", "error");
       console.error(error);
     } finally {
       setSavingComment(false);
     }
-  }, [evalTask, reviewerComment, selectedBatchDetail, batchTasks, currentTaskIndex, setEvalTask, setBatchTasks]);
+  }, [evalTask, reviewerComment, selectedBatchDetail, batchTasks, currentTaskIndex, setEvalTask, setBatchTasks, onNotice]);
 
   const handleReviewerNext = useCallback(() => {
     if (currentTaskIndex + 1 < batchTasks.length) {
@@ -71,9 +73,13 @@ export function useReviewerMode({
       setEvalTask(nextTask);
       setReviewerComment(nextTask?.reviewer_comment ?? "");
     } else {
-      alert(`End of <${selectedBatchDetail.batch_name}> review tasks!`);
+      onNotice?.(
+        "End of review",
+        `End of <${selectedBatchDetail.batch_name}> review tasks!`,
+        "info"
+      );
     }
-  }, [currentTaskIndex, batchTasks, selectedBatchDetail, setCurrentTaskIndex, setEvalTask]);
+  }, [currentTaskIndex, batchTasks, selectedBatchDetail, setCurrentTaskIndex, setEvalTask, onNotice]);
 
   const handleReviewerPrev = useCallback(() => {
     if (currentTaskIndex > 0) {

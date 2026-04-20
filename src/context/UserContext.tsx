@@ -9,6 +9,7 @@ type UserContextType = {
   user: UserTypes | null;
   setUser: Dispatch<SetStateAction<UserTypes | null>>;
   isPending: boolean;
+  isInitialSessionPending: boolean;
 };
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -30,12 +31,19 @@ function sessionToUser(session: {
 export function UserProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const [overrideUser, setOverrideUser] = useState<UserTypes | null | undefined>(undefined);
+  const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
+  const sessionUser = sessionToUser(session);
 
-  const user = overrideUser !== undefined ? overrideUser : sessionToUser(session);
+  const user = overrideUser !== undefined ? overrideUser : sessionUser;
+  const isInitialSessionPending = !hasResolvedInitialSession && isPending;
 
   const setUser: Dispatch<SetStateAction<UserTypes | null>> = (value) => {
     setOverrideUser(typeof value === "function" ? value(user ?? null) : value);
   };
+
+  useEffect(() => {
+    if (!isPending) setHasResolvedInitialSession(true);
+  }, [isPending]);
 
   useEffect(() => {
     if (user) {
@@ -46,7 +54,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <UserContext.Provider value={{ user: user ?? null, setUser, isPending }}>
+    <UserContext.Provider
+      value={{ user: user ?? null, setUser, isPending, isInitialSessionPending }}
+    >
       {children}
     </UserContext.Provider>
   );

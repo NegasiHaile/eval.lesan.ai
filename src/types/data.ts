@@ -61,10 +61,15 @@ export type BatchDetailTypes = {
   target_language: LanguageTypes;
   models: string[] | [];
   annotator_id: string | null;
+  /** Contributor / assignee email (used in files metadata export). Falls back to annotator_id when not set. */
+  assigned_to?: string | null;
   created_by: string;
   created_at: string;
   number_of_tasks: number;
+  /** Tasks with rate and rank set (evaluated). */
   annotated_tasks: number | string;
+  /** Tasks that have a reviewer_comment (reviewed by QC). Optional; populated when available from backend. */
+  reviewed_tasks?: number | string;
   qa_id: string | null;
   rating_guideline?: guidelineTypes[] | [];
   domains?: DomainTypes[] | [];

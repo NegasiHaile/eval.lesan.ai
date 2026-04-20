@@ -66,9 +66,10 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       {/* OG/Twitter meta tags are handled by the metadata export above */}
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}
       >
         <ThemeProvider>

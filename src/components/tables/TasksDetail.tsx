@@ -1,4 +1,5 @@
 import { calculateLeaderboard } from "@/helpers/batch_leaderboard_calculator";
+import CopyText from "@/components/utils/CopyText";
 import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -27,6 +28,9 @@ const TasksDetail = ({ data }: PropsTypes) => {
   const truncate = (text: string, len = 30) =>
     text.length > len ? text.slice(0, len) + "..." : text;
 
+  /** Input column: truncate long URLs so they don’t overflow; use longer length for URL display. */
+  const inputTruncateLen = 56;
+
   const getAllModelKeys = () => {
     const keys = new Set<string>();
     if (Array.isArray(data.tasks)) {
@@ -40,6 +44,9 @@ const TasksDetail = ({ data }: PropsTypes) => {
   };
 
   const modelKeys = getAllModelKeys();
+
+  /** ASR batches have `language`; MT batches have `source_language`/`target_language`. For ASR, input is an audio URL and must not be shown. */
+  const isASR = "language" in data;
 
   const summary: SummaryType = {
     rates: {
@@ -192,6 +199,9 @@ const TasksDetail = ({ data }: PropsTypes) => {
             <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left">
               Domain
             </th>
+            <th className="p-2 border border-neutral-300 dark:border-neutral-800 text-left">
+              Reviewer comment
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -217,8 +227,29 @@ const TasksDetail = ({ data }: PropsTypes) => {
                   </button>
                 </td>
 
-                <td className="p-2 border align-top max-w-sm border-neutral-300 dark:border-neutral-800">
-                  {isExpanded ? task.input : truncate(task.input)}
+                <td className="p-2 border align-top max-w-[280px] border-neutral-300 dark:border-neutral-800">
+                  {isASR ? (
+                    <audio
+                      key={task.id}
+                      controls
+                      controlsList="nodownload"
+                      src={`/api/audio-stream?url=${encodeURIComponent(task.input)}`}
+                      className="w-full max-w-full h-9 rounded min-w-[250px]"
+                      title="Play audio"
+                    >
+                      Your browser does not support the audio element.
+                    </audio>
+                  ) : (
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="truncate block min-w-0 flex-1 text-left"
+                        title={task.input}
+                      >
+                        {truncate(task.input, inputTruncateLen)}
+                      </span>
+                      <CopyText textToCopy={task.input} />
+                    </div>
+                  )}
                 </td>
 
                 {modelKeys.map((modelKey) => {
@@ -263,6 +294,14 @@ const TasksDetail = ({ data }: PropsTypes) => {
                         </span>
                       ))}
                   </div>
+                </td>
+
+                <td className="p-2 border align-top max-w-sm border-neutral-300 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300">
+                  {task.reviewer_comment != null && String(task.reviewer_comment).trim() !== ""
+                    ? isExpanded
+                      ? task.reviewer_comment
+                      : truncate(task.reviewer_comment)
+                    : "—"}
                 </td>
               </tr>
             );

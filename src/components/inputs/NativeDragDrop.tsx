@@ -4,11 +4,9 @@ import {
   useState,
   DragEvent,
   ChangeEvent,
-  useEffect,
   Dispatch,
   SetStateAction,
 } from "react";
-import { UserTypes } from "@/types/user";
 import {
   ASRBatchTasksTypes,
   BatchDetailTypes,
@@ -17,9 +15,11 @@ import {
   guidelineTypes,
   EvalOutputTypes,
 } from "@/types/data";
-import { userDefaultValues } from "@/constants/initial_values";
 import { isValidBatchData } from "@/helpers/validate_uploading_batch";
 import { DomainTypes, EvalTypeTypes } from "@/types/others";
+import { useUser } from "@/context/UserContext";
+import Modal from "@/components/utils/Modal";
+import Button from "@/components/utils/Button";
 
 const formatDate = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, "0");
@@ -72,13 +72,12 @@ export default function NativeDragDrop({
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [user, setUser] = useState<UserTypes>({ ...userDefaultValues });
-
-  // Load saved file content from localStorage on mount
-  useEffect(() => {
-    const usr = JSON.parse(localStorage.getItem("user") || JSON.stringify(""));
-    setUser(usr);
-  }, []);
+  const { user } = useUser();
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    variant?: "info" | "success" | "error";
+  } | null>(null);
 
   const readFileContent = (file: File) => {
     const reader = new FileReader();
@@ -183,7 +182,7 @@ export default function NativeDragDrop({
       const res = isValidBatchData(datasetType.value, data);
       if (!res.isValid) {
         console.log(res.message);
-        alert(`${res.message}`);
+        setNotice({ title: "Invalid file", message: `${res.message}`, variant: "error" });
         return false;
       }
 
@@ -213,15 +212,19 @@ export default function NativeDragDrop({
         setBatchDetails((prev) => [batch_detail, ...prev]);
       } catch (error) {
         console.error("API error:", error);
-        alert("Error saving data to server. Data is saved locally.");
+        setNotice({
+          title: "Save failed",
+          message: "Error saving data to server. Data is saved locally.",
+          variant: "error",
+        });
       }
 
       // Reset UI state
       resetUploading();
       setLoading(false);
-      alert("File content saved successfully.");
+      setNotice({ title: "Saved", message: "File content saved successfully.", variant: "success" });
     } else {
-      alert("Data doesnt exist ");
+      setNotice({ title: "No data", message: "Data doesnt exist", variant: "error" });
       return [null, null];
     }
   };
@@ -292,6 +295,27 @@ export default function NativeDragDrop({
           </button>
         </div>
       )}
+
+      <Modal
+        isOpen={!!notice}
+        setIsOpen={(open) => {
+          if (open) return;
+          setNotice(null);
+        }}
+        className="!max-w-md"
+      >
+        <div className="p-2">
+          <h3 className="text-lg font-semibold mb-2">{notice?.title ?? "Notice"}</h3>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            {notice?.message ?? ""}
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setNotice(null)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

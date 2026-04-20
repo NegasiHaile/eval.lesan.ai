@@ -50,7 +50,7 @@ export async function getAuth() {
       sendOnSignUp: true,
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }, _request) => {
+        sendVerificationEmail: async ({ user, url }, _request) => {
         await sendEmail({
           to: user.email,
           subject: "Verify your email address",
