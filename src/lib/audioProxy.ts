@@ -144,7 +144,7 @@ export async function proxyAudioRequest(
     const remoteRes = await fetchWithSafeRedirects(remoteUrl, range);
 
     if (!remoteRes.ok && remoteRes.status !== 206) {
-      return new Response("Error fetching remote audio", {
+      return new Response("Error fetching remote media", {
         status: remoteRes.status,
       });
     }
@@ -153,9 +153,12 @@ export async function proxyAudioRequest(
     if (
       contentType &&
       !contentType.startsWith("audio/") &&
+      !contentType.startsWith("video/") &&
       !contentType.startsWith("application/octet-stream")
     ) {
-      return new Response("Remote content is not audio.", { status: 415 });
+      return new Response("Remote content is not supported media.", {
+        status: 415,
+      });
     }
 
     const headers = new Headers();
@@ -169,7 +172,8 @@ export async function proxyAudioRequest(
       headers,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Error streaming remote audio";
+    const msg =
+      error instanceof Error ? error.message : "Error streaming remote media";
     const status = /invalid|not allowed|credentials|must be http/i.test(msg) ? 400 : 502;
     return new Response(msg, { status });
   }
