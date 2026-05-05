@@ -7,6 +7,7 @@ import {
   EvalTaskTypes,
   guidelineTypes,
   EvalOutputTypes,
+  SpeechBatchTasksTypes,
 } from "@/types/data";
 import { DomainTypes, EvalTypeTypes } from "@/types/others";
 import { languages } from "@/constants/iso1-iso3-languages";
@@ -120,7 +121,7 @@ const BatchUploaderForm = ({
   const [newBatchDetail, setNewBatchDetail] =
     useState<BatchDetailTypes>(initialBatchDetail);
   const [newBatchTasks, setNewBatchTasks] = useState<
-    ASRBatchTasksTypes | BatchTasksTypes | null
+    ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes | null
   >();
 
   const removeCategoryByIndex = (nameToRemove: string) => {
@@ -142,7 +143,11 @@ const BatchUploaderForm = ({
   };
 
   /** Uploaded batch JSON may include optional creator/annotator/reviewer fields. */
-  type BatchDataWithMeta = (ASRBatchTasksTypes | BatchTasksTypes) & {
+  type BatchDataWithMeta = (
+    | ASRBatchTasksTypes
+    | BatchTasksTypes
+    | SpeechBatchTasksTypes
+  ) & {
     created_by?: string;
     annotator_id?: string | null;
     qa_id?: string | null;
@@ -150,12 +155,13 @@ const BatchUploaderForm = ({
 
   /** Returns batch detail from parsed data (no state update). Used for single and multi-file save. */
   const getBatchDetailFromData = (
-    data: ASRBatchTasksTypes | BatchTasksTypes
+    data: ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes
   ): BatchDetailTypes => {
     const batch_id = generateUniqueId();
     const batche_details: BatchDetailTypes = { ...initialBatchDetail };
     batche_details.batch_id = batch_id;
     const withMeta = data as BatchDataWithMeta;
+    const isSpeech = activeTab.value === "speech";
 
     if (data && "source_language" in data && "target_language" in data) {
       batche_details.source_language = data.source_language;
@@ -184,22 +190,30 @@ const BatchUploaderForm = ({
     batche_details.rating_guideline = data.rating_guideline ?? [];
     batche_details.domains = data.domains ?? [];
 
-    const models: string[] = [];
-    data.tasks[0].models.map((item: EvalOutputTypes) => {
-      models.push(item.model);
-    });
-    batche_details.models = models;
+    if (isSpeech) {
+      batche_details.models = [];
+      batche_details.annotated_tasks = 0;
+    } else {
+      const tasks = (data as ASRBatchTasksTypes | BatchTasksTypes).tasks;
+      const models: string[] = [];
+      tasks[0].models.map((item: EvalOutputTypes) => {
+        models.push(item.model);
+      });
+      batche_details.models = models;
 
-    const evaluatedTasks = data.tasks.filter(
-      (item: EvalTaskTypes) =>
-        item.models[0].rate > 0 && item.models[0].rank > 0
-    );
-    batche_details.annotated_tasks = evaluatedTasks.length;
+      const evaluatedTasks = tasks.filter(
+        (item: EvalTaskTypes) =>
+          item.models[0].rate > 0 && item.models[0].rank > 0
+      );
+      batche_details.annotated_tasks = evaluatedTasks.length;
+    }
 
     return batche_details;
   };
 
-  const generateFileDetail = (data: ASRBatchTasksTypes | BatchTasksTypes) => {
+  const generateFileDetail = (
+    data: ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes
+  ) => {
     const batche_details = getBatchDetailFromData(data);
     setNewBatchDetail({ ...batche_details });
     return batche_details;
@@ -207,19 +221,28 @@ const BatchUploaderForm = ({
 
   /** Save one batch to the server using existing implementation. Used for multi-file upload. */
   const saveOneBatch = async (
-    data: ASRBatchTasksTypes | BatchTasksTypes
+    data: ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes
   ): Promise<BatchDetailTypes | null> => {
-    const deepClonedTasks = JSON.parse(JSON.stringify(data.tasks));
-    const { anonymized_tasks, task_models_shuffles } =
-      shuffleAndAnonymizeModels(deepClonedTasks, 123);
-    const payload = {
-      ...data,
-      tasks: anonymized_tasks,
-      task_models_shuffles,
-    };
+    const isSpeech = activeTab.value === "speech";
+
+    let payload: ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes;
+    if (isSpeech) {
+      payload = data as SpeechBatchTasksTypes;
+    } else {
+      const deepClonedTasks = JSON.parse(
+        JSON.stringify((data as ASRBatchTasksTypes | BatchTasksTypes).tasks)
+      );
+      const { anonymized_tasks, task_models_shuffles } =
+        shuffleAndAnonymizeModels(deepClonedTasks, 123);
+      payload = {
+        ...(data as ASRBatchTasksTypes | BatchTasksTypes),
+        tasks: anonymized_tasks,
+        task_models_shuffles,
+      };
+    }
     const detail = getBatchDetailFromData(payload);
 
-    let tasks_batch: ASRBatchTasksTypes | BatchTasksTypes = {
+    let tasks_batch: ASRBatchTasksTypes | BatchTasksTypes | SpeechBatchTasksTypes = {
       ...payload,
       batch_id: detail.batch_id,
       dataset_name: detail.batch_name,
@@ -234,15 +257,18 @@ const BatchUploaderForm = ({
         ...tasks_batch,
         source_language: detail.source_language,
         target_language: detail.target_language,
-      };
-      if ("language" in tasks_batch) delete tasks_batch.language;
+      } as BatchTasksTypes;
+      if ("language" in tasks_batch)
+        delete (tasks_batch as Record<string, unknown>).language;
     } else {
       tasks_batch = {
         ...tasks_batch,
         language: detail.source_language,
-      };
-      if ("source_language" in tasks_batch) delete tasks_batch.source_language;
-      if ("target_language" in tasks_batch) delete tasks_batch.target_language;
+      } as ASRBatchTasksTypes | SpeechBatchTasksTypes;
+      if ("source_language" in tasks_batch)
+        delete (tasks_batch as Record<string, unknown>).source_language;
+      if ("target_language" in tasks_batch)
+        delete (tasks_batch as Record<string, unknown>).target_language;
     }
 
     const res = await fetch(`/api/batches/${activeTab.value}`, {
@@ -268,7 +294,10 @@ const BatchUploaderForm = ({
 
     if (newBatchTasks) {
       setLoading(true);
-      let tasks_batch: ASRBatchTasksTypes | BatchTasksTypes = {
+      let tasks_batch:
+        | ASRBatchTasksTypes
+        | BatchTasksTypes
+        | SpeechBatchTasksTypes = {
         ...newBatchTasks,
         batch_id: newBatchDetail.batch_id,
         dataset_name: newBatchDetail.batch_name,
@@ -284,19 +313,20 @@ const BatchUploaderForm = ({
           ...tasks_batch,
           source_language: newBatchDetail.source_language,
           target_language: newBatchDetail.target_language,
-        };
+        } as BatchTasksTypes;
 
-        if ("language" in tasks_batch) delete tasks_batch.language;
+        if ("language" in tasks_batch)
+          delete (tasks_batch as Record<string, unknown>).language;
       } else {
-        // ASR and TTS
+        // ASR, TTS, Speech
         tasks_batch = {
           ...tasks_batch,
           language: newBatchDetail.source_language,
-        };
+        } as ASRBatchTasksTypes | SpeechBatchTasksTypes;
         if ("source_language" in tasks_batch)
-          delete tasks_batch.source_language;
+          delete (tasks_batch as Record<string, unknown>).source_language;
         if ("target_language" in tasks_batch)
-          delete tasks_batch.target_language;
+          delete (tasks_batch as Record<string, unknown>).target_language;
       }
 
       // console.log("New batch detail;", newBatchDetail);
@@ -359,27 +389,30 @@ const BatchUploaderForm = ({
           Create <span className="uppercase font-bold">{activeTab.name}</span>{" "}
           task
         </p>
-        <Button
-          size="sm"
-          className="!w-fit !font-mono"
-          variant="primary"
-          minimal
-          onClick={() => setShowGuidelines(!showGuidelines)}
-        >
-          {showGuidelines ? (
-            <>
-              <ArrowLeft className="size-4 shrink-0" /> Go to form
-            </>
-          ) : (
-            <>
-              <Info className="size-6 shrink-0" />
-              Uploading guideline
-            </>
-          )}
-        </Button>
+        {(activeTab.value === "mt" || activeTab.value === "asr") && (
+          <Button
+            size="sm"
+            className="!w-fit !font-mono"
+            variant="primary"
+            minimal
+            onClick={() => setShowGuidelines(!showGuidelines)}
+          >
+            {showGuidelines ? (
+              <>
+                <ArrowLeft className="size-4 shrink-0" /> Go to form
+              </>
+            ) : (
+              <>
+                <Info className="size-6 shrink-0" />
+                Uploading guideline
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
-      {showGuidelines ? (
+      {showGuidelines &&
+      (activeTab.value === "mt" || activeTab.value === "asr") ? (
         <div style={{ maxHeight: "70vh" }} className="overflow-y-auto">
           <DatasetUploadGuidelines
             activeTab={activeTab.value.toUpperCase() as "MT" | "ASR"}
@@ -439,23 +472,30 @@ const BatchUploaderForm = ({
                   }
 
                   const single = items[0];
-                  const deepClonedTasks = JSON.parse(
-                    JSON.stringify(single.tasks)
-                  );
-                  const { anonymized_tasks, task_models_shuffles } =
-                    shuffleAndAnonymizeModels(deepClonedTasks, 123);
+                  if (activeTab.value === "speech") {
+                    setNewBatchTasks(single);
+                    generateFileDetail(single);
+                  } else {
+                    const deepClonedTasks = JSON.parse(
+                      JSON.stringify(
+                        (single as ASRBatchTasksTypes | BatchTasksTypes).tasks
+                      )
+                    );
+                    const { anonymized_tasks, task_models_shuffles } =
+                      shuffleAndAnonymizeModels(deepClonedTasks, 123);
 
-                  setNewBatchTasks({
-                    ...single,
-                    tasks: anonymized_tasks,
-                    task_models_shuffles,
-                  });
+                    setNewBatchTasks({
+                      ...(single as ASRBatchTasksTypes | BatchTasksTypes),
+                      tasks: anonymized_tasks,
+                      task_models_shuffles,
+                    });
 
-                  generateFileDetail({
-                    ...single,
-                    tasks: anonymized_tasks,
-                    task_models_shuffles,
-                  });
+                    generateFileDetail({
+                      ...(single as ASRBatchTasksTypes | BatchTasksTypes),
+                      tasks: anonymized_tasks,
+                      task_models_shuffles,
+                    });
+                  }
                 }}
                 required={true}
               />

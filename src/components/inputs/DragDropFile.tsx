@@ -2,11 +2,19 @@
 import { useRef, useState, DragEvent, ChangeEvent } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
+import {
+  ASRBatchTasksTypes,
+  BatchTasksTypes,
+  SpeechBatchTasksTypes,
+} from "@/types/data";
 import { EvalTypeTypes } from "@/types/others";
 import { isValidBatchData } from "@/helpers/validate_uploading_batch";
+import { isValidSpeechBatchData } from "@/helpers/validate_speech_batch";
 
-export type BatchData = ASRBatchTasksTypes | BatchTasksTypes;
+export type BatchData =
+  | ASRBatchTasksTypes
+  | BatchTasksTypes
+  | SpeechBatchTasksTypes;
 
 type NativeDragDropProps = {
   activeTab: EvalTypeTypes;
@@ -203,9 +211,19 @@ export default function DragDropFile({
     }
 
     return parseFileToJson(file).then((data) => {
-      const result = isValidBatchData(activeTab.value, data as BatchTasksTypes, {
-        requireMetadata,
-      });
+      if (activeTab.value === "speech") {
+        const result = isValidSpeechBatchData(
+          data as SpeechBatchTasksTypes,
+          { requireMetadata }
+        );
+        if (result.isValid) return data as BatchData;
+        return Promise.reject(result.message);
+      }
+      const result = isValidBatchData(
+        activeTab.value as "mt" | "asr" | "tts",
+        data as BatchTasksTypes,
+        { requireMetadata }
+      );
       if (result.isValid) {
         return data as BatchData;
       }

@@ -7,7 +7,7 @@ export type TaskEvalErrorTypes = {
 
 export type EvalTypeTypes = {
   name: string;
-  value: "mt" | "asr" | "tts";
+  value: "mt" | "asr" | "tts" | "speech";
   full_name: string;
   sample_batch?: string;
 };

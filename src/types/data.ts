@@ -52,6 +52,50 @@ export type ASRBatchTasksTypes = {
   domains?: DomainTypes[] | [];
 };
 
+export type TagFieldTypes = {
+  key: string;
+  label: string;
+  options: string[];
+  required?: boolean;
+  multi?: boolean;
+};
+
+export type TagSchemaTypes = {
+  recording_level: TagFieldTypes[];
+  segment_level: TagFieldTypes[];
+};
+
+export type SegmentTypes = {
+  id: string | number;
+  audio_url: string;
+  transcript: string;
+  start_time?: number;
+  tags?: Record<string, string | string[]>;
+};
+
+export type SpeechTaskTypes = {
+  id: string | number;
+  video_url: string;
+  recording_tags?: Record<string, string | string[]>;
+  segments: SegmentTypes[];
+  reviewer_comment?: string;
+  started_at?: string;
+  completed_at?: string;
+  active_duration_ms?: number;
+};
+
+export type SpeechBatchTasksTypes = {
+  batch_id?: string;
+  dataset_name: string;
+  dataset_domain: string;
+  batch_name: string;
+  language: LanguageTypes;
+  tasks: SpeechTaskTypes[];
+  tag_schema: TagSchemaTypes;
+  rating_guideline?: guidelineTypes[] | [];
+  domains?: DomainTypes[] | [];
+};
+
 export type BatchDetailTypes = {
   batch_id: string;
   batch_name: string;

@@ -14,6 +14,12 @@ export const evalTypes: EvalTypeTypes[] = [
     full_name: "Automatic Speech Recognition (ASR) Datasets",
     sample_batch: "/datasets/asr-sample-eval-batch.json",
   },
+  {
+    name: "Speech",
+    value: "speech",
+    full_name: "Speech Annotation Datasets",
+    sample_batch: "/datasets/speech-sample-eval-batch.json",
+  },
   // {
   //   name: "TTS",
   //   value: "tts",

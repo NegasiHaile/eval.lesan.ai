@@ -442,6 +442,9 @@ export default function DatasetsTable({
       } else if (batch_detail.dataset_type === "asr") {
         const asr_actv_batch = JSON.parse(localStorage.getItem("asr_active_batch") || "{}");
         if (asr_actv_batch?.batch_id === batch_id) localStorage.removeItem("asr_active_batch");
+      } else if (batch_detail.dataset_type === "speech") {
+        const sp_actv_batch = JSON.parse(localStorage.getItem("speech_active_batch") || "{}");
+        if (sp_actv_batch?.batch_id === batch_id) localStorage.removeItem("speech_active_batch");
       }
       return true;
     },

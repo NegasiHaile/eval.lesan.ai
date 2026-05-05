@@ -179,6 +179,14 @@ export default function NativeDragDrop({
       const data = JSON.parse(fileContent);
 
       // CHECK IF THE DATASET IS VALID OR NOT
+      if (datasetType.value === "speech") {
+        setNotice({
+          title: "Unsupported here",
+          message: "Use the main uploader for speech batches.",
+          variant: "error",
+        });
+        return false;
+      }
       const res = isValidBatchData(datasetType.value, data);
       if (!res.isValid) {
         console.log(res.message);

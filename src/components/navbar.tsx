@@ -21,6 +21,7 @@ import {
   Trophy,
   User,
   Users,
+  Video,
   X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -86,6 +87,16 @@ const NavBar = () => {
         </span>
       ),
       href: "/asr",
+      public: true,
+    },
+    {
+      id: 3,
+      title: (
+        <span className="flex items-center gap-1.5">
+          <Video className="size-4 shrink-0" /> Speech
+        </span>
+      ),
+      href: "/speech",
       public: true,
     },
     {

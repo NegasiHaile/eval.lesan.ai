@@ -1,0 +1,121 @@
+{
+  "batch_name": "EthiopianInterviews-Pilot-2026Q2",
+  "dataset_name": "EthiopianInterviews-Pilot-2026Q2",
+  "dataset_domain": "Interviews",
+  "language": {
+    "iso_name": "Amharic",
+    "iso_639_1": "am",
+    "iso_639_3": "amh"
+  },
+  "tag_schema": {
+    "recording_level": [
+      {
+        "key": "topic",
+        "label": "Topic",
+        "options": ["Politics", "Health", "Sport", "Culture", "Tech", "Business", "Education", "Other"],
+        "required": true
+      },
+      {
+        "key": "setting",
+        "label": "Setting",
+        "options": ["studio", "phone", "field", "panel"],
+        "required": true
+      },
+      {
+        "key": "register",
+        "label": "Register",
+        "options": ["formal", "casual", "mixed"]
+      }
+    ],
+    "segment_level": [
+      {
+        "key": "speaker_role",
+        "label": "Speaker role",
+        "options": ["host", "guest", "caller", "narrator"],
+        "required": true
+      },
+      {
+        "key": "gender",
+        "label": "Gender",
+        "options": ["male", "female", "unknown"],
+        "required": true
+      },
+      {
+        "key": "dialect",
+        "label": "Dialect",
+        "options": ["Gondar", "Wello", "Showa", "Gojjam", "Other"]
+      },
+      {
+        "key": "audio_quality",
+        "label": "Audio quality issues",
+        "options": ["clipping", "background_noise", "echo", "music_overlap", "crosstalk"],
+        "multi": true
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "id": "interview-001",
+      "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "recording_tags": {},
+      "segments": [
+        {
+          "id": "001-s1",
+          "audio_url": "https://storage.example.com/horn-speech/001/seg-01.wav",
+          "transcript": "እንኳን ደህና መጡ። ዛሬ የምናወራው ስለ ጤና አጠባበቅ ነው።",
+          "start_time": 4.2,
+          "tags": {}
+        },
+        {
+          "id": "001-s2",
+          "audio_url": "https://storage.example.com/horn-speech/001/seg-02.wav",
+          "transcript": "አመሰግናለሁ። እኔ የጤና ባለሙያ ነኝ እና ስለ መከላከያ መድሃኒቶች እናገራለሁ።",
+          "start_time": 18.7,
+          "tags": {}
+        },
+        {
+          "id": "001-s3",
+          "audio_url": "https://storage.example.com/horn-speech/001/seg-03.wav",
+          "transcript": "የመጀመሪያው ምክር በቂ ውሃ መጠጣት ነው።",
+          "start_time": 53.0,
+          "tags": {}
+        },
+        {
+          "id": "001-s4",
+          "audio_url": "https://storage.example.com/horn-speech/001/seg-04.wav",
+          "transcript": "ይህን አስተያየት ስላካፈሉን አመሰግናለሁ።",
+          "start_time": 142.5,
+          "tags": {}
+        }
+      ]
+    },
+    {
+      "id": "interview-002",
+      "video_url": "https://cdn.example.com/horn-speech/002/full.mp4",
+      "recording_tags": {},
+      "segments": [
+        {
+          "id": "002-s1",
+          "audio_url": "https://storage.example.com/horn-speech/002/seg-01.wav",
+          "transcript": "ዛሬ የምናስተናግደው እንግዳ ታዋቂ የእግር ኳስ ተጫዋች ነው።",
+          "start_time": 2.0,
+          "tags": {}
+        },
+        {
+          "id": "002-s2",
+          "audio_url": "https://storage.example.com/horn-speech/002/seg-02.wav",
+          "transcript": "በቅድሚያ ስለ ስልጠና ስርዓትዎ ይንገሩን።",
+          "start_time": 22.4,
+          "tags": {}
+        },
+        {
+          "id": "002-s3",
+          "audio_url": "https://storage.example.com/horn-speech/002/seg-03.wav",
+          "transcript": "በየቀኑ ጠዋት ሁለት ሰዓት እለማመዳለሁ።",
+          "start_time": 40.1,
+          "tags": {}
+        }
+      ]
+    }
+  ]
+}
