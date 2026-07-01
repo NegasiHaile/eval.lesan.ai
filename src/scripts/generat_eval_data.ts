@@ -125,3 +125,25 @@ export function generate_realtime_asr_batch(
     ],
   };
 }
+
+export function generate_realtime_tts_batch(
+  models: number,
+  dataset_name: string,
+  language: string
+) {
+  return {
+    batch_id: "",
+    dataset_name: dataset_name,
+    dataset_domain: "",
+    batch_name: dataset_name,
+    language: findLanguage(language ?? "eng"),
+    tasks: [
+      {
+        id: "",
+        input: "",
+        models: defaultOutputs.slice(0, models),
+        reference: "",
+      },
+    ],
+  };
+}

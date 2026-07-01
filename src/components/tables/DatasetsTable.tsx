@@ -445,6 +445,9 @@ export default function DatasetsTable({
       } else if (batch_detail.dataset_type === "speech") {
         const sp_actv_batch = JSON.parse(localStorage.getItem("speech_active_batch") || "{}");
         if (sp_actv_batch?.batch_id === batch_id) localStorage.removeItem("speech_active_batch");
+      } else if (batch_detail.dataset_type === "tts") {
+        const tts_actv_batch = JSON.parse(localStorage.getItem("tts_active_batch") || "{}");
+        if (tts_actv_batch?.batch_id === batch_id) localStorage.removeItem("tts_active_batch");
       }
       return true;
     },

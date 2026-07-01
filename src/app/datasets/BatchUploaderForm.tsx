@@ -389,7 +389,9 @@ const BatchUploaderForm = ({
           Create <span className="uppercase font-bold">{activeTab.name}</span>{" "}
           task
         </p>
-        {(activeTab.value === "mt" || activeTab.value === "asr") && (
+        {(activeTab.value === "mt" ||
+          activeTab.value === "asr" ||
+          activeTab.value === "tts") && (
           <Button
             size="sm"
             className="!w-fit !font-mono"
@@ -412,10 +414,12 @@ const BatchUploaderForm = ({
       </div>
 
       {showGuidelines &&
-      (activeTab.value === "mt" || activeTab.value === "asr") ? (
+      (activeTab.value === "mt" ||
+        activeTab.value === "asr" ||
+        activeTab.value === "tts") ? (
         <div style={{ maxHeight: "70vh" }} className="overflow-y-auto">
           <DatasetUploadGuidelines
-            activeTab={activeTab.value.toUpperCase() as "MT" | "ASR"}
+            activeTab={activeTab.value.toUpperCase() as "MT" | "ASR" | "TTS"}
           />
         </div>
       ) : (

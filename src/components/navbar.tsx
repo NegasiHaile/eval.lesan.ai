@@ -22,6 +22,7 @@ import {
   User,
   Users,
   Video,
+  Volume2,
   X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -97,6 +98,16 @@ const NavBar = () => {
         </span>
       ),
       href: "/speech",
+      public: true,
+    },
+    {
+      id: 7,
+      title: (
+        <span className="flex items-center gap-1.5">
+          <Volume2 className="size-4 shrink-0" /> TTS
+        </span>
+      ),
+      href: "/tts",
       public: true,
     },
     {

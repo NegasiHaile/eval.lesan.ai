@@ -11,7 +11,7 @@ import TabButton from "@/components/utils/TabButton";
 import { evalTypes } from "@/constants/others";
 import { EvalTypeTypes } from "@/types/others";
 
-import { ChevronDown, Info, Languages, Loader2, Link2, Mic, Plus, RefreshCw, Trash2, Download, UserPen, Video, X } from "lucide-react";
+import { ChevronDown, Info, Languages, Loader2, Link2, Mic, Plus, RefreshCw, Trash2, Download, UserPen, Video, Volume2, X } from "lucide-react";
 import BatchUploaderForm from "./BatchUploaderForm";
 import Modal from "@/components/utils/Modal";
 import Button from "@/components/utils/Button";
@@ -503,6 +503,8 @@ const Datasets = () => {
                   <Mic className="size-6 shrink-0" />
                 ) : activeTab.value === "speech" ? (
                   <Video className="size-6 shrink-0" />
+                ) : activeTab.value === "tts" ? (
+                  <Volume2 className="size-6 shrink-0" />
                 ) : null}
                 {activeTab.full_name || "Datasets"}
               </h1>

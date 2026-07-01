@@ -164,34 +164,27 @@ export const TEMPLATES = {
       },
     ],
   },
-  //   TTS: {
-  //     JSON: `{
-  //   "tasks": [
-  // {
-  //       "id": "1",
-  //       "input": "ሓላፊ ፈደራላዊ ማዕከን ዳላስ ዝዀነ ሮበርት ካፕላን ፡ ትሑት ምትእስሳር ፡ ኣብ ቊጠባ ሕቡራት መንግስትታት ኣመሪካ ሃሳዪ ዕቤት ከም ዝህሉ እዩ ዝሕብር ።",
-  //       "models": [
-  //         {
-  //           "output": "path/to/the/output/audio_a.mp3",
-  //           "model": "A",
-  //           "rate": 0,
-  //           "rank": 0
-  //         },
-  //         {
-  //           "output": "path/to/the/output/audio_b.mp3",
-  //           "model": "B",
-  //           "rate": 0,
-  //           "rank": 0
-  //         }
-  //       ]
-  //     }
-  //   ]
-  // }`,
-  //     CSV: `id,text,audio_filepath
-  // 1,"Hello, how are you?","path/to/generated_audio1.wav"`,
-  //     TSV: `id\ttext\taudio_filepath
-  // 1\tHello, how are you?\tpath/to/generated_audio1.wav`,
-  //     Excel: `id | text                | audio_filepath
-  // 1  | Hello, how are you?  | path/to/generated_audio1.wav`,
-  //   },
+  TTS: {
+    tasks: [
+      {
+        id: "1",
+        input:
+          "We believe every human should be able to consume the web's content in their native language.",
+        models: [
+          {
+            output: "/datasets/sample-tts01-model-A.mp3",
+            model: "A",
+            rate: 0,
+            rank: 0,
+          },
+          {
+            output: "/datasets/sample-tts-01-model-B.mp3",
+            model: "B",
+            rate: 0,
+            rank: 0,
+          },
+        ],
+      },
+    ],
+  },
 };
