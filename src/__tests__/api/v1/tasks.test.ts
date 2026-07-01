@@ -172,5 +172,41 @@ describe("Tasks", () => {
       const body = await json(res);
       expect(body.data.message).toBe("Reviewer comment updated.");
     });
+
+    it("ignores reviewer_comment supplied by a non-reviewer annotator", async () => {
+      const db = await getDb();
+      await db.collection("batches_details").updateOne(
+        { batch_id: "batch-001" },
+        { $set: { annotator_id: "annotator@example.com", qa_id: "reviewer@example.com" } }
+      );
+      mockCaller(CALLERS.annotator);
+
+      const req = makeJsonRequest("/api/v1/batches/batch-001/tasks/1", "PATCH", {
+        models: [
+          { model: "A", rate: 5, rank: 1 },
+          { model: "B", rate: 3, rank: 2 },
+        ],
+        reviewer_comment: "sneaking this in",
+      });
+      const res = await PatchTask(req, taskParams("batch-001", "1"));
+      expect(res.status).toBe(200);
+
+      const batch = await db.collection("mt_batches").findOne({ batch_id: "batch-001" });
+      const task = batch!.tasks.find((t: { id: string }) => t.id === "1");
+      expect(task.reviewer_comment).toBeUndefined();
+    });
+
+    it("rejects a reviewer PATCH that omits reviewer_comment", async () => {
+      const db = await getDb();
+      await db.collection("batches_details").updateOne(
+        { batch_id: "batch-001" },
+        { $set: { qa_id: "reviewer@example.com" } }
+      );
+      mockCaller(CALLERS.reviewer);
+
+      const req = makeJsonRequest("/api/v1/batches/batch-001/tasks/1", "PATCH", {});
+      const res = await PatchTask(req, taskParams("batch-001", "1"));
+      expect(res.status).toBe(400);
+    });
   });
 });

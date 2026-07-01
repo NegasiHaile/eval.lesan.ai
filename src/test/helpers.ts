@@ -12,7 +12,7 @@ export function makeRequest(
   options?: RequestInit & { headers?: Record<string, string> }
 ): NextRequest {
   const fullUrl = url.startsWith("http") ? url : `http://localhost:3000${url}`;
-  return new NextRequest(fullUrl, options);
+  return new NextRequest(fullUrl, options as ConstructorParameters<typeof NextRequest>[1]);
 }
 
 export function makeJsonRequest(

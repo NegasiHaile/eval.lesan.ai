@@ -82,6 +82,64 @@ describe("Batches", () => {
     });
   });
 
+  describe("GET /api/v1/batches — status filter", () => {
+    beforeEach(async () => {
+      const db = await getDb();
+      await db.collection("batches_details").insertMany([
+        makeMtBatchDetail({ batch_id: "pending-1", annotator_id: null, annotated_tasks: 0, number_of_tasks: 2, created_at: "2024-01-05T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "assigned-1", annotator_id: "a@x.com", annotated_tasks: 0, number_of_tasks: 2, created_at: "2024-01-04T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "inprog-1", annotator_id: "a@x.com", annotated_tasks: 1, number_of_tasks: 2, created_at: "2024-01-03T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "annotated-1", annotator_id: "a@x.com", qa_id: null, annotated_tasks: 2, number_of_tasks: 2, created_at: "2024-01-02T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "completed-1", annotator_id: "a@x.com", qa_id: "q@x.com", annotated_tasks: 2, number_of_tasks: 2, created_at: "2024-01-01T00:00:00Z" }),
+      ]);
+    });
+
+    it.each([
+      ["pending", "pending-1"],
+      ["assigned", "assigned-1"],
+      ["in_progress", "inprog-1"],
+      ["annotated", "annotated-1"],
+      ["completed", "completed-1"],
+    ])("returns only %s batches with accurate total_count", async (status, expectedId) => {
+      const req = makeRequest(`/api/v1/batches?dataset_type=mt&status=${status}`);
+      const res = await GET(req);
+      const body = await json(res);
+      expect(body.data.data).toHaveLength(1);
+      expect(body.data.data[0].batch_id).toBe(expectedId);
+      expect(body.data.data[0].status).toBe(status);
+      expect(body.data.pagination.total_count).toBe(1);
+    });
+
+    it("keeps pagination accurate when a status filter spans multiple pages", async () => {
+      const db = await getDb();
+      // Three more in_progress batches → four in_progress in total.
+      await db.collection("batches_details").insertMany([
+        makeMtBatchDetail({ batch_id: "inprog-2", annotator_id: "a@x.com", annotated_tasks: 1, number_of_tasks: 2, created_at: "2024-02-03T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "inprog-3", annotator_id: "a@x.com", annotated_tasks: 1, number_of_tasks: 2, created_at: "2024-02-02T00:00:00Z" }),
+        makeMtBatchDetail({ batch_id: "inprog-4", annotator_id: "a@x.com", annotated_tasks: 1, number_of_tasks: 2, created_at: "2024-02-01T00:00:00Z" }),
+      ]);
+
+      const req = makeRequest("/api/v1/batches?dataset_type=mt&status=in_progress&limit=2");
+      const res = await GET(req);
+      const body = await json(res);
+      // A full page (not short-changed by post-filtering), with counts that
+      // reflect the filter rather than the unfiltered result set.
+      expect(body.data.data).toHaveLength(2);
+      expect(body.data.data.every((d: { status: string }) => d.status === "in_progress")).toBe(true);
+      expect(body.data.pagination.total_count).toBe(4);
+      expect(body.data.pagination.has_more).toBe(true);
+      expect(body.data.pagination.next_cursor).toBeTruthy();
+    });
+
+    it("returns no matches for an unknown status", async () => {
+      const req = makeRequest("/api/v1/batches?dataset_type=mt&status=bogus");
+      const res = await GET(req);
+      const body = await json(res);
+      expect(body.data.data).toHaveLength(0);
+      expect(body.data.pagination.total_count).toBe(0);
+    });
+  });
+
   describe("POST /api/v1/batches", () => {
     const validBatch = {
       dataset_type: "mt",
