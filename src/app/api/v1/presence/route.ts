@@ -7,7 +7,7 @@ import { apiSuccess } from "@/lib/api-errors";
 
 /** GET /api/v1/presence — Query annotator presence. */
 export async function GET(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "presence:read");
   if (caller instanceof Response) return caller;
 
   const usernamesParam = req.nextUrl.searchParams.get("usernames");

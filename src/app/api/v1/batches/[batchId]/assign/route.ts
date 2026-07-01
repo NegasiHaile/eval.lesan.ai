@@ -11,7 +11,7 @@ type RouteParams = { params: Promise<{ batchId: string }> };
 
 /** POST /api/v1/batches/{batchId}/assign — Assign annotator or reviewer. */
 export async function POST(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
 /** PUT /api/v1/batches/{batchId}/assign — Reassign (replace current assignee). */
 export async function PUT(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;
@@ -146,11 +146,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     { $set: { [field]: email } }
   );
 
-  return apiSuccess({
+  const reassignResult = {
     batch_id: batchId,
     role: assignRole,
     email,
     assigned_at: new Date().toISOString(),
     status: "reassigned",
-  });
+  };
+
+  emitWebhookEvent("batch.assigned", reassignResult);
+
+  return apiSuccess(reassignResult);
 }

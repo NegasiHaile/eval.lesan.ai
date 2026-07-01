@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ batchId: string }> };
 
 /** GET /api/v1/batches/{batchId}/tasks — Paginated task list. */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "tasks:read");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;

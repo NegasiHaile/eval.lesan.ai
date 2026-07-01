@@ -16,7 +16,7 @@ const VALID_EVENTS = [
 
 /** POST /api/v1/webhooks — Register a webhook. */
 export async function POST(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "webhooks:write");
   if (caller instanceof Response) return caller;
 
   let body: { url?: string; events?: string[]; secret?: string };
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
 /** GET /api/v1/webhooks — List own webhooks. */
 export async function GET(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "webhooks:read");
   if (caller instanceof Response) return caller;
 
   const client = await getClientPromise();

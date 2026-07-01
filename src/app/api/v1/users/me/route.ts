@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
   const client = await getClientPromise();
   const db = client.db();
 
-  const user = await db.collection("user").findOne({ email: caller.username });
+  const escaped = caller.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const user = await db
+    .collection("user")
+    .findOne({ email: { $regex: new RegExp(`^${escaped}$`, "i") } });
 
   return apiSuccess({
     email: caller.username,

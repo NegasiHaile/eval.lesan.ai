@@ -29,9 +29,44 @@ function computeStatus(detail: BatchDetailTypes): string {
   return "completed";
 }
 
+/**
+ * Mongo query fragment mirroring `computeStatus`, so status filtering happens
+ * in the database and stays consistent with pagination / total_count.
+ * Returns null for an unrecognized status.
+ */
+function statusConditions(status: string): Record<string, unknown> | null {
+  const annotated = { $toInt: { $ifNull: ["$annotated_tasks", 0] } };
+  const total = { $toInt: { $ifNull: ["$number_of_tasks", 0] } };
+  switch (status) {
+    case "pending":
+      return { annotator_id: null };
+    case "assigned":
+      return { annotator_id: { $ne: null }, $expr: { $eq: [annotated, 0] } };
+    case "in_progress":
+      return {
+        annotator_id: { $ne: null },
+        $expr: { $and: [{ $gt: [annotated, 0] }, { $lt: [annotated, total] }] },
+      };
+    case "annotated":
+      return {
+        annotator_id: { $ne: null },
+        qa_id: null,
+        $expr: { $and: [{ $gt: [annotated, 0] }, { $gte: [annotated, total] }] },
+      };
+    case "completed":
+      return {
+        annotator_id: { $ne: null },
+        qa_id: { $ne: null },
+        $expr: { $and: [{ $gt: [annotated, 0] }, { $gte: [annotated, total] }] },
+      };
+    default:
+      return null;
+  }
+}
+
 /** GET /api/v1/batches — List batches with pagination + filters. */
 export async function GET(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:read");
   if (caller instanceof Response) return caller;
 
   const sp = req.nextUrl.searchParams;
@@ -70,6 +105,14 @@ export async function GET(req: NextRequest) {
   if (annotatorFilter) query.annotator_id = annotatorFilter;
   if (qaFilter) query.qa_id = qaFilter;
 
+  // Status filter is pushed into the query (via $and, to avoid key collisions
+  // with the role/annotator/qa conditions above) so pagination + total_count
+  // stay accurate. An unknown status matches nothing.
+  if (statusFilter) {
+    const sc = statusConditions(statusFilter);
+    query.$and = [...((query.$and as object[]) ?? []), sc ?? { _id: null }];
+  }
+
   // Use created_at as cursor field
   if (cursor) {
     query.created_at = { $lt: cursor };
@@ -107,15 +150,10 @@ export async function GET(req: NextRequest) {
       status: computeStatus(d),
     }));
 
-  // Filter by computed status if requested
-  const filtered = statusFilter
-    ? data.filter((d) => d.status === statusFilter)
-    : data;
-
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;
 
   return apiSuccess({
-    data: filtered,
+    data,
     pagination: {
       next_cursor: nextCursor,
       has_more: hasMore,
@@ -126,7 +164,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/v1/batches — Create a new batch with tasks. */
 export async function POST(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   let body: Record<string, unknown>;

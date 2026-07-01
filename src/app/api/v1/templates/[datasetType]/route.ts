@@ -126,7 +126,7 @@ const schemas: Record<DatasetType, object> = {
 };
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "templates:read");
   if (caller instanceof Response) return caller;
 
   const { datasetType } = await params;

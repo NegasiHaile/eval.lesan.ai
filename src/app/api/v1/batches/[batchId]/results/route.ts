@@ -11,7 +11,7 @@ type RouteParams = { params: Promise<{ batchId: string }> };
 
 /** GET /api/v1/batches/{batchId}/results — Computed leaderboard. */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:read");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;

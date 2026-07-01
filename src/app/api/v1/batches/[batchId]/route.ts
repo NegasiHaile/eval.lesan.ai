@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ batchId: string }> };
 
 /** GET /api/v1/batches/{batchId} — Full batch with tasks. */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:read");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
 /** PATCH /api/v1/batches/{batchId} — Update batch metadata. */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;
@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
 /** DELETE /api/v1/batches/{batchId} — Delete batch + tasks. */
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   const { batchId } = await params;

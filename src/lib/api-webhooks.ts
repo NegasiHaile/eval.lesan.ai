@@ -60,12 +60,18 @@ async function deliverWebhook(
 }
 
 /**
- * Emit a webhook event to all registered listeners.
+ * Emit a webhook event to registered listeners.
+ *
+ * Delivery is scoped by authorization: a webhook only fires for a batch its
+ * owner is allowed to see (creator / annotator / reviewer), plus root users
+ * who may observe any event. This prevents a listener from harvesting events
+ * (batch ids, names, task ids) for batches belonging to other users.
+ *
  * Non-blocking — errors are swallowed silently.
  */
 export async function emitWebhookEvent(
   event: WebhookEvent,
-  payload: object
+  payload: { batch_id?: string } & Record<string, unknown>
 ): Promise<void> {
   try {
     const client = await getClientPromise();
@@ -76,8 +82,38 @@ export async function emitWebhookEvent(
       .find({ active: true, events: event })
       .toArray();
 
-    // Fire and forget all deliveries
+    if (webhooks.length === 0) return;
+
+    // Emails authorized to receive events for this batch. `null` means the
+    // event carries no batch context, so no per-batch restriction applies.
+    let authorized: Set<string> | null = null;
+    if (payload.batch_id) {
+      const detail = await db
+        .collection("batches_details")
+        .findOne({ batch_id: payload.batch_id });
+      authorized = new Set(
+        [detail?.created_by, detail?.annotator_id, detail?.qa_id]
+          .filter((e): e is string => typeof e === "string")
+          .map((e) => e.toLowerCase())
+      );
+    }
+
+    // Root owners may receive any event regardless of batch ownership.
+    const owners = [...new Set(webhooks.map((w) => w.owner_email))];
+    const rootDocs = await db
+      .collection("user")
+      .find({ email: { $in: owners }, role: "root" })
+      .project({ email: 1 })
+      .toArray();
+    const roots = new Set(
+      rootDocs.map((u) => (u.email as string).toLowerCase())
+    );
+
+    // Fire and forget authorized deliveries
     for (const wh of webhooks) {
+      const owner = wh.owner_email.toLowerCase();
+      const allowed = roots.has(owner) || (authorized ? authorized.has(owner) : true);
+      if (!allowed) continue;
       deliverWebhook(wh.url, event, payload, wh.secret).catch(() => {});
     }
   } catch {

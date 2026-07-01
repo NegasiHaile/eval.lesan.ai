@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ webhookId: string }> };
 
 /** DELETE /api/v1/webhooks/{webhookId} — Remove a webhook. */
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "webhooks:write");
   if (caller instanceof Response) return caller;
 
   const { webhookId } = await params;

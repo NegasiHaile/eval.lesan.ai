@@ -7,7 +7,7 @@ import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-errors";
 
 /** GET /api/v1/users — List all users (root only). */
 export async function GET(req: NextRequest) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "users:read");
   if (caller instanceof Response) return caller;
 
   if (caller.role.toLowerCase() !== "root") {

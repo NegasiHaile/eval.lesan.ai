@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ batchId: string; role: string }> };
 
 /** DELETE /api/v1/batches/{batchId}/assign/{role} — Unassign annotator or reviewer. */
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "batches:write");
   if (caller instanceof Response) return caller;
 
   const { batchId, role: assignRole } = await params;

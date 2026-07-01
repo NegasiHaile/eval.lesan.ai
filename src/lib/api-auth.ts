@@ -18,10 +18,27 @@ function hashKey(key: string): string {
 /**
  * Resolve the caller from the request.
  * Returns an ApiCaller on success, or a NextResponse (error) on failure.
+ *
+ * When `requiredScope` is provided, API-key callers must carry that scope
+ * (or "*"); session callers always pass. This is how per-route scope
+ * enforcement is wired in — pass the scope the endpoint needs.
  */
 export async function resolveApiCaller(
-  req: Request
+  req: Request,
+  requiredScope?: string
 ): Promise<ApiCaller | Response> {
+  const caller = await resolveCaller(req);
+  if (caller instanceof Response) return caller;
+
+  if (requiredScope) {
+    const scopeError = requireApiScope(caller, requiredScope);
+    if (scopeError) return scopeError;
+  }
+
+  return caller;
+}
+
+async function resolveCaller(req: Request): Promise<ApiCaller | Response> {
   const authHeader = req.headers.get("authorization");
 
   // Try API key auth
@@ -75,6 +92,18 @@ async function resolveFromApiKey(token: string): Promise<ApiCaller | Response> {
     );
   }
 
+  // Resolve the owner's *current* state — never trust the role snapshotted at
+  // key-creation time. A demoted or deactivated owner must lose access
+  // immediately, even through pre-existing keys.
+  const owner = await db.collection("user").findOne({ email: record.owner_email });
+  if (!owner || owner.active === false) {
+    return apiError(
+      ErrorCodes.UNAUTHORIZED,
+      "API key owner is inactive or no longer exists.",
+      401
+    );
+  }
+
   // Update last_used_at (fire and forget)
   db.collection("api_keys")
     .updateOne({ key_hash: hash }, { $set: { last_used_at: new Date().toISOString() } })
@@ -82,7 +111,7 @@ async function resolveFromApiKey(token: string): Promise<ApiCaller | Response> {
 
   return {
     username: record.owner_email,
-    role: record.role,
+    role: (owner.role as string) ?? "user",
     source: "api_key",
     scopes: record.scopes,
   };

@@ -12,7 +12,7 @@ type RouteParams = { params: Promise<{ batchId: string; taskId: string }> };
 
 /** GET /api/v1/batches/{batchId}/tasks/{taskId} — Single task. */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "tasks:read");
   if (caller instanceof Response) return caller;
 
   const { batchId, taskId } = await params;
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
 /** PATCH /api/v1/batches/{batchId}/tasks/{taskId} — Submit evaluation or reviewer comment. */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "tasks:write");
   if (caller instanceof Response) return caller;
 
   const { batchId, taskId } = await params;
@@ -116,9 +116,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   // Reviewer-only: only update reviewer_comment
   if (isReviewer && !isRoot && !isCreator && !isAnnotator) {
+    if (body.reviewer_comment === undefined) {
+      return apiError(ErrorCodes.VALIDATION_FAILED, "'reviewer_comment' is required.", 400);
+    }
     const result = await db.collection(`${datasetType}_batches`).updateOne(
       { batch_id: batchId, ...taskIdMatch },
-      { $set: { "tasks.$.reviewer_comment": (body.reviewer_comment as string) ?? "" } }
+      { $set: { "tasks.$.reviewer_comment": body.reviewer_comment as string } }
     );
     if (result.matchedCount === 0) {
       return apiError(ErrorCodes.NOT_FOUND, `Task '${taskId}' not found.`, 404);
@@ -153,16 +156,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return apiError(code, validation.message ?? "Validation failed.", 400, validation.errorTitles);
   }
 
-  // Build update fields
-  const updateFields: Record<string, unknown> = {};
-  for (const m of models) {
-    // We'll build the full task update below
-    updateFields[`tasks.$.models`] = models.map((m) => ({
-      ...m,
-      output: m.model, // placeholder — we preserve existing output via different approach
-    }));
-  }
-
   // Fetch the current task to merge
   const batchDoc = await db.collection(`${datasetType}_batches`).findOne(
     { batch_id: batchId, ...taskIdMatch },
@@ -194,7 +187,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   if (body.started_at !== undefined) updatedTask.started_at = body.started_at;
   if (body.completed_at !== undefined) updatedTask.completed_at = body.completed_at;
   if (body.active_duration_ms !== undefined) updatedTask.active_duration_ms = body.active_duration_ms;
-  if (body.reviewer_comment !== undefined) updatedTask.reviewer_comment = body.reviewer_comment;
+  // reviewer_comment is reviewer/root territory — annotators must not set it
+  // through the evaluation path.
+  if (body.reviewer_comment !== undefined && (isReviewer || isRoot)) {
+    updatedTask.reviewer_comment = body.reviewer_comment;
+  }
 
   const result = await db.collection(`${datasetType}_batches`).updateOne(
     { batch_id: batchId, ...taskIdMatch },

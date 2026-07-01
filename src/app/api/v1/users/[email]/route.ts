@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ email: string }> };
 
 /** PATCH /api/v1/users/{email} — Update role/active status (root only). */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const caller = await resolveApiCaller(req);
+  const caller = await resolveApiCaller(req, "users:write");
   if (caller instanceof Response) return caller;
 
   if (caller.role.toLowerCase() !== "root") {
