@@ -63,7 +63,7 @@ export async function PATCH(
       }
     );
 
-    if (result.modifiedCount === 0) {
+    if (result.matchedCount === 0) {
       return NextResponse.json(
         { message: "Task not found or not updated" },
         { status: 404 }

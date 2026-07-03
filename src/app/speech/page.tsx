@@ -511,7 +511,6 @@ export default function SpeechPage() {
                   <AudioCard
                     type="input"
                     input_url={segment.audio_url}
-                    nodownload
                   />
 
                   <div>

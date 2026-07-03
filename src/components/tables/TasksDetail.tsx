@@ -1,5 +1,6 @@
 import { calculateLeaderboard } from "@/helpers/batch_leaderboard_calculator";
 import CopyText from "@/components/utils/CopyText";
+import { audioPlaybackSrc } from "@/helpers/audio_playback_url";
 import { ASRBatchTasksTypes, BatchTasksTypes } from "@/types/data";
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -27,6 +28,17 @@ const TasksDetail = ({ data }: PropsTypes) => {
 
   const truncate = (text: string, len = 30) =>
     text.length > len ? text.slice(0, len) + "..." : text;
+
+  const isPlayableAudioReference = (reference?: string) => {
+    if (!reference?.trim()) return false;
+    const ref = reference.trim();
+    return (
+      ref.startsWith("http://") ||
+      ref.startsWith("https://") ||
+      ref.startsWith("/") ||
+      !ref.includes(" ")
+    );
+  };
 
   /** Input column: truncate long URLs so they don’t overflow; use longer length for URL display. */
   const inputTruncateLen = 56;
@@ -279,7 +291,22 @@ const TasksDetail = ({ data }: PropsTypes) => {
                 })}
 
                 <td className="p-2 border align-top max-w-sm border-neutral-300 dark:border-neutral-800">
-                  {isExpanded ? task.reference : truncate(task.reference || "")}
+                  {isPlayableAudioReference(task.reference) ? (
+                    <audio
+                      key={`${task.id}-reference`}
+                      controls
+                      controlsList="nodownload"
+                      src={audioPlaybackSrc(task.reference)}
+                      className="w-full max-w-full h-9 rounded min-w-[200px]"
+                      title="Reference audio"
+                    >
+                      Your browser does not support the audio element.
+                    </audio>
+                  ) : isExpanded ? (
+                    task.reference
+                  ) : (
+                    truncate(task.reference || "")
+                  )}
                 </td>
 
                 <td className="p-2 border align-top border-neutral-300 dark:border-neutral-800">

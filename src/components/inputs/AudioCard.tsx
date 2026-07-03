@@ -1,15 +1,19 @@
 "use client";
 import { EvalOutputTypes, guidelineTypes } from "@/types/data";
 import { TaskEvalErrorTypes } from "@/types/others";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import Button from "../utils/Button";
 import Modal from "../utils/Modal";
 import Tooltip from "../utils/Tooltip";
+import AudioPlayer from "./AudioPlayer";
 import { tausRating } from "@/constants/others";
+import { audioPlaybackSrc } from "@/helpers/audio_playback_url";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Mic,
+  RotateCcw,
   Square,
 } from "lucide-react";
 
@@ -29,8 +33,9 @@ interface AudioCardProps {
   input_url?: string;
   loading?: boolean;
   className?: string;
+  /** When true (default), hides download on the audio controls. */
   nodownload?: boolean;
-  onUpload?: () => void;
+  onUpload?: (blob: Blob) => void | Promise<void>;
   uploadButtonText?: string;
   variant?: "default" | "primary";
   onClickRankUp?: () => void;
@@ -42,6 +47,15 @@ interface AudioCardProps {
   rating_guideline?: guidelineTypes[];
 }
 
+const recordButtonClass =
+  "relative p-3 rounded-full text-red-500 hover:text-red-700 bg-neutral-100/80 hover:bg-red-400/20 dark:bg-neutral-900 transition duration-200 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+
+const stopButtonClass =
+  "relative bg-red-500 isolate p-3 rounded-full hover:bg-red-400 shadow-md transition duration-200 group cursor-pointer";
+
+const againButtonClass =
+  "relative p-3 rounded-full text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white bg-neutral-100/80 hover:bg-neutral-200/80 dark:bg-neutral-900 dark:hover:bg-neutral-800 transition duration-200 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+
 const AudioCard: React.FC<AudioCardProps> = ({
   index,
   type,
@@ -49,7 +63,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
   input_url = null,
   loading = false,
   className,
-  nodownload,
+  nodownload = true,
   onUpload,
   uploadButtonText = "Upload",
   variant = "default",
@@ -73,62 +87,138 @@ const AudioCard: React.FC<AudioCardProps> = ({
           .replace(/\bthe source\b/gi, "the input text")
           .replace(/\bsource\b/gi, "input text")
       : desc;
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const url = type === "input" ? input_url : task?.output;
 
-  // console.log("input:", input_url);
+  const {
+    recording,
+    draftUrl,
+    hasDraft,
+    recordedBlobRef,
+    startRecording,
+    stopRecording,
+    clearDraft,
+  } = useAudioRecorder();
 
-  const [recording, setRecording] = useState(false);
-  const [audioURL, setAudioURL] = useState<string | undefined>(undefined);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const startRecording = async () => {
-    setAudioURL(undefined);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const isReferenceRecorder = type === "input" && Boolean(onUpload);
+  const hasSavedReference = Boolean(input_url?.trim());
+  const canRecord = !input_url || isReferenceRecorder;
 
-      audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+  const outputPlaybackSrc =
+    type === "output" && task?.output
+      ? audioPlaybackSrc(task.output)
+      : undefined;
+  const savedPlaybackSrc =
+    type === "input" && input_url ? audioPlaybackSrc(input_url) : undefined;
 
-      mediaRecorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioURL(url);
-      };
-
-      mediaRecorder.start();
-      setRecording(true);
-    } catch (error) {
-      console.error("Microphone access error:", error);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
-  };
+  const playerSrc = (() => {
+    if (type === "output") return outputPlaybackSrc;
+    if (hasDraft) return draftUrl;
+    if (hasSavedReference && !recording) return savedPlaybackSrc;
+    return undefined;
+  })();
 
   const handleUpload = async () => {
-    if (!audioURL && !onUpload) return;
-    if (onUpload) {
-      onUpload();
-      return;
+    const blob = recordedBlobRef.current;
+    if (!onUpload || !blob) return;
+
+    try {
+      await onUpload(blob);
+      clearDraft();
+    } catch {
+      clearDraft();
     }
-    setAudioURL(undefined);
-    setNotice(
-      "Realtime transcription is coming soon, for now this is only for dataset evaluation!"
+  };
+
+  const renderInputActions = () => {
+    if (type !== "input" || readOnly || !canRecord) return null;
+
+    if (recording) {
+      return (
+        <button
+          type="button"
+          onClick={stopRecording}
+          className={stopButtonClass}
+          title="Stop recording"
+          aria-label="Stop recording"
+        >
+          <span
+            className="absolute inset-0 rounded-full animate-ping bg-red-500/80 group-hover:bg-red-500/20"
+            aria-hidden
+          />
+          <Square className="size-6 text-white relative" />
+        </button>
+      );
+    }
+
+    if (isReferenceRecorder && (hasSavedReference || hasDraft)) {
+      return (
+        <button
+          type="button"
+          onClick={() => void startRecording()}
+          className={againButtonClass}
+          title="Record again"
+          aria-label="Record again"
+          disabled={loading}
+        >
+          <RotateCcw className="size-6" />
+        </button>
+      );
+    }
+
+    if (!hasSavedReference && !hasDraft) {
+      return (
+        <button
+          type="button"
+          onClick={() => void startRecording()}
+          className={recordButtonClass}
+          title="Start recording"
+          aria-label="Start recording"
+          disabled={loading}
+        >
+          <Mic className="size-6" />
+        </button>
+      );
+    }
+
+    return null;
+  };
+
+  const renderInputFooter = () => {
+    if (type !== "input" || !onUpload || !hasDraft || recording) return null;
+
+    return (
+      <Button
+        type="button"
+        text={loading ? "Uploading…" : uploadButtonText}
+        variant="secondary"
+        outline
+        size="sm"
+        onClick={() => void handleUpload()}
+        loading={loading}
+        disabled={loading}
+      />
+    );
+  };
+
+  const renderLegacyTranscribeFooter = () => {
+    if (type !== "input" || onUpload || !hasDraft || input_url) return null;
+
+    return (
+      <Button
+        type="button"
+        text={loading ? "Transcribing" : "Transcribe"}
+        variant="secondary"
+        outline
+        size="sm"
+        onClick={() => {
+          clearDraft();
+          setNotice(
+            "Realtime transcription is coming soon, for now this is only for dataset evaluation!"
+          );
+        }}
+        loading={loading}
+      />
     );
   };
 
@@ -142,10 +232,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
   return (
     <div className={`w-full flex flex-col ${className}`}>
       <div
-        key={index}
         className={`w-full ${cardSurfaceClass} shadow-md rounded-lg ${
-          type === "input" ? "py-8" : ""
-        } ${
           hasEvalControls &&
           error &&
           task &&
@@ -154,66 +241,24 @@ const AudioCard: React.FC<AudioCardProps> = ({
             : ""
         }`}
       >
-        <div className="w-full p-2 flex space-x-2 items-center">
-          {url ? (
-            <audio
-              key={url}
-              controls
-              controlsList={nodownload ? "nodownload" : ""}
-              src={url ?? undefined}
-              className="w-full px-1 py-1 h-16 rounded-full"
-              title="Reader"
-            >
-              {/* <source src={audioURL ?? undefined} /> */}
-              Your browser does not support the audio element.
-            </audio>
-          ) : (
-            <audio
-              key={audioURL}
-              controls
-              // controlsList={nodownload ? "nodownload" : ""}
-              src={audioURL ?? undefined}
-              className="w-full px-1 py-1 h-16 rounded-full"
-              title="Recorder"
-            >
-              {/* <source src={audioURL ?? undefined} /> */}
-              Your browser does not support the audio element.
-            </audio>
-          )}
-
-          {type === "input" && !input_url && (
-            <>
-              {!recording ? (
-                <button
-                  onClick={startRecording}
-                  className="relative p-3 rounded-full text-red-500 hover:text-red-700 bg-neutral-100/80 hover:bg-red-400/20 dark:bg-neutral-900 transition duration-500 shadow-md cursor-pointer"
-                  title="Start Recording"
-                >
-                  {/* Pulse ring effect */}
-
-                  {/* Microphone Icon */}
-                  <Mic className="size-6" />
-                </button>
-              ) : (
-                <button
-                  onClick={stopRecording}
-                  className="relative bg-red-500 isolate p-3 rounded-full hover:bg-red-400 shadow-md  transition hover:scale-100 duration-200 group cursor-pointer"
-                  title="Stop Recording"
-                >
-                  <span
-                    className="absolute inset-0 rounded-full animate-ping bg-red-500/80 group-hover:bg-red-500/20"
-                    aria-hidden="true"
-                  ></span>
-                  {/* Stop Icon (circle with square) */}
-                  <Square className="size-6 text-white" />
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        {type === "input" ? (
+          <AudioPlayer
+            src={playerSrc}
+            nodownload={nodownload}
+            title={hasDraft ? "New recording" : "Reference audio"}
+            actions={renderInputActions()}
+            footer={renderInputFooter() ?? renderLegacyTranscribeFooter()}
+          />
+        ) : (
+          <AudioPlayer
+            src={playerSrc}
+            nodownload={nodownload}
+            title="Model output"
+          />
+        )}
 
         {type === "output" && task && (
-          <div className="flex flex-wrap gap-2 pr-4 pb-2 items-center justify-between">
+          <div className="flex flex-wrap gap-2 px-2 pr-4 pb-2 items-center justify-between">
             <div className="w-fit flex space-x-1 items-center p-2 bg-neutral-100 dark:bg-neutral-900/80 rounded-bl-md rounded-tr-xl">
               🎙️
               <p className="font-mono text-sm">
@@ -228,9 +273,11 @@ const AudioCard: React.FC<AudioCardProps> = ({
                   <div className="flex items-center space-x-2 mx-2">
                     {(index ?? 0) > 0 && task.output && onClickRankUp && (
                       <button
+                        type="button"
                         id="up_arrow"
                         onClick={onClickRankUp}
                         className="cursor-pointer opacity-80 hover:opacity-50 group"
+                        aria-label="Move up"
                       >
                         <ArrowUpFromLine
                           strokeWidth={1.5}
@@ -240,9 +287,11 @@ const AudioCard: React.FC<AudioCardProps> = ({
                     )}
                     {!isLastItem && task.output && onClickRankDown && (
                       <button
+                        type="button"
                         id="down_arrow"
                         onClick={onClickRankDown}
                         className="cursor-pointer opacity-80 hover:opacity-50 group"
+                        aria-label="Move down"
                       >
                         <ArrowDownToLine
                           strokeWidth={1.5}
@@ -269,6 +318,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                     }
                   >
                     <button
+                      type="button"
                       className={`flex items-center ${
                         readOnly
                           ? "opacity-70 cursor-not-allowed"
@@ -282,6 +332,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
                         onClickRate(index ?? 0, item?.scale)
                       }
                       disabled={readOnly || !task.output}
+                      aria-label={`Rate ${item?.scale}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -320,29 +371,6 @@ const AudioCard: React.FC<AudioCardProps> = ({
           </div>
         )}
       </div>
-
-      {type === "input" && audioURL && !!!input_url && (
-        <div className="w-full flex justify-end items-center">
-          <div className="mt-2 w-fit items-end">
-            <Button
-              type="button"
-              text={
-                loading
-                  ? onUpload
-                    ? "Uploading"
-                    : "Transcribing"
-                  : onUpload
-                    ? uploadButtonText
-                    : "Transcribe"
-              }
-              variant="secondary"
-              outline={true}
-              onClick={handleUpload}
-              loading={loading}
-            />
-          </div>
-        </div>
-      )}
 
       <Modal
         isOpen={!!notice}

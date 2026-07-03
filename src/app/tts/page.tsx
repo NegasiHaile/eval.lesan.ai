@@ -21,6 +21,8 @@ import { ttsRealtimeBatch, ttsBatchTemplate } from "@/constants/initial_values";
 import { generate_realtime_tts_batch } from "@/scripts/generat_eval_data";
 import { ttsModels } from "@/constants/models";
 import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
+import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
+import { normalizeAudioContentType } from "@/constants/transcription";
 import {
   ASRBatchTasksTypes,
   BatchDetailTypes,
@@ -28,12 +30,6 @@ import {
 } from "@/types/data";
 import { TaskEvalErrorTypes } from "@/types/others";
 import { Minus, Plus } from "lucide-react";
-
-/** Stub until reference audio upload is implemented server-side. */
-async function uploadReferenceAudio(): Promise<string> {
-  alert("audio uploaded successfully");
-  return "/datasets/sample-tts01-model-A.mp3";
-}
 
 export default function TTSPage() {
   const { user } = useUser();
@@ -56,7 +52,6 @@ export default function TTSPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showReference, setShowReference] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
-  const [isRecordingNewReference, setIsRecordingNewReference] = useState(false);
 
   const {
     isReviewerMode,
@@ -85,9 +80,6 @@ export default function TTSPage() {
   const IsRealtime = () =>
     selectedBatchDetail?.batch_name?.toLowerCase().includes("realtime");
 
-  const hasSavedReference =
-    Boolean(evalTask?.reference?.trim()) && !isRecordingNewReference;
-
   const handleResetEvalTask = (num_models: number) => {
     const rtBatch: ASRBatchTasksTypes = generate_realtime_tts_batch(
       num_models,
@@ -96,7 +88,6 @@ export default function TTSPage() {
     );
     setEvalTask({ ...rtBatch.tasks[0] });
     setBatchTasks([...rtBatch.tasks]);
-    setIsRecordingNewReference(false);
   };
 
   const RankOutput = (fromIndex: number, toIndex: number) => {
@@ -151,8 +142,6 @@ export default function TTSPage() {
   const handleSelectedBatchUpdate = async (batch: BatchDetailTypes) => {
     handleResetEvalTask(2);
     setCurrentTaskIndex(0);
-    setIsRecordingNewReference(false);
-
     if (batch.batch_name.toLowerCase().includes("realtime")) {
       handleResetEvalTask(modelsToEval);
     } else {
@@ -179,7 +168,6 @@ export default function TTSPage() {
   const handlePreviousEvaluation = () => {
     if (currentTaskIndex > 0) {
       setError(null);
-      setIsRecordingNewReference(false);
       const prevIndex = currentTaskIndex - 1;
       setCurrentTaskIndex(prevIndex);
       setEvalTask(batchTasks[prevIndex]);
@@ -234,16 +222,31 @@ export default function TTSPage() {
     );
   };
 
-  const handleSaveTaskChanges = async () => {
-    if (!evalTask) return null;
+  const syncActiveBatchToStorage = (tasks: EvalTaskTypes[]) => {
+    if (IsRealtime()) return;
+    localStorage.setItem(
+      "tts_active_batch",
+      JSON.stringify({
+        ...selectedBatchDetail,
+        batch_id: selectedBatchDetail.batch_id,
+        dataset_type: selectedBatchDetail.dataset_type,
+        tasks,
+        currentTaskIndex,
+      })
+    );
+  };
+
+  const handleSaveTaskChanges = async (taskToSave?: EvalTaskTypes) => {
+    const task = taskToSave ?? evalTask;
+    if (!task) return null;
     const taskWithDuration = {
-      ...evalTask,
+      ...task,
       started_at: getStartedAt(),
       completed_at: new Date().toISOString(),
       active_duration_ms: getActiveDurationMs(),
     };
     const res = await fetch(
-      `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
+      `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${task.id}`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -253,19 +256,52 @@ export default function TTSPage() {
     if (!res.ok) throw new Error("Failed to save task changes");
   };
 
-  const handleReferenceUpload = async () => {
-    if (!evalTask) return;
+  const handleReferenceUpload = async (blob: Blob) => {
+    if (!evalTask || IsRealtime()) return;
     setUploadingReference(true);
     try {
-      const referenceUrl = await uploadReferenceAudio();
-      const updatedTask = { ...evalTask, reference: referenceUrl };
-      setEvalTask(updatedTask);
-      setBatchTasks((prev) => {
-        const updated = [...prev];
-        updated[currentTaskIndex] = updatedTask;
-        return updated;
+      const contentType = normalizeAudioContentType(blob.type || "audio/webm");
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File([blob], referenceAudioFilename(contentType), {
+          type: contentType,
+        })
+      );
+
+      const uploadRes = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
       });
-      setIsRecordingNewReference(false);
+      const body = (await uploadRes.json()) as {
+        file_id?: string;
+        error?: string;
+      };
+      if (!uploadRes.ok || !body.file_id) {
+        throw new Error(
+          typeof body.error === "string" ? body.error : "Failed to upload audio."
+        );
+      }
+
+      const updatedTask = { ...evalTask, reference: body.file_id };
+      const updatedTasks = [...batchTasks];
+      updatedTasks[currentTaskIndex] = updatedTask;
+
+      setEvalTask(updatedTask);
+      setBatchTasks(updatedTasks);
+
+      await handleSaveTaskChanges(updatedTask);
+      syncActiveBatchToStorage(updatedTasks);
+    } catch (err) {
+      setNotice({
+        title: "Upload failed",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Could not upload reference audio.",
+        variant: "error",
+      });
+      throw err;
     } finally {
       setUploadingReference(false);
     }
@@ -280,13 +316,16 @@ export default function TTSPage() {
 
     if (!IsRealtime()) {
       const updatedTasks: EvalTaskTypes[] = [...batchTasks];
-      updatedTasks[currentTaskIndex] = { ...evalTask };
+      updatedTasks[currentTaskIndex] = {
+        ...evalTask,
+        reference: evalTask.reference?.trim(),
+      };
 
       setBatchTasks(updatedTasks);
 
       if (isThereChangeInActiveTask()) {
         try {
-          await handleSaveTaskChanges();
+          await handleSaveTaskChanges(updatedTasks[currentTaskIndex]);
           const evaluatedTasks = updatedTasks.filter((item) =>
             item.models.some((m) => m.rate > 0 && m.rank > 0)
           );
@@ -310,7 +349,6 @@ export default function TTSPage() {
         setEvalTask(nextTask);
         setCurrentTaskIndex(nextIndex);
         setReviewerComment(nextTask?.reviewer_comment ?? "");
-        setIsRecordingNewReference(false);
         localStorage.setItem(
           "tts_active_batch",
           JSON.stringify({
@@ -325,7 +363,6 @@ export default function TTSPage() {
         setCurrentTaskIndex(0);
         setEvalTask(updatedTasks[0]);
         setReviewerComment(updatedTasks[0]?.reviewer_comment ?? "");
-        setIsRecordingNewReference(false);
         setNotice({
           title: "End of batch",
           message: `End of <${selectedBatchDetail.batch_name}> TTS evaluation tasks! Back to first task.`,
@@ -447,7 +484,6 @@ export default function TTSPage() {
   }, [user?.username]);
 
   useEffect(() => {
-    setIsRecordingNewReference(false);
   }, [evalTask?.id]);
 
   return (
@@ -579,36 +615,15 @@ export default function TTSPage() {
                     : "max-h-0 opacity-0"
                 }`}
               >
-                {hasSavedReference ? (
-                  <div className="space-y-2">
-                    <AudioCard
-                      key={evalTask.reference}
-                      type="input"
-                      variant="primary"
-                      input_url={evalTask.reference}
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        variant="primary"
-                        minimal
-                        size="sm"
-                        onClick={() => setIsRecordingNewReference(true)}
-                        className="!font-semibold"
-                      >
-                        Re-record
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <AudioCard
-                    key={`reference-recorder-${evalTask.id}`}
-                    type="input"
-                    variant="primary"
-                    loading={uploadingReference}
-                    onUpload={handleReferenceUpload}
-                    uploadButtonText="Save reference"
-                  />
-                )}
+                <AudioCard
+                  key={`reference-${evalTask.id}-${evalTask.reference ?? "new"}`}
+                  type="input"
+                  variant="primary"
+                  input_url={evalTask.reference}
+                  loading={uploadingReference}
+                  onUpload={handleReferenceUpload}
+                  uploadButtonText="Save reference"
+                />
               </div>
 
               {isReviewerMode ? (
