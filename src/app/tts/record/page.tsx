@@ -413,9 +413,9 @@ export default function TTSRecordPage() {
   const navDisabled = isAdvancing || uploadingReference || savingTask;
 
   return (
-    <Container className="!w-full !items-start !p-0 md:!py-8 md:!pr-10 md:!pl-4">
-      <div className="w-full space-y-4 md:space-y-5">
-        <div className="w-full flex flex-wrap items-center justify-end gap-2">
+    <Container className="!w-full !items-start !px-3 !py-4 sm:!px-4 sm:!py-6 md:!py-8 md:!pr-10 md:!pl-4">
+      <div className="w-full space-y-3 sm:space-y-4 md:space-y-5">
+        <div className="w-full flex flex-wrap items-stretch sm:items-center justify-end gap-2">
           {user?.username && batchesDetails.length > 0 && (
             <SelectTransparent
               id="tts-record-dataset"
@@ -425,7 +425,7 @@ export default function TTSRecordPage() {
               optionsValues={batchesDetails.map((item) => item.batch_id)}
               optionsLabels={batchesDetails.map((item) => item.batch_name)}
               searchable
-              className="!w-auto shrink-0"
+              className="!w-full sm:!w-auto shrink-0"
               onChange={async (e) => {
                 const batch = batchesDetails.find(
                   (item) => item.batch_id === e.target.value
@@ -433,30 +433,30 @@ export default function TTSRecordPage() {
                 if (batch) await handleSelectedBatchUpdate(batch);
               }}
               labelClass="absolute left-2.5 border-r pr-2 text-xs opacity-50"
-              selectClass="!pl-[3.25rem] !pr-2 !py-1 !h-8 !min-w-0 !text-xs !max-w-[220px]"
+              selectClass="!pl-[3.25rem] !pr-2 !py-1 !h-8 !min-w-0 !text-xs !w-full sm:!max-w-[220px]"
             />
           )}
         </div>
 
         {isLoading ? (
-          <div className="w-full py-12 text-center text-neutral-500">
+          <div className="w-full py-10 sm:py-12 px-2 text-center text-sm sm:text-base text-neutral-500">
             Loading...
           </div>
         ) : !user?.username ? (
-          <div className="w-full py-12 text-center text-neutral-500">
+          <div className="w-full py-10 sm:py-12 px-4 text-center text-sm sm:text-base text-neutral-500">
             Sign in to collect TTS reference recordings for your assigned batches.
           </div>
         ) : batchesDetails.length === 0 ? (
-          <div className="w-full py-12 text-center text-neutral-500">
+          <div className="w-full py-10 sm:py-12 px-4 text-center text-sm sm:text-base text-neutral-500">
             No TTS batches are assigned to you yet.
           </div>
         ) : !evalTask ? (
-          <div className="w-full py-12 text-center text-neutral-500">
+          <div className="w-full py-10 sm:py-12 px-4 text-center text-sm sm:text-base text-neutral-500">
             This batch has no tasks.
           </div>
         ) : (
-          <div className="w-full max-w-4xl mx-auto space-y-4">
-            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
+          <div className="w-full max-w-4xl mx-auto space-y-3 sm:space-y-4">
+            <div className="rounded-lg sm:rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
               <TeleprompterDisplay
                 text={evalTask.input}
                 isCountingDown={isAdvancing}
@@ -464,7 +464,7 @@ export default function TTSRecordPage() {
               />
             </div>
 
-            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
+            <div className="rounded-lg sm:rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
               <ReferenceVoiceArea
                 key={`reference-${evalTask.id}-${evalTask.reference ?? "new"}`}
                 value={evalTask.reference}
@@ -474,8 +474,8 @@ export default function TTSRecordPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 px-1">
+            <div className="space-y-2 min-w-0 overflow-hidden">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 px-0.5 sm:px-1">
                 Domains{" "}
                 <span className="opacity-70">(optional)</span>
               </p>
@@ -486,7 +486,7 @@ export default function TTSRecordPage() {
               />
             </div>
 
-            <div className="flex items-center justify-center gap-2 pt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-1 pb-2 sm:pb-0 font-mono">
               {currentTaskIndex > 0 && (
                 <Button
                   type="button"
@@ -495,11 +495,11 @@ export default function TTSRecordPage() {
                   outline
                   size="xs"
                   text="Prev"
-                  className="!w-auto !px-3 !font-medium"
+                  className="!w-auto !px-2.5 sm:!px-3 !font-medium"
                 />
               )}
 
-              <span className="min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
+              <span className="min-w-[2.75rem] sm:min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
                 {isAdvancing ? (
                   <span className="text-blue-600 dark:text-blue-400">
                     {secondsLeft}s
@@ -524,7 +524,7 @@ export default function TTSRecordPage() {
                         : "Next"
                   }
                   loading={savingTask}
-                  className="!w-auto !px-3 !font-medium"
+                  className="!w-auto !px-2.5 sm:!px-3 !font-medium !text-[11px] sm:!text-xs"
                 />
               )}
 
@@ -534,10 +534,10 @@ export default function TTSRecordPage() {
                   onClick={handleSave}
                   disabled={navDisabled}
                   outline
-                  size="sm"
+                  size="xs"
                   text={savingTask ? "Saving…" : "Save"}
                   loading={savingTask}
-                  className="!px-8 !text-current !font-semibold"
+                  className="!w-auto !px-2.5 sm:!px-3 !font-medium"
                 />
               )}
             </div>
