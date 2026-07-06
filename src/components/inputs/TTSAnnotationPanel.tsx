@@ -68,6 +68,7 @@ export default function TTSAnnotationPanel({
     null
   );
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceGenerationRef = useRef(0);
   const sessionStartedAtRef = useRef<number | null>(null);
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -104,7 +105,33 @@ export default function TTSAnnotationPanel({
     advanceGenerationRef.current += 1;
     if (advanceRef.current) clearTimeout(advanceRef.current);
     advanceRef.current = null;
+    if (countdownRef.current) clearTimeout(countdownRef.current);
+    countdownRef.current = null;
   }, []);
+
+  const runSegmentGapCountdown = useCallback(
+    (generation: number) =>
+      new Promise<void>((resolve) => {
+        const totalSeconds = SEGMENT_GAP_TOTAL_MS / 1000;
+        setSecondsLeft(totalSeconds);
+
+        const scheduleTick = (remaining: number) => {
+          countdownRef.current = setTimeout(() => {
+            if (generation !== advanceGenerationRef.current) return;
+            const next = remaining - 1;
+            if (next <= 0) {
+              resolve();
+              return;
+            }
+            setSecondsLeft(next);
+            scheduleTick(next);
+          }, 1000);
+        };
+
+        scheduleTick(totalSeconds);
+      }),
+    []
+  );
 
   const waitForGap = useCallback(
     (ms: number, generation: number) =>
@@ -401,21 +428,23 @@ export default function TTSAnnotationPanel({
     clearAdvance();
     const generation = advanceGenerationRef.current;
     setIsAdvancing(true);
-    setSecondsLeft(SEGMENT_GAP_TOTAL_MS / 1000);
 
     void (async () => {
       const index = currentTaskIndexRef.current;
 
-      // 1s tail silence at the end of the current segment audio
-      await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
-      if (generation !== advanceGenerationRef.current) return;
-      setSecondsLeft(SEGMENT_GAP_HEAD_MS / 1000);
+      const gapsDone = (async () => {
+        // 1s tail silence at the end of the current segment audio
+        await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
+        if (generation !== advanceGenerationRef.current) return;
 
-      await finalizeCurrentSegment(index);
-      if (generation !== advanceGenerationRef.current) return;
+        await finalizeCurrentSegment(index);
+        if (generation !== advanceGenerationRef.current) return;
 
-      // 1s head silence at the start of the next segment audio (before teleprompter advances)
-      await waitForGap(SEGMENT_GAP_HEAD_MS, generation);
+        // 1s head silence at the start of the next segment audio (before teleprompter advances)
+        await waitForGap(SEGMENT_GAP_HEAD_MS, generation);
+      })();
+
+      await Promise.all([gapsDone, runSegmentGapCountdown(generation)]);
       if (generation !== advanceGenerationRef.current) return;
 
       clearAdvance();
