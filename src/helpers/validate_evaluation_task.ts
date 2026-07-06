@@ -1,8 +1,17 @@
 import { EvalTaskTypes } from "@/types/data";
 
+export type ValidateEvaluationTaskOptions = {
+  optionalModelRatings?: boolean;
+};
+
 export const validateEvaluationTask = (
-  task: EvalTaskTypes
+  task: EvalTaskTypes,
+  options?: ValidateEvaluationTaskOptions
 ): { isValid: boolean; message?: string; errorTitles?: string[] } => {
+  if (options?.optionalModelRatings) {
+    return { isValid: true };
+  }
+
   const models = task.models;
 
   const unratedTitles = models

@@ -148,7 +148,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     })) as EvalOutputTypes[],
   };
 
-  const validation = validateEvaluationTask(taskForValidation);
+  const validation = validateEvaluationTask(
+    taskForValidation,
+    datasetType === "tts" ? { optionalModelRatings: true } : undefined
+  );
   if (!validation.isValid) {
     const code = validation.message?.includes("Ranking must reflect rating")
       ? ErrorCodes.RATE_RANK_INCONSISTENT
