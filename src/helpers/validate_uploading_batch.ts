@@ -160,8 +160,8 @@ export const isValidBatchData = (
           );
         }
 
-        // Output format
-        if (typeof model.output === "string") {
+        // Output format (TTS annotation batches may use empty model outputs)
+        if (typeof model.output === "string" && model.output.trim() !== "") {
           if (type === "tts" && !isPathOrUrl(model.output)) {
             miscMessages.push(
               `TTS task ${taskIndex}, model ${modelIndex} output must be a valid URL or file path.`

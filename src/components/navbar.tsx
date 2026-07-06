@@ -111,16 +111,6 @@ const NavBar = () => {
       public: true,
     },
     {
-      id: 8,
-      title: (
-        <span className="flex items-center gap-1.5">
-          <Mic className="size-4 shrink-0" /> Speak
-        </span>
-      ),
-      href: "/tts/record",
-      public: true,
-    },
-    {
       id: 4,
       title: (
         <span className="flex items-center gap-1.5">
