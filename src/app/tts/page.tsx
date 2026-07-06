@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import TeleprompterDisplay from "@/components/inputs/TeleprompterDisplay";
-import ReferenceVoiceArea from "@/components/inputs/ReferenceVoiceArea";
+import AudioCard from "@/components/inputs/AudioCard";
 import SelectOption from "@/components/inputs/SelectOption";
 import SelectTransparent from "@/components/inputs/SelectTransparent";
+import TranslationInputTextarea from "@/components/inputs/TranslationInputTextarea";
 import DomainsList from "@/components/DomainsList";
 import Container from "@/components/utils/Container";
 import Button from "@/components/utils/Button";
@@ -28,43 +28,8 @@ import {
   BatchDetailTypes,
   EvalTaskTypes,
 } from "@/types/data";
-import { Plus, Minus } from "lucide-react";
-
-const SEGMENT_SEPARATOR = "\n\n";
-const ADVANCE_DELAY_MS = 1000;
-
-function segmentsToFullText(tasks: EvalTaskTypes[]): string {
-  return tasks.map((t) => t.input).join(SEGMENT_SEPARATOR);
-}
-
-function fullTextToSegments(
-  fullText: string,
-  prevTasks: EvalTaskTypes[]
-): EvalTaskTypes[] {
-  const parts = fullText
-    .split(/\n\n+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-
-  if (parts.length === 0) {
-    const template = prevTasks[0];
-    if (!template) return prevTasks;
-    return [{ ...template, input: "" }];
-  }
-
-  const template = prevTasks[0];
-  return parts.map((input, i) => {
-    const prev = prevTasks[i];
-    if (prev) return { ...prev, input };
-    if (!template) return { id: String(i + 1), input, models: [], reference: "" };
-    return {
-      ...template,
-      id: String(i + 1),
-      input,
-      reference: "",
-    };
-  });
-}
+import { TaskEvalErrorTypes } from "@/types/others";
+import { Minus, Plus } from "lucide-react";
 
 export default function TTSPage() {
   const { user } = useUser();
@@ -83,23 +48,10 @@ export default function TTSPage() {
   const [evalTask, setEvalTask] = useState<EvalTaskTypes | null>(null);
   const [currentTaskIndex, setCurrentTaskIndex] = useState<number>(0);
   const [modelsToEval, setModelsToEval] = useState<number>(2);
+  const [error, setError] = useState<TaskEvalErrorTypes | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showReference, setShowReference] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
-  const [isAdvancing, setIsAdvancing] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-
-  const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const clearAdvance = useCallback(() => {
-    if (advanceRef.current) clearTimeout(advanceRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    advanceRef.current = null;
-    countdownRef.current = null;
-  }, []);
-
-  useEffect(() => () => clearAdvance(), [clearAdvance]);
 
   const {
     isReviewerMode,
@@ -138,6 +90,48 @@ export default function TTSPage() {
     setBatchTasks([...rtBatch.tasks]);
   };
 
+  const RankOutput = (fromIndex: number, toIndex: number) => {
+    setEvalTask((prev) => {
+      if (!prev) return prev;
+
+      const updatedOutputs = [...prev.models];
+      const [movedItem] = updatedOutputs.splice(fromIndex, 1);
+      updatedOutputs.splice(toIndex, 0, movedItem);
+
+      const reRankedOutputs = updatedOutputs.map((output, index) => ({
+        ...output,
+        rank: index + 1,
+      }));
+
+      return {
+        ...prev,
+        models: reRankedOutputs,
+      };
+    });
+  };
+
+  const RateOutput = (index: number, rating: number) => {
+    setEvalTask((prev) => {
+      if (!prev) return prev;
+
+      const updatedOutputs = prev.models.map((item, i) => {
+        if (i === index) {
+          return {
+            ...item,
+            rate: rating,
+            rank: i + 1,
+          };
+        }
+        return item;
+      });
+
+      return {
+        ...prev,
+        models: updatedOutputs,
+      };
+    });
+  };
+
   const FetchBatchTasks = async (batch_detail: BatchDetailTypes) => {
     const res = await fetch(`/api/batches/tts/${batch_detail.batch_id}`);
     if (!res.ok) throw new Error("Failed to fetch batch data from server.");
@@ -173,6 +167,7 @@ export default function TTSPage() {
 
   const handlePreviousEvaluation = () => {
     if (currentTaskIndex > 0) {
+      setError(null);
       const prevIndex = currentTaskIndex - 1;
       setCurrentTaskIndex(prevIndex);
       setEvalTask(batchTasks[prevIndex]);
@@ -262,16 +257,7 @@ export default function TTSPage() {
   };
 
   const handleReferenceUpload = async (blob: Blob) => {
-    if (!evalTask) return;
-    if (IsRealtime()) {
-      setNotice({
-        title: "Not available",
-        message:
-          "Reference audio upload only works on dataset batches. Select a TTS batch from the Data dropdown.",
-        variant: "info",
-      });
-      throw new Error("Reference upload is not available in realtime mode.");
-    }
+    if (!evalTask || IsRealtime()) return;
     setUploadingReference(true);
     try {
       const contentType = normalizeAudioContentType(blob.type || "audio/webm");
@@ -321,112 +307,87 @@ export default function TTSPage() {
     }
   };
 
-  const persistCurrentTask = async (): Promise<EvalTaskTypes[] | null> => {
+  const handleSubmitEvaluation = async () => {
     if (!evalTask) return null;
 
-    const taskValidation = validateEvaluationTask(evalTask, {
-      optionalModelRatings: true,
-    });
-    if (!taskValidation.isValid) {
-      if (taskValidation.message) {
-        setNotice({
-          title: "Validation",
-          message: taskValidation.message,
-          variant: "error",
-        });
+    const taskValidation = validateEvaluationTask(evalTask);
+    setError(taskValidation);
+    if (!taskValidation.isValid) return null;
+
+    if (!IsRealtime()) {
+      const updatedTasks: EvalTaskTypes[] = [...batchTasks];
+      updatedTasks[currentTaskIndex] = {
+        ...evalTask,
+        reference: evalTask.reference?.trim(),
+      };
+
+      setBatchTasks(updatedTasks);
+
+      if (isThereChangeInActiveTask()) {
+        try {
+          await handleSaveTaskChanges(updatedTasks[currentTaskIndex]);
+          const evaluatedTasks = updatedTasks.filter((item) =>
+            item.models.some((m) => m.rate > 0 && m.rank > 0)
+          );
+          await updateBatchDetail({
+            ...selectedBatchDetail,
+            annotated_tasks: evaluatedTasks.length,
+          });
+        } catch {
+          setNotice({
+            title: "Save failed",
+            message: "Failed to save evaluation. Please try again.",
+            variant: "error",
+          });
+          return;
+        }
       }
-      return null;
-    }
 
-    const updatedTasks: EvalTaskTypes[] = [...batchTasks];
-    updatedTasks[currentTaskIndex] = {
-      ...evalTask,
-      reference: evalTask.reference?.trim(),
-    };
-
-    setBatchTasks(updatedTasks);
-
-    if (!isThereChangeInActiveTask()) return updatedTasks;
-
-    try {
-      await handleSaveTaskChanges(updatedTasks[currentTaskIndex]);
-      const evaluatedTasks = updatedTasks.filter((item) =>
-        Boolean(item.reference?.trim())
-      );
-      await updateBatchDetail({
-        ...selectedBatchDetail,
-        annotated_tasks: evaluatedTasks.length,
-      });
-      syncActiveBatchToStorage(updatedTasks);
-      return updatedTasks;
-    } catch {
-      setNotice({
-        title: "Save failed",
-        message: "Failed to save evaluation. Please try again.",
-        variant: "error",
-      });
-      return null;
-    }
-  };
-
-  const persistAndAdvanceTask = async () => {
-    const updatedTasks = await persistCurrentTask();
-    if (!updatedTasks) return;
-
-    const nextIndex = currentTaskIndex + 1;
-    if (nextIndex >= updatedTasks.length) return;
-
-    const nextTask = updatedTasks[nextIndex];
-    setEvalTask(nextTask);
-    setCurrentTaskIndex(nextIndex);
-    setReviewerComment(nextTask?.reviewer_comment ?? "");
-    localStorage.setItem(
-      "tts_active_batch",
-      JSON.stringify({
-        ...selectedBatchDetail,
-        batch_id: selectedBatchDetail.batch_id,
-        dataset_type: selectedBatchDetail.dataset_type,
-        tasks: updatedTasks,
-        currentTaskIndex: nextIndex,
-      })
-    );
-  };
-
-  const startAdvanceCountdown = (onComplete: () => void) => {
-    clearAdvance();
-    setIsAdvancing(true);
-    setSecondsLeft(ADVANCE_DELAY_MS / 1000);
-
-    countdownRef.current = setInterval(() => {
-      setSecondsLeft((s) => Math.max(0, s - 1));
-    }, 1000);
-
-    advanceRef.current = setTimeout(() => {
-      clearAdvance();
-      setIsAdvancing(false);
-      setSecondsLeft(0);
-      onComplete();
-    }, ADVANCE_DELAY_MS);
-  };
-
-  const handleSubmitEvaluation = () => {
-    if (!evalTask || isAdvancing) return;
-
-    if (IsRealtime()) {
-      if (evalTask.input) {
+      const nextIndex = currentTaskIndex + 1;
+      if (nextIndex < batchTasks.length) {
+        const nextTask = updatedTasks[nextIndex];
+        setEvalTask(nextTask);
+        setCurrentTaskIndex(nextIndex);
+        setReviewerComment(nextTask?.reviewer_comment ?? "");
+        localStorage.setItem(
+          "tts_active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: nextIndex,
+          })
+        );
+      } else {
+        setCurrentTaskIndex(0);
+        setEvalTask(updatedTasks[0]);
+        setReviewerComment(updatedTasks[0]?.reviewer_comment ?? "");
         setNotice({
-          title: "Coming soon",
-          message:
-            "Realtime synthesis is coming soon. For now, this is only for dataset evaluation.",
+          title: "End of batch",
+          message: `End of <${selectedBatchDetail.batch_name}> TTS evaluation tasks! Back to first task.`,
           variant: "info",
         });
-        handleResetEvalTask(modelsToEval);
+        localStorage.setItem(
+          "tts_active_batch",
+          JSON.stringify({
+            ...selectedBatchDetail,
+            batch_id: selectedBatchDetail.batch_id,
+            dataset_type: selectedBatchDetail.dataset_type,
+            tasks: updatedTasks,
+            currentTaskIndex: 0,
+          })
+        );
       }
-      return;
+    } else if (evalTask?.input) {
+      setNotice({
+        title: "Coming soon",
+        message:
+          "Realtime synthesis is coming soon. For now, this is only for dataset evaluation.",
+        variant: "info",
+      });
+      handleResetEvalTask(modelsToEval);
     }
-
-    if (currentTaskIndex >= batchTasks.length - 1) return;
-    startAdvanceCountdown(() => void persistAndAdvanceTask());
   };
 
   useEffect(() => {
@@ -523,35 +484,11 @@ export default function TTSPage() {
   }, [user?.username]);
 
   useEffect(() => {
-    if (evalTask?.reference?.trim()) {
-      setShowReference(true);
-    }
-  }, [evalTask?.id, evalTask?.reference]);
-
-  const fullBatchText = segmentsToFullText(batchTasks);
-  const isLastTask = currentTaskIndex >= batchTasks.length - 1;
-  const nextButtonLabel = (() => {
-    if (IsRealtime()) return "Submit";
-    if (isAdvancing) {
-      const base = isThereChangeInActiveTask() ? "Save & Next" : "Next";
-      return `${base} (${secondsLeft}s)`;
-    }
-    if (isThereChangeInActiveTask()) return "Save & Next";
-    return "Next";
-  })();
-  const prevButtonLabel = isAdvancing ? `Prev (${secondsLeft}s)` : "Prev";
-
-  const handleFullTextChange = (fullTextValue: string) => {
-    const newTasks = fullTextToSegments(fullTextValue, batchTasks);
-    const nextIndex = Math.min(currentTaskIndex, Math.max(0, newTasks.length - 1));
-    setBatchTasks(newTasks);
-    setCurrentTaskIndex(nextIndex);
-    setEvalTask(newTasks[nextIndex] ?? null);
-  };
+  }, [evalTask?.id]);
 
   return (
-    <Container className="!w-full !items-start !p-0 md:!py-8 md:!pr-10 md:!pl-4">
-      <div className="w-full space-y-4 md:space-y-5">
+    <Container>
+      <div className="w-full max-w-6xl space-y-5">
         <div className="w-full flex flex-wrap sm:flex-nowrap justify-between items-center gap-2">
           <SelectOption
             id="from-language"
@@ -609,13 +546,13 @@ export default function TTSPage() {
               searchable
               onChange={async (e) => {
                 setIsLoading(true);
+                setError(null);
                 const batchDetails = batchesDetails.find(
                   (item) => item.batch_id === e.target.value
                 );
                 try {
                   if (batchDetails) {
                     setSelectedBatchDetail(batchDetails);
-                    setShowReference(false);
                     await handleSelectedBatchUpdate(batchDetails);
                   } else {
                     setSelectedBatchDetail(ttsRealtimeBatch);
@@ -635,42 +572,58 @@ export default function TTSPage() {
             Loading...
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-            <textarea
-              value={fullBatchText}
-              onChange={(e) => handleFullTextChange(e.target.value)}
-              readOnly={!IsRealtime()}
-              disabled={isAdvancing}
-              maxLength={2500 * Math.max(batchTasks.length, 1)}
-              className="w-full md:w-[36%] lg:w-[32%] shrink-0 p-3 min-h-[200px] md:min-h-[420px] rounded-lg text-sm bg-neutral-50 border border-neutral-200 dark:bg-neutral-800/50 dark:border-neutral-700/80 text-neutral-700 dark:text-neutral-300 resize-y read-only:opacity-90 read-only:cursor-default"
-              aria-label="Batch script"
+          <div className="w-full block space-y-5 md:flex justify-between space-x-5">
+            <TranslationInputTextarea
+              name="input"
+              isHorizontal={false}
+              value={evalTask.input}
+              maxLength={2500}
+              disabled={!IsRealtime()}
+              onChange={(e) =>
+                setEvalTask((prev) => {
+                  if (!prev) return prev;
+                  return { ...prev, input: e.target.value };
+                })
+              }
+              className="md:w-1/2"
+              loading={false}
             />
 
-            <div className="w-full md:flex-1 min-w-0 space-y-4">
-              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
-                <TeleprompterDisplay
-                  text={evalTask.input}
-                  isCountingDown={isAdvancing}
-                  secondsLeft={secondsLeft}
+            <div className="w-full md:w-1/2 space-y-3">
+              {evalTask.models.map((task, i) => (
+                <AudioCard
+                  key={`${evalTask.id}-${task.model}-${i}`}
+                  type="output"
+                  index={i}
+                  task={task}
+                  onClickRankUp={() => RankOutput(i, i - 1)}
+                  onClickRankDown={() => RankOutput(i, i + 1)}
+                  onClickRate={RateOutput}
+                  error={error}
+                  isLastItem={i === evalTask.models.length - 1}
+                  readOnly={isReviewerMode}
+                  rating_guideline={
+                    selectedBatchDetail.rating_guideline ?? undefined
+                  }
                 />
-              </div>
+              ))}
 
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                className={`transition-all duration-600 ease-in-out overflow-hidden ${
                   showReference
-                    ? "max-h-[320px] opacity-100"
+                    ? "max-h-[600px] opacity-100"
                     : "max-h-0 opacity-0"
                 }`}
               >
-                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
-                  <ReferenceVoiceArea
-                    key={`reference-${evalTask.id}-${evalTask.reference ?? "new"}`}
-                    value={evalTask.reference}
-                    onSaveRecording={handleReferenceUpload}
-                    loading={uploadingReference}
-                    disabled={IsRealtime()}
-                  />
-                </div>
+                <AudioCard
+                  key={`reference-${evalTask.id}-${evalTask.reference ?? "new"}`}
+                  type="input"
+                  variant="primary"
+                  input_url={evalTask.reference}
+                  loading={uploadingReference}
+                  onUpload={handleReferenceUpload}
+                  uploadButtonText="Save reference"
+                />
               </div>
 
               {isReviewerMode ? (
@@ -713,7 +666,6 @@ export default function TTSPage() {
                   <div className="flex items-center justify-between space-x-2 font-mono">
                     <div className="w-fit flex space-x-2 items-center">
                       <Button
-                        type="button"
                         variant="primary"
                         minimal
                         size="sm"
@@ -736,12 +688,10 @@ export default function TTSPage() {
                     <div className="flex items-center justify-end space-x-2 text-right">
                       {currentTaskIndex > 0 && (
                         <Button
-                          type="button"
                           onClick={handlePreviousEvaluation}
                           outline
                           size="sm"
-                          text={prevButtonLabel}
-                          disabled={isAdvancing || uploadingReference}
+                          text="Prev"
                           className="!px-8 !text-current !font-semibold"
                         />
                       )}
@@ -752,29 +702,19 @@ export default function TTSPage() {
                         </span>
                       )}
 
-                      {!IsRealtime() && isLastTask && isThereChangeInActiveTask() && (
-                        <Button
-                          type="button"
-                          onClick={() => void persistCurrentTask()}
-                          outline
-                          size="sm"
-                          text="Save"
-                          disabled={isAdvancing || uploadingReference}
-                          className="!px-8 !text-current !font-semibold"
-                        />
-                      )}
-
-                      {(!IsRealtime() ? !isLastTask : true) && (
-                        <Button
-                          type="button"
-                          onClick={handleSubmitEvaluation}
-                          outline
-                          size="sm"
-                          text={nextButtonLabel}
-                          disabled={isAdvancing || uploadingReference}
-                          className="!px-8 !text-current !font-semibold"
-                        />
-                      )}
+                      <Button
+                        onClick={handleSubmitEvaluation}
+                        outline
+                        size="sm"
+                        text={
+                          IsRealtime()
+                            ? "Submit"
+                            : isThereChangeInActiveTask()
+                              ? "Save & Next"
+                              : "Next"
+                        }
+                        className="!px-8 !text-current !font-semibold"
+                      />
                     </div>
                   </div>
                 </>
@@ -800,12 +740,7 @@ export default function TTSPage() {
             {notice?.message ?? ""}
           </p>
           <div className="mt-4 flex justify-end">
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => setNotice(null)}
-            >
+            <Button variant="primary" size="sm" onClick={() => setNotice(null)}>
               OK
             </Button>
           </div>

@@ -234,7 +234,7 @@ export default function ReferenceVoiceArea({
         <div className="flex items-center justify-end">
           <Button
             type="button"
-            text={loading ? "Saving…" : "Save reference"}
+            text={loading ? "Saving…" : "Save"}
             variant="primary"
             size="sm"
             onClick={() => void handleSave()}
