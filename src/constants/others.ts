@@ -20,12 +20,12 @@ export const evalTypes: EvalTypeTypes[] = [
     full_name: "Speech Annotation Datasets",
     sample_batch: "/datasets/speech-sample-eval-batch.json",
   },
-  // {
-  //   name: "TTS",
-  //   value: "tts",
-  //   full_name: "✍️ Text to Speech (TTS) Datasets",
-  // sample_batch: "/datasets/tts-sample-eval-batch.json",
-  // },
+  {
+    name: "TTS",
+    value: "tts",
+    full_name: "Text to Speech (TTS) Datasets",
+    sample_batch: "/datasets/tts-sample-eval-batch.json",
+  },
 ];
 
 export const domainsList: DomainTypes[] = [

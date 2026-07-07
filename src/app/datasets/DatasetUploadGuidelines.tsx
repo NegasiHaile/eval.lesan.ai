@@ -100,7 +100,7 @@ function parseTableData(
 const DatasetUploadGuidelines = ({
   activeTab,
 }: {
-  activeTab: "MT" | "ASR";
+  activeTab: "MT" | "ASR" | "TTS";
 }) => {
   const [activeFormat, setActiveFormat] =
     useState<keyof typeof FILE_EXTENSIONS>("JSON");
