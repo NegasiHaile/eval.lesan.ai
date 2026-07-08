@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -39,6 +39,10 @@ function getTtsModelsWithOutput(task: EvalTaskTypes) {
         typeof model.output === "string" && model.output.trim().length > 0
     ) ?? []
   );
+}
+
+function getTtsModelsForEvaluation(task: EvalTaskTypes, realtime: boolean) {
+  return realtime ? (task.models ?? []) : getTtsModelsWithOutput(task);
 }
 
 export default function TTSPage() {
@@ -323,6 +327,7 @@ export default function TTSPage() {
   };
 
   const isAnnotationMode =
+    !IsRealtime() &&
     evalTask != null &&
     batchTasks.every((task) => getTtsModelsWithOutput(task).length === 0);
 
@@ -502,6 +507,16 @@ export default function TTSPage() {
       });
       handleResetEvalTask(modelsToEval);
     }
+  };
+
+  const realtimeSynthesize = () => {
+    if (!evalTask?.input.trim()) return;
+    setNotice({
+      title: "Coming soon",
+      message:
+        "Realtime synthesis is coming soon. For now, this is only for dataset evaluation.",
+      variant: "info",
+    });
   };
 
   useEffect(() => {
@@ -729,15 +744,24 @@ export default function TTSPage() {
                 })
               }
               className="md:w-1/2"
+              translate={IsRealtime() ? realtimeSynthesize : undefined}
+              actionLabel="Synthesize"
+              actionLoadingLabel="Synthesizing"
               loading={false}
             />
 
             <div className="w-full md:w-1/2 space-y-3">
-              {getTtsModelsWithOutput(evalTask).map((task, i) => {
-                  const modelIndex = evalTask.models.findIndex(
-                    (m) => m.model === task.model && m.output === task.output
-                  );
-                  const index = modelIndex >= 0 ? modelIndex : i;
+              {getTtsModelsForEvaluation(evalTask, IsRealtime()).map(
+                (task, i) => {
+                  const index = IsRealtime()
+                    ? i
+                    : (() => {
+                        const modelIndex = evalTask.models.findIndex(
+                          (m) =>
+                            m.model === task.model && m.output === task.output
+                        );
+                        return modelIndex >= 0 ? modelIndex : i;
+                      })();
                   return (
                     <AudioCard
                       key={`${evalTask.id}-${task.model}-${index}`}
@@ -755,7 +779,8 @@ export default function TTSPage() {
                       }
                     />
                   );
-                })}
+                }
+              )}
 
               <div
                 className={`transition-all duration-600 ease-in-out overflow-hidden ${
