@@ -606,14 +606,20 @@ export default function TTSPage() {
     <Container
       className={
         isAnnotationMode
-          ? "!pr-0 md:!pr-1 flex flex-col min-h-[calc(100vh-1.5rem)]"
+          ? "!p-3 sm:!p-6 md:!px-12 md:!py-8 flex flex-col min-h-[100dvh] sm:min-h-[calc(100vh-1.5rem)]"
           : undefined
       }
     >
       <div
-        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1" : "space-y-5"}`}
+        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "space-y-5"}`}
       >
-        <div className="w-full flex flex-wrap sm:flex-nowrap justify-between items-center gap-2">
+        <div
+          className={`w-full flex gap-2 shrink-0 ${
+            isAnnotationMode
+              ? "justify-end"
+              : "flex-wrap sm:flex-nowrap justify-between items-center"
+          }`}
+        >
           {!isAnnotationMode && (
             <SelectOption
               id="from-language"
@@ -689,7 +695,11 @@ export default function TTSPage() {
               }}
               labelClass="absolute left-3 border-r-2 pr-2"
               selectClass="pl-14"
-              className={isAnnotationMode ? "ml-auto shrink-0" : undefined}
+              className={
+                isAnnotationMode
+                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0"
+                  : undefined
+              }
             />
           )}
         </div>
@@ -699,17 +709,17 @@ export default function TTSPage() {
             Loading...
           </div>
         ) : isAnnotationMode ? (
-          <div className="flex flex-col flex-1 w-full">
+          <div className="flex flex-col flex-1 w-full min-h-0">
             <TTSAnnotationPanel
-            evalTask={evalTask}
-            batchTasks={batchTasks}
-            currentTaskIndex={currentTaskIndex}
-            onTaskPersist={handleAnnotationTaskPersist}
-            onNavigate={handleAnnotationNavigate}
-            onSegmentUpload={handleSegmentUpload}
-            onNotice={(title, message, variant) =>
-              setNotice({ title, message, variant })
-            }
+              evalTask={evalTask}
+              batchTasks={batchTasks}
+              currentTaskIndex={currentTaskIndex}
+              onTaskPersist={handleAnnotationTaskPersist}
+              onNavigate={handleAnnotationNavigate}
+              onSegmentUpload={handleSegmentUpload}
+              onNotice={(title, message, variant) =>
+                setNotice({ title, message, variant })
+              }
             />
           </div>
         ) : (

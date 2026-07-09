@@ -3,9 +3,9 @@
 export type TeleprompterFontSize = "sm" | "md" | "lg";
 
 const fontSizeClass: Record<TeleprompterFontSize, string> = {
-  sm: "text-base sm:text-lg",
-  md: "text-lg sm:text-2xl md:text-3xl",
-  lg: "text-xl sm:text-3xl md:text-4xl",
+  sm: "text-sm sm:text-base md:text-lg",
+  md: "text-base sm:text-xl md:text-2xl lg:text-3xl",
+  lg: "text-lg sm:text-2xl md:text-3xl lg:text-4xl",
 };
 
 type TeleprompterDisplayProps = {
@@ -25,7 +25,7 @@ export default function TeleprompterDisplay({
 }: TeleprompterDisplayProps) {
   return (
     <div
-      className={`relative flex items-center justify-center min-h-[120px] px-4 py-4 sm:px-6 sm:py-5 ${className}`}
+      className={`relative flex items-center justify-center px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
     >
       <p
         className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 transition-opacity duration-300 w-full max-w-3xl ${
@@ -41,7 +41,7 @@ export default function TeleprompterDisplay({
 
       {isCountingDown && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
-          <span className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400">
+          <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400">
             {secondsLeft}
           </span>
         </div>

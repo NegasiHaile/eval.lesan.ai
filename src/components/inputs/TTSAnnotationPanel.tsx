@@ -452,77 +452,83 @@ export default function TTSAnnotationPanel({
       : undefined;
 
   return (
-    <div className="w-full flex flex-col flex-1 gap-8 py-2">
-      <div className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
-        <div className="hidden sm:block flex-1 min-w-0" aria-hidden />
+    <div className="w-full flex-1 flex items-center justify-center min-h-0 py-3 sm:py-4 md:py-6 overflow-y-auto overflow-x-hidden">
+      <div className="w-full max-w-6xl flex flex-col gap-5 sm:gap-6 md:gap-8 px-1 sm:px-0">
+        <div className="w-full flex flex-col md:flex-row md:items-center gap-3 md:gap-2">
+          <div className="hidden md:block flex-1 min-w-0" aria-hidden />
 
-        <div className="w-full max-w-3xl shrink-0 mx-auto sm:mx-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
-          <div className="flex justify-end px-3 pt-3 sm:px-4">
-            <TeleprompterFontSizeControl
-              value={fontSize}
-              disabled={isAdvancing}
-              onChange={(next) => {
-                setFontSize(next);
-                localStorage.setItem(FONT_STORAGE_KEY, next);
-              }}
+          <div className="w-full md:max-w-3xl md:shrink-0 mx-auto md:mx-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+            <div className="flex justify-end px-3 pt-3 sm:px-4">
+              <TeleprompterFontSizeControl
+                value={fontSize}
+                disabled={isAdvancing}
+                onChange={(next) => {
+                  setFontSize(next);
+                  localStorage.setItem(FONT_STORAGE_KEY, next);
+                }}
+              />
+            </div>
+
+            <TeleprompterDisplay
+              text={evalTask.input}
+              fontSize={fontSize}
+              isCountingDown={isAdvancing}
+              secondsLeft={secondsLeft}
+              className="!min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
             />
+
+            <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-4 sm:pb-5 text-center">
+              <span className="text-xs sm:text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
+                {segmentLabel}
+              </span>
+            </div>
           </div>
 
-          <TeleprompterDisplay
-            text={evalTask.input}
-            fontSize={fontSize}
-            isCountingDown={isAdvancing}
-            secondsLeft={secondsLeft}
-            className="!min-h-[120px] sm:!min-h-[140px] !pt-2 !pb-4"
-          />
-
-          <div className="px-4 pt-6 pb-5 text-center">
-            <span className="text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
-              {segmentLabel}
-            </span>
-          </div>
-        </div>
-
-        <div className="w-full sm:flex-1 min-w-0 flex items-center justify-end -mr-1 sm:-mr-4">
           {savedPlaybackSrc && (
-            <audio
-              key={savedPlaybackSrc}
-              controls
-              src={savedPlaybackSrc}
-              className="w-40 sm:w-48 h-9 shrink-0"
-              title="Segment recording"
-            >
-              Your browser does not support the audio element.
-            </audio>
+            <div className="w-full md:flex-1 md:min-w-0 flex items-center justify-end md:justify-end shrink-0">
+              <audio
+                key={savedPlaybackSrc}
+                controls
+                src={savedPlaybackSrc}
+                className="w-full max-w-xs sm:max-w-sm md:w-48 md:max-w-none h-9 shrink-0"
+                title="Segment recording"
+              >
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
+
+          {!savedPlaybackSrc && (
+            <div className="hidden md:block flex-1 min-w-0" aria-hidden />
           )}
         </div>
-      </div>
 
-      <div className="w-full flex justify-center">
-        <ReferenceVoiceArea
-          inCaptureMode={inCaptureMode}
-          levels={levels}
-          isLastTask={isLastTask}
-          saving={saving}
-          preparingSession={preparingSession}
-          disabled={isAdvancing}
-          onStart={() => void startSession()}
-          onStop={() => void finishSession()}
-        />
-      </div>
+        <div className="w-full flex justify-center px-1 sm:px-0">
+          <ReferenceVoiceArea
+            inCaptureMode={inCaptureMode}
+            levels={levels}
+            isLastTask={isLastTask}
+            saving={saving}
+            preparingSession={preparingSession}
+            disabled={isAdvancing}
+            onStart={() => void startSession()}
+            onStop={() => void finishSession()}
+          />
+        </div>
 
-      <div className="mt-auto w-full flex justify-end pr-0">
-        {!isLastTask && (
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={isAdvancing || saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next
-            <ChevronsRight className="size-4" aria-hidden />
-          </button>
-        )}
+        <div className="w-full flex justify-end min-h-[2.5rem] px-1 sm:px-0">
+          {!isLastTask && (
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={isAdvancing || saving}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+              <ChevronsRight className="size-4" aria-hidden />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -35,7 +35,7 @@ export default function TeleprompterFontSizeControl({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 rounded-lg border border-neutral-200/90 dark:border-neutral-700/90 bg-white/95 dark:bg-neutral-900/95 px-2.5 py-1.5 shadow-sm backdrop-blur-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-neutral-200/90 dark:border-neutral-700/90 bg-white/95 dark:bg-neutral-900/95 px-2 sm:px-2.5 py-1 sm:py-1.5 shadow-sm backdrop-blur-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         aria-label="Font size"
         aria-expanded={isOpen}
       >
