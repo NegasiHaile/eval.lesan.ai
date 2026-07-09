@@ -28,8 +28,9 @@ export default function TeleprompterDisplay({
       className={`relative flex items-center justify-center px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
     >
       <p
-        className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 transition-opacity duration-300 w-full max-w-3xl ${
-          isCountingDown ? "opacity-30" : "opacity-100"
+        aria-hidden={isCountingDown}
+        className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 w-full max-w-3xl ${
+          isCountingDown ? "invisible" : ""
         }`}
       >
         {text || (
@@ -39,7 +40,7 @@ export default function TeleprompterDisplay({
         )}
       </p>
 
-      {isCountingDown && (
+      {isCountingDown && secondsLeft > 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
           <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400">
             {secondsLeft}

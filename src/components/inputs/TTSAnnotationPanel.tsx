@@ -116,6 +116,7 @@ export default function TTSAnnotationPanel({
             if (generation !== advanceGenerationRef.current) return;
             const next = remaining - 1;
             if (next <= 0) {
+              setSecondsLeft(0);
               resolve();
               return;
             }
@@ -440,9 +441,9 @@ export default function TTSAnnotationPanel({
       if (generation !== advanceGenerationRef.current) return;
 
       clearAdvance();
+      await advanceAfterCountdown();
       setIsAdvancing(false);
       setSecondsLeft(0);
-      await advanceAfterCountdown();
     })();
   };
 
