@@ -5,10 +5,10 @@ import { NextRequest } from "next/server";
 import getClientPromise from "@/lib/mongodb";
 import { resolveApiCaller } from "@/lib/api-auth";
 import { apiSuccess, apiError, ErrorCodes } from "@/lib/api-errors";
-import { isValidBatchData } from "@/helpers/validate_uploading_batch";
+import { isValidBatchData, normalizeTtsAnnotationTasks } from "@/helpers/validate_uploading_batch";
 import { shuffleAndAnonymizeModels } from "@/helpers/task_models_shuffler";
 import { emitWebhookEvent } from "@/lib/api-webhooks";
-import type { BatchDetailTypes, BatchTasksTypes } from "@/types/data";
+import type { ASRBatchTasksTypes, BatchDetailTypes, BatchTasksTypes } from "@/types/data";
 
 const VALID_TYPES = ["mt", "asr", "tts"];
 
@@ -205,9 +205,10 @@ export async function POST(req: NextRequest) {
     ...(datasetType === "mt"
       ? { source_language: body.source_language, target_language: body.target_language }
       : { language: body.language }),
+    ...(datasetType === "tts" ? { workflow: body.workflow } : {}),
     rating_guideline: body.rating_guideline,
     domains: body.domains,
-  } as BatchTasksTypes;
+  } as BatchTasksTypes | ASRBatchTasksTypes;
 
   const validation = isValidBatchData(
     datasetType as "mt" | "asr" | "tts",
@@ -234,13 +235,19 @@ export async function POST(req: NextRequest) {
 
   const batchId = randomUUID();
   const now = new Date().toISOString();
+  const isTtsAnnotation = datasetType === "tts" && body.workflow === "annotation";
 
-  // Shuffle and anonymize models
-  const tasks = batchData.tasks;
-  const { anonymized_tasks, task_models_shuffles } = shuffleAndAnonymizeModels(tasks);
+  const tasks = isTtsAnnotation
+    ? normalizeTtsAnnotationTasks(batchData.tasks)
+    : batchData.tasks;
 
-  // Extract model names from first task before anonymization (already anonymized, use shuffles)
-  const modelNames = Object.values(task_models_shuffles[tasks[0]?.id] ?? {});
+  const { anonymized_tasks, task_models_shuffles } = isTtsAnnotation
+    ? { anonymized_tasks: tasks, task_models_shuffles: {} }
+    : shuffleAndAnonymizeModels(tasks);
+
+  const modelNames = isTtsAnnotation
+    ? []
+    : Object.values(task_models_shuffles[tasks[0]?.id] ?? {});
 
   // Build batch task document
   const batchTask: Record<string, unknown> = {
@@ -248,13 +255,14 @@ export async function POST(req: NextRequest) {
     batch_name: body.batch_name,
     dataset_domain: body.dataset_domain,
     tasks: anonymized_tasks,
-    task_models_shuffles,
+    ...(isTtsAnnotation ? {} : { task_models_shuffles }),
     ...(datasetType === "mt"
       ? { source_language: body.source_language, target_language: body.target_language }
       : { language: body.language }),
   };
   if (body.rating_guideline) batchTask.rating_guideline = body.rating_guideline;
   if (body.domains) batchTask.domains = body.domains;
+  if (datasetType === "tts") batchTask.workflow = body.workflow;
 
   // Build batch detail document
   const batchDetail: BatchDetailTypes = {
@@ -271,6 +279,9 @@ export async function POST(req: NextRequest) {
     number_of_tasks: tasks.length,
     annotated_tasks: 0,
     qa_id: null,
+    ...(datasetType === "tts"
+      ? { workflow: body.workflow as "annotation" | "evaluation" }
+      : {}),
   };
   if (body.rating_guideline) batchDetail.rating_guideline = body.rating_guideline as BatchDetailTypes["rating_guideline"];
   if (body.domains) batchDetail.domains = body.domains as BatchDetailTypes["domains"];

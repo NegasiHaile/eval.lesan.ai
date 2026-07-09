@@ -32,19 +32,6 @@ import {
 import { TaskEvalErrorTypes } from "@/types/others";
 import { Minus, Plus } from "lucide-react";
 
-function getTtsModelsWithOutput(task: EvalTaskTypes) {
-  return (
-    task.models?.filter(
-      (model) =>
-        typeof model.output === "string" && model.output.trim().length > 0
-    ) ?? []
-  );
-}
-
-function getTtsModelsForEvaluation(task: EvalTaskTypes, realtime: boolean) {
-  return realtime ? (task.models ?? []) : getTtsModelsWithOutput(task);
-}
-
 export default function TTSPage() {
   const { user } = useUser();
   const [notice, setNotice] = useState<{
@@ -329,7 +316,7 @@ export default function TTSPage() {
   const isAnnotationMode =
     !IsRealtime() &&
     evalTask != null &&
-    batchTasks.every((task) => getTtsModelsWithOutput(task).length === 0);
+    selectedBatchDetail.workflow === "annotation";
 
   const handleAnnotationTaskPersist = async (task: EvalTaskTypes) => {
     const index = currentTaskIndexRef.current;
@@ -751,7 +738,7 @@ export default function TTSPage() {
             />
 
             <div className="w-full md:w-1/2 space-y-3">
-              {getTtsModelsForEvaluation(evalTask, IsRealtime()).map(
+              {(evalTask.models ?? []).map(
                 (task, i) => {
                   const index = IsRealtime()
                     ? i

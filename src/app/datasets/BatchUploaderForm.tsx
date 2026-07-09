@@ -8,6 +8,7 @@ import {
   guidelineTypes,
   EvalOutputTypes,
   SpeechBatchTasksTypes,
+  TtsBatchTasksTypes,
 } from "@/types/data";
 import { DomainTypes, EvalTypeTypes } from "@/types/others";
 import { languages } from "@/constants/iso1-iso3-languages";
@@ -32,6 +33,7 @@ import { date_DDMMYYYY } from "@/helpers/format-date";
 import { LanguageTypes } from "@/types/languages";
 import DragDropFile, { type BatchData } from "@/components/inputs/DragDropFile";
 import { shuffleAndAnonymizeModels } from "@/helpers/task_models_shuffler";
+import { normalizeTtsAnnotationTasks } from "@/helpers/validate_uploading_batch";
 import { useUser } from "@/context/UserContext";
 
 type PropsType = {
@@ -195,17 +197,36 @@ const BatchUploaderForm = ({
       batche_details.annotated_tasks = 0;
     } else {
       const tasks = (data as ASRBatchTasksTypes | BatchTasksTypes).tasks;
-      const models: string[] = [];
-      tasks[0].models.map((item: EvalOutputTypes) => {
-        models.push(item.model);
-      });
-      batche_details.models = models;
+      const batchData = data as ASRBatchTasksTypes | BatchTasksTypes;
+      const isTtsAnnotation =
+        activeTab.value === "tts" &&
+        (batchData as TtsBatchTasksTypes).workflow === "annotation";
 
-      const evaluatedTasks = tasks.filter(
-        (item: EvalTaskTypes) =>
-          item.models[0].rate > 0 && item.models[0].rank > 0
-      );
-      batche_details.annotated_tasks = evaluatedTasks.length;
+      if (activeTab.value === "tts") {
+        batche_details.workflow = (batchData as TtsBatchTasksTypes).workflow;
+      }
+
+      if (isTtsAnnotation) {
+        batche_details.models = [];
+        batche_details.annotated_tasks = tasks.filter((item: EvalTaskTypes) =>
+          Boolean(item.reference?.trim())
+        ).length;
+      } else {
+        const models: string[] = [];
+        (tasks[0].models ?? []).forEach((item: EvalOutputTypes) => {
+          models.push(item.model);
+        });
+        batche_details.models = models;
+
+        const evaluatedTasks = tasks.filter(
+          (item: EvalTaskTypes) =>
+            Array.isArray(item.models) &&
+            item.models.length > 0 &&
+            item.models[0].rate > 0 &&
+            item.models[0].rank > 0
+        );
+        batche_details.annotated_tasks = evaluatedTasks.length;
+      }
     }
 
     return batche_details;
@@ -232,13 +253,25 @@ const BatchUploaderForm = ({
       const deepClonedTasks = JSON.parse(
         JSON.stringify((data as ASRBatchTasksTypes | BatchTasksTypes).tasks)
       );
-      const { anonymized_tasks, task_models_shuffles } =
-        shuffleAndAnonymizeModels(deepClonedTasks, 123);
-      payload = {
-        ...(data as ASRBatchTasksTypes | BatchTasksTypes),
-        tasks: anonymized_tasks,
-        task_models_shuffles,
-      };
+      const batchData = data as ASRBatchTasksTypes | BatchTasksTypes;
+      const isTtsAnnotation =
+        activeTab.value === "tts" &&
+        (batchData as TtsBatchTasksTypes).workflow === "annotation";
+      const tasksForSave = isTtsAnnotation
+        ? normalizeTtsAnnotationTasks(deepClonedTasks)
+        : deepClonedTasks;
+
+      if (isTtsAnnotation) {
+        payload = { ...batchData, tasks: tasksForSave };
+      } else {
+        const { anonymized_tasks, task_models_shuffles } =
+          shuffleAndAnonymizeModels(tasksForSave, 123);
+        payload = {
+          ...batchData,
+          tasks: anonymized_tasks,
+          task_models_shuffles,
+        };
+      }
     }
     const detail = getBatchDetailFromData(payload);
 
@@ -480,25 +513,36 @@ const BatchUploaderForm = ({
                     setNewBatchTasks(single);
                     generateFileDetail(single);
                   } else {
+                    const batchData = single as ASRBatchTasksTypes | BatchTasksTypes;
                     const deepClonedTasks = JSON.parse(
-                      JSON.stringify(
-                        (single as ASRBatchTasksTypes | BatchTasksTypes).tasks
-                      )
+                      JSON.stringify(batchData.tasks)
                     );
-                    const { anonymized_tasks, task_models_shuffles } =
-                      shuffleAndAnonymizeModels(deepClonedTasks, 123);
+                    const isTtsAnnotation =
+                      activeTab.value === "tts" &&
+                      (batchData as TtsBatchTasksTypes).workflow === "annotation";
+                    const tasksForSave = isTtsAnnotation
+                      ? normalizeTtsAnnotationTasks(deepClonedTasks)
+                      : deepClonedTasks;
 
-                    setNewBatchTasks({
-                      ...(single as ASRBatchTasksTypes | BatchTasksTypes),
-                      tasks: anonymized_tasks,
-                      task_models_shuffles,
-                    });
+                    if (isTtsAnnotation) {
+                      setNewBatchTasks({ ...batchData, tasks: tasksForSave });
+                      generateFileDetail({ ...batchData, tasks: tasksForSave });
+                    } else {
+                      const { anonymized_tasks, task_models_shuffles } =
+                        shuffleAndAnonymizeModels(tasksForSave, 123);
 
-                    generateFileDetail({
-                      ...(single as ASRBatchTasksTypes | BatchTasksTypes),
-                      tasks: anonymized_tasks,
-                      task_models_shuffles,
-                    });
+                      setNewBatchTasks({
+                        ...batchData,
+                        tasks: anonymized_tasks,
+                        task_models_shuffles,
+                      });
+
+                      generateFileDetail({
+                        ...batchData,
+                        tasks: anonymized_tasks,
+                        task_models_shuffles,
+                      });
+                    }
                   }
                 }}
                 required={true}

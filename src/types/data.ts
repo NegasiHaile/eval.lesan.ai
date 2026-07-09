@@ -40,6 +40,8 @@ export type BatchTasksTypes = {
   domains?: DomainTypes[] | [];
 };
 
+export type TtsBatchWorkflow = "annotation" | "evaluation";
+
 export type ASRBatchTasksTypes = {
   batch_id?: string;
   dataset_name: string;
@@ -50,6 +52,10 @@ export type ASRBatchTasksTypes = {
   task_models_shuffles?: Record<string, Record<string, string>>;
   rating_guideline?: guidelineTypes[] | [];
   domains?: DomainTypes[] | [];
+};
+
+export type TtsBatchTasksTypes = ASRBatchTasksTypes & {
+  workflow: TtsBatchWorkflow;
 };
 
 export type TagFieldTypes = {
@@ -117,6 +123,7 @@ export type BatchDetailTypes = {
   qa_id: string | null;
   rating_guideline?: guidelineTypes[] | [];
   domains?: DomainTypes[] | [];
+  workflow?: TtsBatchWorkflow;
 };
 
 // export type TranslationTaskTypes = {

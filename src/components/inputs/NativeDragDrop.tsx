@@ -14,8 +14,9 @@ import {
   EvalTaskTypes,
   guidelineTypes,
   EvalOutputTypes,
+  TtsBatchTasksTypes,
 } from "@/types/data";
-import { isValidBatchData } from "@/helpers/validate_uploading_batch";
+import { isValidBatchData, normalizeTtsAnnotationTasks } from "@/helpers/validate_uploading_batch";
 import { DomainTypes, EvalTypeTypes } from "@/types/others";
 import { useUser } from "@/context/UserContext";
 import Modal from "@/components/utils/Modal";
@@ -28,7 +29,7 @@ const formatDate = (date: Date): string => {
   return `${day}/${month}/${year}`;
 };
 
-const batch_detail_temp = {
+const batch_detail_temp: BatchDetailTypes = {
   batch_id: "T001",
   batch_name: "",
   dataset_type: "",
@@ -43,15 +44,15 @@ const batch_detail_temp = {
     iso_639_1: "",
     iso_639_3: "",
   },
-  models: [] as string[],
+  models: [],
   annotator_id: null,
   created_by: "",
   created_at: `${formatDate(new Date())}`,
   number_of_tasks: 0,
   annotated_tasks: 0,
   qa_id: null,
-  rating_guideline: [] as guidelineTypes[],
-  domains: [] as DomainTypes[],
+  rating_guideline: [],
+  domains: [],
 };
 
 type NativeDragDropProps = {
@@ -146,20 +147,38 @@ export default function NativeDragDrop({
     batche_details.domains = data.domains ?? [];
 
     // Extracting models names from models
-    const models: string[] = [];
-    data.tasks[0].models.map((item: EvalOutputTypes) => {
-      models.push(item.model);
-    });
-    batche_details.models = models;
+    const isTtsAnnotation =
+      datasetType.value === "tts" &&
+      (data as TtsBatchTasksTypes).workflow === "annotation";
 
-    // Count the number of Evaluated tasks, incase the batch was downloaded from the Eval system
-    const evaluatedTasks = data.tasks.filter(
-      (item: EvalTaskTypes) =>
-        item.models[0].rate > 0 && item.models[0].rank > 0
-    );
-    batche_details.annotated_tasks = evaluatedTasks.length;
+    if (datasetType.value === "tts") {
+      batche_details.workflow = (data as TtsBatchTasksTypes).workflow;
+    }
 
-    console.log("evaluatedTasks:", evaluatedTasks);
+    if (isTtsAnnotation) {
+      batche_details.models = [];
+      batche_details.annotated_tasks = data.tasks.filter((item: EvalTaskTypes) =>
+        Boolean(item.reference?.trim())
+      ).length;
+    } else {
+      const models: string[] = [];
+      (data.tasks[0].models ?? []).forEach((item: EvalOutputTypes) => {
+        models.push(item.model);
+      });
+      batche_details.models = models;
+
+      // Count the number of Evaluated tasks, incase the batch was downloaded from the Eval system
+      const evaluatedTasks = data.tasks.filter(
+        (item: EvalTaskTypes) =>
+          Array.isArray(item.models) &&
+          item.models.length > 0 &&
+          item.models[0].rate > 0 &&
+          item.models[0].rank > 0
+      );
+      batche_details.annotated_tasks = evaluatedTasks.length;
+    }
+
+    console.log("evaluatedTasks:", batche_details.annotated_tasks);
 
     return batche_details;
   };
@@ -197,9 +216,19 @@ export default function NativeDragDrop({
       const details = generateFileDetail(data);
       if (!details) return null;
 
+      const isTtsAnnotation =
+        datasetType.value === "tts" &&
+        (data as TtsBatchTasksTypes).workflow === "annotation";
+
       setLoading(true);
       const batch_detail = details;
-      const tasks_batch = { ...data, batch_id: details.batch_id };
+      const tasks_batch = {
+        ...data,
+        batch_id: details.batch_id,
+        tasks: isTtsAnnotation
+          ? normalizeTtsAnnotationTasks(data.tasks)
+          : data.tasks,
+      };
 
       try {
         const res = await fetch(`/api/batches/${datasetType.value}`, {
