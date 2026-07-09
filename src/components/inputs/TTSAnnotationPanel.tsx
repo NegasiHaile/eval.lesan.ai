@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronsRight } from "lucide-react";
 
-import DomainsList from "@/components/DomainsList";
 import TeleprompterDisplay, {
   TeleprompterFontSize,
 } from "@/components/inputs/TeleprompterDisplay";
@@ -10,9 +10,9 @@ import TeleprompterFontSizeControl from "@/components/inputs/TeleprompterFontSiz
 import ReferenceVoiceArea, {
   WAVEFORM_BARS,
 } from "@/components/inputs/ReferenceVoiceArea";
-import Button from "@/components/utils/Button";
 import { normalizeAudioContentType } from "@/constants/transcription";
-import { BatchDetailTypes, EvalTaskTypes } from "@/types/data";
+import { audioPlaybackSrc } from "@/helpers/audio_playback_url";
+import { EvalTaskTypes } from "@/types/data";
 
 const SEGMENT_GAP_TAIL_MS = 1000;
 const SEGMENT_GAP_HEAD_MS = 1000;
@@ -33,13 +33,11 @@ function idleLevels(): number[] {
 
 type TTSAnnotationPanelProps = {
   evalTask: EvalTaskTypes;
-  selectedBatchDetail: BatchDetailTypes;
   batchTasks: EvalTaskTypes[];
   currentTaskIndex: number;
   onTaskPersist: (task: EvalTaskTypes) => Promise<void>;
   onNavigate: (index: number) => void;
   onSegmentUpload: (blob: Blob, taskIndex: number) => Promise<void>;
-  onToggleDomain: (name: string) => void;
   onNotice: (
     title: string,
     message: string,
@@ -49,13 +47,11 @@ type TTSAnnotationPanelProps = {
 
 export default function TTSAnnotationPanel({
   evalTask,
-  selectedBatchDetail,
   batchTasks,
   currentTaskIndex,
   onTaskPersist,
   onNavigate,
   onSegmentUpload,
-  onToggleDomain,
   onNotice,
 }: TTSAnnotationPanelProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -308,8 +304,6 @@ export default function TTSAnnotationPanel({
         sessionStartedAtRef.current = null;
         mediaRecorderRef.current = null;
 
-        // Persist domains/metadata before upload so the reference save does not
-        // overwrite evalTask with a batchTasks copy that lacks domain picks.
         await onTaskPersistRef.current(evalTaskRef.current);
 
         if (blob) {
@@ -433,14 +427,12 @@ export default function TTSAnnotationPanel({
       const index = currentTaskIndexRef.current;
 
       const gapsDone = (async () => {
-        // 1s tail silence at the end of the current segment audio
         await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
         if (generation !== advanceGenerationRef.current) return;
 
         await finalizeCurrentSegment(index);
         if (generation !== advanceGenerationRef.current) return;
 
-        // 1s head silence at the start of the next segment audio (before teleprompter advances)
         await waitForGap(SEGMENT_GAP_HEAD_MS, generation);
       })();
 
@@ -454,46 +446,59 @@ export default function TTSAnnotationPanel({
     })();
   };
 
-  const handlePrev = () => {
-    if (currentTaskIndex <= 0 || isAdvancing || saving) {
-      if (currentTaskIndex <= 0) {
-        onNotice(
-          "First task",
-          "You are already at the first task.",
-          "info"
-        );
-      }
-      return;
-    }
-    onNavigateRef.current(currentTaskIndex - 1);
-  };
+  const savedPlaybackSrc =
+    evalTask.reference && !inCaptureMode && !saving
+      ? audioPlaybackSrc(evalTask.reference)
+      : undefined;
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-3 sm:space-y-4">
-      <div className="relative w-full">
-        <div className="w-full rounded-lg sm:rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
+    <div className="w-full flex flex-col flex-1 gap-8 py-2">
+      <div className="w-full flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
+        <div className="hidden sm:block flex-1 min-w-0" aria-hidden />
+
+        <div className="w-full max-w-3xl shrink-0 mx-auto sm:mx-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+          <div className="flex justify-end px-3 pt-3 sm:px-4">
+            <TeleprompterFontSizeControl
+              value={fontSize}
+              disabled={isAdvancing}
+              onChange={(next) => {
+                setFontSize(next);
+                localStorage.setItem(FONT_STORAGE_KEY, next);
+              }}
+            />
+          </div>
+
           <TeleprompterDisplay
             text={evalTask.input}
             fontSize={fontSize}
             isCountingDown={isAdvancing}
             secondsLeft={secondsLeft}
-            className="!min-h-[20vh] sm:!min-h-[24vh] md:!min-h-[28vh]"
+            className="!min-h-[120px] sm:!min-h-[140px] !pt-2 !pb-4"
           />
+
+          <div className="px-4 pt-6 pb-5 text-center">
+            <span className="text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
+              {segmentLabel}
+            </span>
+          </div>
         </div>
 
-        <div className="absolute bottom-0 left-full ml-2 sm:ml-3 max-sm:static max-sm:mt-1.5 max-sm:flex max-sm:justify-end">
-          <TeleprompterFontSizeControl
-            value={fontSize}
-            disabled={isAdvancing}
-            onChange={(next) => {
-              setFontSize(next);
-              localStorage.setItem(FONT_STORAGE_KEY, next);
-            }}
-          />
+        <div className="w-full sm:flex-1 min-w-0 flex items-center justify-end -mr-1 sm:-mr-4">
+          {savedPlaybackSrc && (
+            <audio
+              key={savedPlaybackSrc}
+              controls
+              src={savedPlaybackSrc}
+              className="w-40 sm:w-48 h-9 shrink-0"
+              title="Segment recording"
+            >
+              Your browser does not support the audio element.
+            </audio>
+          )}
         </div>
       </div>
 
-      <div className="rounded-lg sm:rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 overflow-hidden">
+      <div className="w-full flex justify-center">
         <ReferenceVoiceArea
           inCaptureMode={inCaptureMode}
           levels={levels}
@@ -501,53 +506,22 @@ export default function TTSAnnotationPanel({
           saving={saving}
           preparingSession={preparingSession}
           disabled={isAdvancing}
-          value={evalTask.reference}
           onStart={() => void startSession()}
           onStop={() => void finishSession()}
         />
       </div>
 
-      <div className="min-w-0 overflow-hidden">
-        <DomainsList
-          domains={selectedBatchDetail.domains ?? undefined}
-          selectedDomains={evalTask.domain ?? []}
-          toggleDomainSelection={onToggleDomain}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pb-2 font-mono">
-        {currentTaskIndex > 0 && (
-          <Button
-            type="button"
-            onClick={handlePrev}
-            disabled={isAdvancing || saving}
-            outline
-            size="xs"
-            text="Prev"
-            className="!w-auto !px-2.5 sm:!px-3 !font-medium"
-          />
-        )}
-
-        <span className="min-w-[2.75rem] text-center text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
-          {isAdvancing ? (
-            <span className="text-blue-600 dark:text-blue-400">
-              {secondsLeft}s
-            </span>
-          ) : (
-            segmentLabel
-          )}
-        </span>
-
+      <div className="mt-auto w-full flex justify-end pr-0">
         {!isLastTask && (
-          <Button
+          <button
             type="button"
             onClick={handleNext}
             disabled={isAdvancing || saving}
-            outline
-            size="xs"
-            text="Next"
-            className="!w-auto !px-2.5 sm:!px-3 !font-medium"
-          />
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+            <ChevronsRight className="size-4" aria-hidden />
+          </button>
         )}
       </div>
     </div>

@@ -603,8 +603,16 @@ export default function TTSPage() {
   }, [evalTask?.id]);
 
   return (
-    <Container>
-      <div className="w-full max-w-6xl space-y-5">
+    <Container
+      className={
+        isAnnotationMode
+          ? "!pr-0 md:!pr-1 flex flex-col min-h-[calc(100vh-1.5rem)]"
+          : undefined
+      }
+    >
+      <div
+        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1" : "space-y-5"}`}
+      >
         <div className="w-full flex flex-wrap sm:flex-nowrap justify-between items-center gap-2">
           {!isAnnotationMode && (
             <SelectOption
@@ -691,31 +699,19 @@ export default function TTSPage() {
             Loading...
           </div>
         ) : isAnnotationMode ? (
-          <TTSAnnotationPanel
+          <div className="flex flex-col flex-1 w-full">
+            <TTSAnnotationPanel
             evalTask={evalTask}
-            selectedBatchDetail={selectedBatchDetail}
             batchTasks={batchTasks}
             currentTaskIndex={currentTaskIndex}
             onTaskPersist={handleAnnotationTaskPersist}
             onNavigate={handleAnnotationNavigate}
             onSegmentUpload={handleSegmentUpload}
-            onToggleDomain={(name) =>
-              setEvalTask((prev) => {
-                if (!prev) return prev;
-                const current = prev.domain ?? [];
-                const isSelected = current.includes(name);
-                return {
-                  ...prev,
-                  domain: isSelected
-                    ? current.filter((d) => d !== name)
-                    : [...current, name],
-                };
-              })
-            }
             onNotice={(title, message, variant) =>
               setNotice({ title, message, variant })
             }
-          />
+            />
+          </div>
         ) : (
           <div className="w-full block space-y-5 md:flex justify-between space-x-5">
             <TranslationInputTextarea

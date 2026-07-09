@@ -25,7 +25,7 @@ export default function TeleprompterDisplay({
 }: TeleprompterDisplayProps) {
   return (
     <div
-      className={`relative flex items-center justify-center min-h-[22vh] sm:min-h-[26vh] md:min-h-[32vh] px-4 py-5 sm:px-6 sm:py-8 md:p-10 ${className}`}
+      className={`relative flex items-center justify-center min-h-[120px] px-4 py-4 sm:px-6 sm:py-5 ${className}`}
     >
       <p
         className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 transition-opacity duration-300 w-full max-w-3xl ${
