@@ -58,6 +58,10 @@ export function shuffleAndAnonymizeModels(
   const task_models_shuffles: Record<string, Record<string, string>> = {};
 
   tasks.forEach((task) => {
+    if (!Array.isArray(task.models) || task.models.length === 0) {
+      return;
+    }
+
     const labels = generateLabels(task.models.length);
     const taskSeed = hashStringToSeed(task.id + seed.toString());
     const shuffled = seededShuffle(task.models, taskSeed);

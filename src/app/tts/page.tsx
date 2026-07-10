@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AudioCard from "@/components/inputs/AudioCard";
 import SelectOption from "@/components/inputs/SelectOption";
@@ -21,6 +21,7 @@ import { ttsRealtimeBatch, ttsBatchTemplate } from "@/constants/initial_values";
 import { generate_realtime_tts_batch } from "@/scripts/generat_eval_data";
 import { ttsModels } from "@/constants/models";
 import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
+import TTSAnnotationPanel from "@/components/inputs/TTSAnnotationPanel";
 import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
 import { normalizeAudioContentType } from "@/constants/transcription";
 import {
@@ -52,6 +53,12 @@ export default function TTSPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showReference, setShowReference] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
+  const batchTasksRef = useRef(batchTasks);
+  const currentTaskIndexRef = useRef(currentTaskIndex);
+  const evalTaskRef = useRef(evalTask);
+  batchTasksRef.current = batchTasks;
+  currentTaskIndexRef.current = currentTaskIndex;
+  evalTaskRef.current = evalTask;
 
   const {
     isReviewerMode,
@@ -140,7 +147,6 @@ export default function TTSPage() {
   };
 
   const handleSelectedBatchUpdate = async (batch: BatchDetailTypes) => {
-    handleResetEvalTask(2);
     setCurrentTaskIndex(0);
     if (batch.batch_name.toLowerCase().includes("realtime")) {
       handleResetEvalTask(modelsToEval);
@@ -307,6 +313,106 @@ export default function TTSPage() {
     }
   };
 
+  const isAnnotationMode =
+    !IsRealtime() &&
+    evalTask != null &&
+    selectedBatchDetail.workflow === "annotation";
+
+  const handleAnnotationTaskPersist = async (task: EvalTaskTypes) => {
+    const index = currentTaskIndexRef.current;
+    const tasks = batchTasksRef.current;
+    if (index < 0 || index >= tasks.length) return;
+
+    const updatedTasks = [...tasks];
+    updatedTasks[index] = task;
+    setBatchTasks(updatedTasks);
+    setEvalTask(task);
+    await handleSaveTaskChanges(task);
+    syncActiveBatchToStorage(updatedTasks);
+  };
+
+  const handleAnnotationNavigate = (index: number) => {
+    const tasks = batchTasksRef.current;
+    const task = tasks[index];
+    if (!task) return;
+
+    setCurrentTaskIndex(index);
+    setEvalTask({ ...task });
+    setReviewerComment(task.reviewer_comment ?? "");
+    localStorage.setItem(
+      "tts_active_batch",
+      JSON.stringify({
+        ...selectedBatchDetail,
+        batch_id: selectedBatchDetail.batch_id,
+        dataset_type: selectedBatchDetail.dataset_type,
+        tasks,
+        currentTaskIndex: index,
+      })
+    );
+  };
+
+  const handleSegmentUpload = async (blob: Blob, taskIndex: number) => {
+    if (IsRealtime()) return;
+
+    const contentType = normalizeAudioContentType(blob.type || "audio/webm");
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([blob], referenceAudioFilename(contentType), {
+        type: contentType,
+      })
+    );
+
+    const uploadRes = await fetch("/api/uploads", {
+      method: "POST",
+      body: formData,
+    });
+    const body = (await uploadRes.json()) as {
+      file_id?: string;
+      error?: string;
+    };
+    if (!uploadRes.ok || !body.file_id) {
+      throw new Error(
+        typeof body.error === "string" ? body.error : "Failed to upload audio."
+      );
+    }
+
+    let nextTasks: EvalTaskTypes[] = [];
+    setBatchTasks((prev) => {
+      if (taskIndex < 0 || taskIndex >= prev.length) {
+        nextTasks = prev;
+        return prev;
+      }
+      const existing = prev[taskIndex];
+      const base =
+        taskIndex === currentTaskIndexRef.current &&
+        evalTaskRef.current?.id === existing?.id
+          ? evalTaskRef.current
+          : existing;
+      nextTasks = [...prev];
+      nextTasks[taskIndex] = {
+        ...base,
+        reference: body.file_id!,
+      };
+      syncActiveBatchToStorage(nextTasks);
+      return nextTasks;
+    });
+
+    const savedTask = nextTasks[taskIndex];
+    if (!savedTask) return;
+
+    setEvalTask((prev) =>
+      prev?.id === savedTask.id ? { ...prev, reference: savedTask.reference } : prev
+    );
+    await handleSaveTaskChanges(savedTask);
+    await updateBatchDetail({
+      ...selectedBatchDetail,
+      annotated_tasks: nextTasks.filter((t) =>
+        Boolean(t.reference?.trim())
+      ).length,
+    });
+  };
+
   const handleSubmitEvaluation = async () => {
     if (!evalTask) return null;
 
@@ -388,6 +494,16 @@ export default function TTSPage() {
       });
       handleResetEvalTask(modelsToEval);
     }
+  };
+
+  const realtimeSynthesize = () => {
+    if (!evalTask?.input.trim()) return;
+    setNotice({
+      title: "Coming soon",
+      message:
+        "Realtime synthesis is coming soon. For now, this is only for dataset evaluation.",
+      variant: "info",
+    });
   };
 
   useEffect(() => {
@@ -487,28 +603,44 @@ export default function TTSPage() {
   }, [evalTask?.id]);
 
   return (
-    <Container>
-      <div className="w-full max-w-6xl space-y-5">
-        <div className="w-full flex flex-wrap sm:flex-nowrap justify-between items-center gap-2">
-          <SelectOption
-            id="from-language"
-            label="Language"
-            name="source_language"
-            value={selectedBatchDetail.source_language.iso_639_3}
-            options={
-              IsRealtime() ? languages : [selectedBatchDetail.source_language]
-            }
-            onChange={(selectedLang) =>
-              setSelectedBatchDetail((prev) => ({
-                ...prev,
-                source_language: selectedLang,
-                target_language: selectedLang,
-              }))
-            }
-            labelClass="absolute md:left-3 border-r-2 md:pr-2.5 opacity-50"
-            selectClass="md:pl-24"
-            disabled={!IsRealtime()}
-          />
+    <Container
+      className={
+        isAnnotationMode
+          ? "!p-3 sm:!p-6 md:!px-12 md:!py-8 flex flex-col min-h-[100dvh] sm:min-h-[calc(100vh-1.5rem)]"
+          : undefined
+      }
+    >
+      <div
+        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "space-y-5"}`}
+      >
+        <div
+          className={`w-full flex gap-2 shrink-0 ${
+            isAnnotationMode
+              ? "justify-end"
+              : "flex-wrap sm:flex-nowrap justify-between items-center"
+          }`}
+        >
+          {!isAnnotationMode && (
+            <SelectOption
+              id="from-language"
+              label="Language"
+              name="source_language"
+              value={selectedBatchDetail.source_language.iso_639_3}
+              options={
+                IsRealtime() ? languages : [selectedBatchDetail.source_language]
+              }
+              onChange={(selectedLang) =>
+                setSelectedBatchDetail((prev) => ({
+                  ...prev,
+                  source_language: selectedLang,
+                  target_language: selectedLang,
+                }))
+              }
+              labelClass="absolute md:left-3 border-r-2 md:pr-2.5 opacity-50"
+              selectClass="md:pl-24"
+              disabled={!IsRealtime()}
+            />
+          )}
 
           {IsRealtime() && (
             <SelectTransparent
@@ -563,6 +695,11 @@ export default function TTSPage() {
               }}
               labelClass="absolute left-3 border-r-2 pr-2"
               selectClass="pl-14"
+              className={
+                isAnnotationMode
+                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0"
+                  : undefined
+              }
             />
           )}
         </div>
@@ -570,6 +707,20 @@ export default function TTSPage() {
         {isLoading || !evalTask ? (
           <div className="w-full py-12 text-center text-neutral-500">
             Loading...
+          </div>
+        ) : isAnnotationMode ? (
+          <div className="flex flex-col flex-1 w-full min-h-0">
+            <TTSAnnotationPanel
+              evalTask={evalTask}
+              batchTasks={batchTasks}
+              currentTaskIndex={currentTaskIndex}
+              onTaskPersist={handleAnnotationTaskPersist}
+              onNavigate={handleAnnotationNavigate}
+              onSegmentUpload={handleSegmentUpload}
+              onNotice={(title, message, variant) =>
+                setNotice({ title, message, variant })
+              }
+            />
           </div>
         ) : (
           <div className="w-full block space-y-5 md:flex justify-between space-x-5">
@@ -586,27 +737,43 @@ export default function TTSPage() {
                 })
               }
               className="md:w-1/2"
+              translate={IsRealtime() ? realtimeSynthesize : undefined}
+              actionLabel="Synthesize"
+              actionLoadingLabel="Synthesizing"
               loading={false}
             />
 
             <div className="w-full md:w-1/2 space-y-3">
-              {evalTask.models.map((task, i) => (
-                <AudioCard
-                  key={`${evalTask.id}-${task.model}-${i}`}
-                  type="output"
-                  index={i}
-                  task={task}
-                  onClickRankUp={() => RankOutput(i, i - 1)}
-                  onClickRankDown={() => RankOutput(i, i + 1)}
-                  onClickRate={RateOutput}
-                  error={error}
-                  isLastItem={i === evalTask.models.length - 1}
-                  readOnly={isReviewerMode}
-                  rating_guideline={
-                    selectedBatchDetail.rating_guideline ?? undefined
-                  }
-                />
-              ))}
+              {(evalTask.models ?? []).map(
+                (task, i) => {
+                  const index = IsRealtime()
+                    ? i
+                    : (() => {
+                        const modelIndex = evalTask.models.findIndex(
+                          (m) =>
+                            m.model === task.model && m.output === task.output
+                        );
+                        return modelIndex >= 0 ? modelIndex : i;
+                      })();
+                  return (
+                    <AudioCard
+                      key={`${evalTask.id}-${task.model}-${index}`}
+                      type="output"
+                      index={index}
+                      task={task}
+                      onClickRankUp={() => RankOutput(index, index - 1)}
+                      onClickRankDown={() => RankOutput(index, index + 1)}
+                      onClickRate={RateOutput}
+                      error={error}
+                      isLastItem={index === evalTask.models.length - 1}
+                      readOnly={isReviewerMode}
+                      rating_guideline={
+                        selectedBatchDetail.rating_guideline ?? undefined
+                      }
+                    />
+                  );
+                }
+              )}
 
               <div
                 className={`transition-all duration-600 ease-in-out overflow-hidden ${

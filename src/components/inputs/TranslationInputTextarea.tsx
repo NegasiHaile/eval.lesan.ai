@@ -10,6 +10,8 @@ type TextareaTypes = {
   className?: string;
   disabled?: boolean;
   translate?: () => void;
+  actionLabel?: string;
+  actionLoadingLabel?: string;
   loading: boolean;
   placeholder?: string;
 };
@@ -32,6 +34,8 @@ const TranslationInputTextarea = ({
   className,
   disabled,
   translate,
+  actionLabel = "Translate",
+  actionLoadingLabel = "Translating",
   loading,
   placeholder = "Enter text",
 }: TextareaTypes) => {
@@ -88,11 +92,11 @@ const TranslationInputTextarea = ({
         <p className="opacity-50">
           {value.length}/{maxLength ?? "1500"}
         </p>
-        {value.trim() && !disabled && (
+        {value.trim() && !disabled && translate && (
           <div className="w-fit transition-all">
             <Button
               type="button"
-              text={loading ? "Translating" : "Translate"}
+              text={loading ? actionLoadingLabel : actionLabel}
               variant="secondary"
               outline={true}
               onClick={translate}

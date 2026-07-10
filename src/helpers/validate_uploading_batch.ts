@@ -1,4 +1,8 @@
-import { BatchTasksTypes } from "@/types/data";
+import { ASRBatchTasksTypes, BatchTasksTypes, EvalOutputTypes, TtsBatchTasksTypes, TtsBatchWorkflow } from "@/types/data";
+
+const TTS_WORKFLOW_ERROR = '"workflow" must be "annotation" or "evaluation".';
+const TTS_EVAL_MODELS_ERROR =
+  'Evaluation TTS tasks require a "models" array with at least one model.';
 
 const keys = {
   mt: {
@@ -12,11 +16,20 @@ const keys = {
     modelKeys: ["output", "model", "rate", "rank"],
   },
   tts: {
-    topLevel: ["tasks", "batch_name", "dataset_domain", "language"],
+    topLevel: ["tasks", "batch_name", "dataset_domain", "language", "workflow"],
     taskKeys: ["id", "input", "models"],
     modelKeys: ["output", "model", "rate", "rank"],
   },
 };
+
+export function normalizeTtsAnnotationTasks<T extends { models?: EvalOutputTypes[] }>(
+  tasks: T[]
+): Array<T & { models: EvalOutputTypes[] }> {
+  return tasks.map((task) => ({
+    ...task,
+    models: Array.isArray(task.models) ? task.models : [],
+  }));
+}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -39,7 +52,7 @@ export type ValidateBatchOptions = {
 
 export const isValidBatchData = (
   type: "mt" | "asr" | "tts" = "mt",
-  data: BatchTasksTypes,
+  data: BatchTasksTypes | ASRBatchTasksTypes | TtsBatchTasksTypes,
   options: ValidateBatchOptions = {}
 ): { isValid: boolean; message: string } => {
   const { requireMetadata = false } = options;
@@ -47,6 +60,23 @@ export const isValidBatchData = (
 
   const groupedMessages: Map<string, number[]> = new Map();
   const miscMessages: string[] = [];
+
+  let ttsWorkflow: TtsBatchWorkflow | null = null;
+  let ttsEvaluationModelsError = false;
+
+  if (type === "tts") {
+    const rawWorkflow = (data as Record<string, unknown>).workflow;
+    if (rawWorkflow === "annotation" || rawWorkflow === "evaluation") {
+      ttsWorkflow = rawWorkflow;
+    } else {
+      miscMessages.push(TTS_WORKFLOW_ERROR);
+    }
+  }
+
+  const effectiveTaskKeys =
+    type === "tts" && ttsWorkflow === "annotation"
+      ? ["id", "input"]
+      : taskKeys;
 
   const groupError = (baseMessage: string, taskIndex: number) => {
     if (!groupedMessages.has(baseMessage)) groupedMessages.set(baseMessage, []);
@@ -56,9 +86,12 @@ export const isValidBatchData = (
   // 1. Validate top-level keys (always require "tasks"; when requireMetadata, also require batch_name, dataset_domain, language)
   const requiredTopKeys = requireMetadata ? topLevel : ["tasks"];
   const missingTopKeys = requiredTopKeys.filter((key) => !(key in data));
-  if (missingTopKeys.length > 0) {
+  const missingTopKeysToReport = missingTopKeys.filter(
+    (key) => !(type === "tts" && key === "workflow" && ttsWorkflow === null)
+  );
+  if (missingTopKeysToReport.length > 0) {
     miscMessages.push(
-      `Missing top-level ${type.toUpperCase()} batch key(s): ${missingTopKeys.join(
+      `Missing top-level ${type.toUpperCase()} batch key(s): ${missingTopKeysToReport.join(
         ", "
       )}`
     );
@@ -86,6 +119,10 @@ export const isValidBatchData = (
     }
   }
 
+  if (type !== "tts" && (data as Record<string, unknown>).workflow != null) {
+    miscMessages.push('"workflow" is only supported for TTS batches.');
+  }
+
   // 2. Validate tasks
   if (!Array.isArray(data.tasks)) {
     miscMessages.push("`tasks` must be an array.");
@@ -93,10 +130,21 @@ export const isValidBatchData = (
     miscMessages.push("Insufficient task, there must be at least one task.");
   } else {
     data.tasks.forEach((task, taskIndex) => {
-      const missingTaskKeys = taskKeys.filter((key) => !(key in task));
-      if (missingTaskKeys.length > 0) {
-        miscMessages.push(
-          `Task ${taskIndex} is missing key(s): ${missingTaskKeys.join(", ")}`
+      if (type === "tts" && ttsWorkflow === null) return;
+
+      const missingTaskKeys = effectiveTaskKeys.filter((key) => !(key in task));
+      const missingKeysToReport = missingTaskKeys.filter(
+        (key) =>
+          !(
+            type === "tts" &&
+            ttsWorkflow === "evaluation" &&
+            key === "models"
+          )
+      );
+      if (missingKeysToReport.length > 0) {
+        groupError(
+          `Tasks are missing required field(s): ${missingKeysToReport.join(", ")}`,
+          taskIndex
         );
       }
 
@@ -120,16 +168,33 @@ export const isValidBatchData = (
         }
       }
 
-      // Models
-      if (!Array.isArray(task.models)) {
-        miscMessages.push(
-          `Task ${taskIndex} has an invalid or missing 'models' array.`
-        );
+      const isTtsAnnotation = type === "tts" && ttsWorkflow === "annotation";
+
+      if (isTtsAnnotation) {
+        if ("models" in task && task.models != null && !Array.isArray(task.models)) {
+          miscMessages.push(
+            `Task ${taskIndex}: "models" must be an array when provided.`
+          );
+        }
         return;
       }
 
-      if (task.models.length < 1) {
-        groupError("Task must have at least one model", taskIndex);
+      const hasValidModels =
+        Array.isArray(task.models) && task.models.length > 0;
+
+      if (!hasValidModels) {
+        if (type === "tts") {
+          if (!ttsEvaluationModelsError) {
+            miscMessages.push(TTS_EVAL_MODELS_ERROR);
+            ttsEvaluationModelsError = true;
+          }
+        } else if (!Array.isArray(task.models)) {
+          miscMessages.push(
+            `Task ${taskIndex} has an invalid or missing "models" array.`
+          );
+        } else {
+          groupError("Task must have at least one model", taskIndex);
+        }
         return;
       }
 
@@ -161,7 +226,7 @@ export const isValidBatchData = (
         }
 
         // Output format
-        if (typeof model.output === "string") {
+        if (typeof model.output === "string" && model.output.trim() !== "") {
           if (type === "tts" && !isPathOrUrl(model.output)) {
             miscMessages.push(
               `TTS task ${taskIndex}, model ${modelIndex} output must be a valid URL or file path.`
