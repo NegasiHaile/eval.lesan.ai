@@ -1,6 +1,6 @@
 "use client";
 import { EvalOutputTypes } from "@/types/data";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Button from "../utils/Button";
 import Modal from "../utils/Modal";
 import { inferRemoteMediaKind, isDataOrBlobUrl } from "@/lib/media";
@@ -32,6 +32,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
 }) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const mediaRef = useRef<HTMLMediaElement | null>(null);
   const url = type === "input" ? input_url : task?.output;
 
   // console.log("input:", input_url);
@@ -93,6 +94,52 @@ const AudioCard: React.FC<AudioCardProps> = ({
       : `/api/audio-stream?url=${encodeURIComponent(url as string)}`
     : undefined;
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isEditableTarget =
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable ||
+          target.closest("button, [role='button'], a"));
+
+      if (isEditableTarget || !mediaRef.current) return;
+
+      if (event.code === "Space") {
+        if (event.repeat) return;
+        event.preventDefault();
+
+        if (mediaRef.current.paused) {
+          void mediaRef.current.play().catch(() => undefined);
+        } else {
+          mediaRef.current.pause();
+        }
+        return;
+      }
+
+      if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+        event.preventDefault();
+
+        const seekSeconds = 2.5;
+        const nextTime = Math.max(
+          0,
+          Math.min(
+            mediaRef.current.duration || 0,
+            mediaRef.current.currentTime +
+              (event.code === "ArrowRight" ? seekSeconds : -seekSeconds)
+          )
+        );
+
+        mediaRef.current.currentTime = nextTime;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <div className={`w-full flex flex-col ${className}`}>
       <div
@@ -105,6 +152,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
           {url ? (
             remoteKind === "video" ? (
               <video
+                ref={mediaRef as React.Ref<HTMLVideoElement>}
                 key={url}
                 controls
                 playsInline
@@ -117,6 +165,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
               </video>
             ) : (
               <audio
+                ref={mediaRef as React.Ref<HTMLAudioElement>}
                 key={url}
                 controls
                 controlsList={nodownload ? "nodownload" : ""}
@@ -129,6 +178,7 @@ const AudioCard: React.FC<AudioCardProps> = ({
             )
           ) : (
             <audio
+              ref={mediaRef as React.Ref<HTMLAudioElement>}
               key={audioURL}
               controls
               // controlsList={nodownload ? "nodownload" : ""}
