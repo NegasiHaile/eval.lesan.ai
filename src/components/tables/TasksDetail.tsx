@@ -233,7 +233,11 @@ const TasksDetail = ({ data }: PropsTypes) => {
                       key={task.id}
                       controls
                       controlsList="nodownload"
-                      src={`/api/audio-stream?url=${encodeURIComponent(task.input)}`}
+                      src={
+                        task.input.startsWith("data:") || task.input.startsWith("blob:")
+                          ? task.input
+                          : `/api/audio-stream?url=${encodeURIComponent(task.input)}`
+                      }
                       className="w-full max-w-full h-9 rounded min-w-[250px]"
                       title="Play audio"
                     >

@@ -1,5 +1,9 @@
 export type MediaKind = "audio" | "video";
 
+export function isDataOrBlobUrl(rawUrl: string): boolean {
+  return rawUrl.startsWith("blob:") || rawUrl.startsWith("data:");
+}
+
 /**
  * Best-effort, conservative inference based on the URL pathname extension.
  * This is only for UI selection (<audio> vs <video>); the proxy endpoint still
@@ -7,7 +11,7 @@ export type MediaKind = "audio" | "video";
  */
 export function inferRemoteMediaKind(rawUrl: string): MediaKind {
   // Blob/data URLs in this app are created by the recorder; treat those as audio.
-  if (rawUrl.startsWith("blob:") || rawUrl.startsWith("data:")) return "audio";
+  if (isDataOrBlobUrl(rawUrl)) return "audio";
 
   try {
     const u = new URL(rawUrl);

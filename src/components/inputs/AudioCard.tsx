@@ -3,7 +3,7 @@ import { EvalOutputTypes } from "@/types/data";
 import React, { useRef, useState } from "react";
 import Button from "../utils/Button";
 import Modal from "../utils/Modal";
-import { inferRemoteMediaKind } from "@/lib/media";
+import { inferRemoteMediaKind, isDataOrBlobUrl } from "@/lib/media";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -85,10 +85,13 @@ const AudioCard: React.FC<AudioCardProps> = ({
     );
   };
 
-  const remoteSrc = url
-    ? `/api/audio-stream?url=${encodeURIComponent(url as string)}`
-    : undefined;
   const remoteKind = typeof url === "string" ? inferRemoteMediaKind(url) : "audio";
+  const isDirectMedia = typeof url === "string" && isDataOrBlobUrl(url);
+  const remoteSrc = url
+    ? isDirectMedia
+      ? url
+      : `/api/audio-stream?url=${encodeURIComponent(url as string)}`
+    : undefined;
 
   return (
     <div className={`w-full flex flex-col ${className}`}>
