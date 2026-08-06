@@ -3,6 +3,7 @@ import { EvalOutputTypes } from "@/types/data";
 import React, { useRef, useState } from "react";
 import Button from "../utils/Button";
 import Modal from "../utils/Modal";
+import { inferRemoteMediaKind, isDataOrBlobUrl } from "@/lib/media";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -84,6 +85,14 @@ const AudioCard: React.FC<AudioCardProps> = ({
     );
   };
 
+  const remoteKind = typeof url === "string" ? inferRemoteMediaKind(url) : "audio";
+  const isDirectMedia = typeof url === "string" && isDataOrBlobUrl(url);
+  const remoteSrc = url
+    ? isDirectMedia
+      ? url
+      : `/api/audio-stream?url=${encodeURIComponent(url as string)}`
+    : undefined;
+
   return (
     <div className={`w-full flex flex-col ${className}`}>
       <div
@@ -94,17 +103,30 @@ const AudioCard: React.FC<AudioCardProps> = ({
       >
         <div className="w-full p-2 flex space-x-2 items-center">
           {url ? (
-            <audio
-              key={url}
-              controls
-              controlsList={nodownload ? "nodownload" : ""}
-              src={`/api/audio-stream?url=${encodeURIComponent(url as string)}`}
-              className="w-full px-1 py-1 h-16 rounded-full"
-              title="Reader"
-            >
-              {/* <source src={audioURL ?? undefined} /> */}
-              Your browser does not support the audio element.
-            </audio>
+            remoteKind === "video" ? (
+              <video
+                key={url}
+                controls
+                playsInline
+                controlsList={nodownload ? "nodownload" : ""}
+                src={remoteSrc}
+                className="w-full px-2 py-2 rounded-lg bg-black/5 dark:bg-black/20 max-h-[320px]"
+                title="Reader"
+              >
+                Your browser does not support the video element.
+              </video>
+            ) : (
+              <audio
+                key={url}
+                controls
+                controlsList={nodownload ? "nodownload" : ""}
+                src={remoteSrc}
+                className="w-full px-1 py-1 h-16 rounded-full"
+                title="Reader"
+              >
+                Your browser does not support the audio element.
+              </audio>
+            )
           ) : (
             <audio
               key={audioURL}

@@ -1,0 +1,197 @@
+{
+    "dataset_type": "mt",
+    "dataset_name": "HORN-MT-ENG-AMH-EVAL",
+    "batch_name": "MT-ENG-AMH-000",
+    "source_language": {
+      "iso_name": "English",
+      "iso_639_1": "en",
+      "iso_639_3": "eng"
+    },
+    "target_language": {
+      "iso_name": "Amharic",
+      "iso_639_1": "am",
+      "iso_639_3": "amh"
+    },
+    
+    "task_level_annotations": [
+        {
+          "id": 1,
+          "label": "Domain",
+          "value": "domain",
+          "description": "Select the domain of the content.",
+          "max_options_to_select": 7,
+          "options": [
+              {
+                  "id": 1,
+                  "label": "Health",
+                  "value": "health",
+                  "description": "The translation contains information about health."
+              },
+              {
+                  "id": 2,
+                  "label": "Culture",
+                  "value": "culture",
+                  "description": "The translation contains information about culture."
+              },
+              {
+                  "id": 3,
+                  "label": "Agriculture",
+                  "value": "agriculture",
+                  "description": "The translation contains information about agriculture."
+              },
+              {
+                  "id": 4,
+                  "label": "Sport",
+                  "value": "sport",
+                  "description": "The translation contains information about sport."
+              },
+              {
+                  "id": 5,
+                  "label": "News",
+                  "value": "news",
+                  "description": "The translation contains information about news."
+              },
+              {
+                  "id": 6,
+                  "label": "Politics",
+                  "value": "politics",
+                  "description": "The translation contains information about politics."
+              },
+              {
+                  "id": 7,
+                  "label": "Other",
+                  "value": "other",
+                  "description": "The translation contains information about other domains."
+              }
+          ]
+        }
+      ],
+    "model_level_annotations": [
+      {
+        "id": 1,
+        "label": "Error Type",
+        "value": "error_type",
+        "description": "Select the type of error in the translation.",
+        "max_options_to_select": 5,
+        "options": [
+          {
+            "id": 1,
+            "label": "Mistranslation",
+            "value": "mistranslation",
+            "description": "The translation conveys the wrong meaning: incorrect word choice, wrong sense, or misinterpretation of the source."
+          },
+          {
+            "id": 2,
+            "label": "Addition",
+            "value": "addition",
+            "description": "The translation adds content, information, or wording that is not present in the source text."
+          },
+          {
+            "id": 3,
+            "label": "Omission",
+            "value": "omission",
+            "description": "Required content or information from the source text is missing or left out in the translation."
+          },
+          {
+            "id": 4,
+            "label": "Punctuation",
+            "value": "punctuation",
+            "description": "Errors in punctuation in the translation: missing, incorrect, or inconsistent punctuation compared to the source or target language norms."
+          },
+          {
+            "id": 5,
+            "label": "Other",
+            "value": "other",
+            "description": "Other errors not covered above (e.g. style, register, grammar in the target language, or formatting)."
+          }
+        ]
+  
+      }
+      ],
+    "tasks": [
+      {
+        "id": "mt_eng_amh_0001",
+        "input": "When she 's a demanding person, it 's a philosophy. So, from a very young age, what he asks is that he grew up focusing on women who are a hundred and good for humanity and went to a community-based establishment.",
+        "models": [
+          {
+            "output": "ጠያቂ ስትሆን ፍልስፍና ነው። ስለዚህ ገና ከልጅነቱ ጀምሮ ያ የሚጠይቀው ነገር እያደገ መቶበት ለሰው ልጅ በጎ የሆኑት ሴቶች ላይ በማተኮሩ ማህበረሰብ ወደ መመስረት ነው የሄደው።",
+            "model": "Lesan_MT_v1",
+            "rate": 0,
+            "rank": 0
+          },
+          {
+            "output": "ጠያቂ ስትሆን ፍልስፍና ነው። ስለዚህ ገና ከልጅነቱ ጀምሮ ያ የሚጠይቀው ነገር እያደገ መቶበት ለሰው ልጅ በጎ የሆኑት ሴቶች ላይ በማተኮሩ ማህበረሰብ ወደ መመስረት ነው የሄደው።",
+            "model": "Lesan_MT_v2",
+            "rate": 0,
+            "rank": 0
+          }
+        ],
+        "annotations": {
+            "1": [3],
+            "2": [3, 6]
+        },
+        "annotation_reference": "",
+        "annotated_by": "annotator@example.com",
+        "annotated_at": "2026-03-18T10:00:00Z",
+        "annotator_comment": "There is no input(source text) for this task.",
+        "reviewed_by": "reviewer@example.com",
+        "reviewed_at": "2026-03-18T10:00:00Z",
+        "reviewed_comment": "The annotation quality is approved.",
+        "annotation_approved": true,
+        "review_approved": true
+      },
+      {
+        "id": "mt_eng_amh_0002",
+        "input": "The other surprising thing we see when we come out now is perhaps if you look at Minilik 's palace and have a look at it, now Dr. Abye Assedew has a name on his window where he will see his miniature princes, while the princes have Minilik Miyaw.",
+        "models": [
+          {
+            "output": "ሌላው አሁን ስንወጣ የምናየው በጣም የሚገርም ነገር አለ ምናልባት የሚኒሊክል ቤተ መንግሥት አይና ቃይታችሁት ከሆነ አሁን እንደገና ዶክተር አብየ አሳደሰው መስኮታቸው ላይ ሚኒሊክ መኳንንቶቻቸውን የሚያዩበት ስም ስም አላቸው እኚ መኳንንት ደግሞ ሚኒሊክል ሚያው።",
+            "model": "Lesan_MT_v1",
+            "rate": 0,
+            "rank": 0
+          },
+          {
+            "output": "ሌላው አሁን ስንወጣ የምናየው በጣም የሚገርም ነገር አለ ምናልባት የሚኒሊክል ቤተ መንግሥት አይና ቃይታችሁት ከሆነ አሁን እንደገና ዶክተር አብየ አሳደሰው መስኮታቸው ላይ ሚኒሊክ መኳንንቶቻቸውን የሚያዩበት ስም ስም አላቸው እኚ መኳንንት ደግሞ ሚኒሊክል ሚያው።",
+            "model": "Lesan_MT_v2",
+            "rate": 0,
+            "rank": 0
+          }
+        ],
+        "annotations": {
+            "1": [1,3],
+            "2": [2,4,5]
+        },
+        "annotation_reference": "",
+        "annotated_by": "annotator@example.com",
+        "annotated_at": "2026-03-18T10:00:00Z",
+        "annotator_comment": "The input(source text) is not the expected language.",
+        "reviewed_by": "reviewer@example.com",
+        "reviewed_at": "2026-03-18T10:00:00Z",
+        "annotation_approved": true,
+        "review_approved": true,
+        "reviewed_comment": "The annotation quality is approved."
+      }
+    ],
+    "access_control": [
+      {
+        "role": "owner",
+        "email": "owner@example.com"
+      },
+      {
+        "role": "coordinator",
+        "email": "coordinator@example.com"
+      },
+      {
+        "role": "coordinator",
+        "email": "coordinator2@example.com"
+      },
+      {
+        "role": "annotator",
+        "email": "annotator@example.com"
+      },
+      {
+        "role": "reviewer",
+        "email": "reviewer@example.com"
+      }
+    ]
+  }

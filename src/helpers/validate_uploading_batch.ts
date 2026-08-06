@@ -29,7 +29,7 @@ function isLanguageObject(value: unknown): boolean {
 }
 
 const isPathOrUrl = (value: string): boolean => {
-  return /^https?:\/\/|^\/|^[A-Za-z]:\\/.test(value);
+  return /^(https?:\/\/|\/|[A-Za-z]:\\|data:audio\/[^,]+,)/.test(value);
 };
 
 export type ValidateBatchOptions = {
