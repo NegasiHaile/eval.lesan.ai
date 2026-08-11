@@ -70,11 +70,10 @@ export default function TTSAnnotationPanel({
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const sessionLimitPendingRef = useRef(false);
   const sessionEndingRef = useRef(false);
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const finishSessionRef = useRef<
-    (opts?: { forced?: boolean }) => Promise<void>
-  >(async () => {});
+  const finishSessionRef = useRef<() => Promise<void>>(async () => {});
   const currentTaskIndexRef = useRef(currentTaskIndex);
   const evalTaskRef = useRef(evalTask);
   const onNavigateRef = useRef(onNavigate);
@@ -91,6 +90,7 @@ export default function TTSAnnotationPanel({
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [sessionLimitPending, setSessionLimitPending] = useState(false);
   const [levels, setLevels] = useState<number[]>(idleLevels);
 
   const inCaptureMode = sessionActive || preparingSession;
@@ -275,25 +275,67 @@ export default function TTSAnnotationPanel({
   }, [buildBlobFromChunks, waitForRecorderStop]);
 
   const finalizeCurrentSegment = useCallback(
-    async (taskIndex: number): Promise<Blob | null> => {
+    async (
+      taskIndex: number,
+      opts?: { awaitUpload?: boolean }
+    ): Promise<Blob | null> => {
       const blob = await stopCurrentSegmentRecording();
       if (!blob) return null;
 
-      if (streamRef.current && !sessionEndingRef.current) {
+      const mayContinueRecording =
+        streamRef.current &&
+        !sessionEndingRef.current &&
+        !sessionLimitPendingRef.current;
+
+      if (mayContinueRecording) {
         startSegmentRecorder();
       }
 
-      enqueueSegmentUpload(blob, taskIndex);
+      if (opts?.awaitUpload) {
+        await uploadSegment(blob, taskIndex);
+      } else {
+        enqueueSegmentUpload(blob, taskIndex);
+      }
       return blob;
     },
-    [enqueueSegmentUpload, startSegmentRecorder, stopCurrentSegmentRecording]
+    [
+      enqueueSegmentUpload,
+      startSegmentRecorder,
+      stopCurrentSegmentRecording,
+      uploadSegment,
+    ]
   );
 
+  const endSessionAfterGracePeriod = useCallback(async () => {
+    sessionLimitPendingRef.current = false;
+    setSessionLimitPending(false);
+    clearSessionLimit();
+    sessionEndingRef.current = true;
+
+    setSessionActive(false);
+    sessionStartedAtRef.current = null;
+    mediaRecorderRef.current = null;
+    releaseStream();
+
+    try {
+      await onTaskPersistRef.current(evalTaskRef.current);
+      onNotice(
+        "Session ended",
+        "Your segment was saved. Start again when you're ready to continue.",
+        "info"
+      );
+    } finally {
+      sessionEndingRef.current = false;
+    }
+  }, [clearSessionLimit, onNotice, releaseStream]);
+
   const finishSession = useCallback(
-    async (opts?: { forced?: boolean }) => {
+    async () => {
       if (!sessionActive || saving) return;
 
       clearSessionLimit();
+      sessionLimitPendingRef.current = false;
+      setSessionLimitPending(false);
       setSaving(true);
       const taskIndex = currentTaskIndexRef.current;
 
@@ -317,14 +359,6 @@ export default function TTSAnnotationPanel({
               "error"
             );
           }
-        }
-
-        if (opts?.forced) {
-          onNotice(
-            "Session limit",
-            "Recording stopped after 15 minutes.",
-            "info"
-          );
         }
       } finally {
         sessionEndingRef.current = false;
@@ -363,6 +397,8 @@ export default function TTSAnnotationPanel({
     if (inCaptureMode || saving) return;
     setPreparingSession(true);
     sessionEndingRef.current = false;
+    sessionLimitPendingRef.current = false;
+    setSessionLimitPending(false);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -374,12 +410,13 @@ export default function TTSAnnotationPanel({
       sessionStartedAtRef.current = Date.now();
       clearSessionLimit();
       sessionLimitTimerRef.current = setTimeout(() => {
+        sessionLimitPendingRef.current = true;
+        setSessionLimitPending(true);
         onNotice(
           "Session limit",
-          "Recording reached the 15-minute limit.",
+          "15 min limit — finish this segment to save.",
           "info"
         );
-        void finishSessionRef.current({ forced: true });
       }, MAX_SESSION_MS);
 
       setPreparingSession(false);
@@ -426,21 +463,46 @@ export default function TTSAnnotationPanel({
 
     void (async () => {
       const index = currentTaskIndexRef.current;
+      const limitPending = sessionLimitPendingRef.current;
 
       const gapsDone = (async () => {
         await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
         if (generation !== advanceGenerationRef.current) return;
 
-        await finalizeCurrentSegment(index);
+        try {
+          await finalizeCurrentSegment(index, { awaitUpload: limitPending });
+        } catch {
+          onNotice(
+            "Upload failed",
+            `Could not save segment ${index + 1}. Please try Next again.`,
+            "error"
+          );
+          throw new Error("upload failed");
+        }
         if (generation !== advanceGenerationRef.current) return;
 
         await waitForGap(SEGMENT_GAP_HEAD_MS, generation);
       })();
 
-      await Promise.all([gapsDone, runSegmentGapCountdown(generation)]);
+      try {
+        await Promise.all([gapsDone, runSegmentGapCountdown(generation)]);
+      } catch {
+        setIsAdvancing(false);
+        setSecondsLeft(0);
+        return;
+      }
       if (generation !== advanceGenerationRef.current) return;
 
       clearAdvance();
+
+      if (limitPending) {
+        await advanceAfterCountdown();
+        await endSessionAfterGracePeriod();
+        setIsAdvancing(false);
+        setSecondsLeft(0);
+        return;
+      }
+
       await advanceAfterCountdown();
       setIsAdvancing(false);
       setSecondsLeft(0);
@@ -478,10 +540,15 @@ export default function TTSAnnotationPanel({
               className="!min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
             />
 
-            <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-4 sm:pb-5 text-center">
+            <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-4 sm:pb-5 text-center space-y-1">
               <span className="text-xs sm:text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
                 {segmentLabel}
               </span>
+              {sessionLimitPending && (
+                <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400">
+                  15 min limit — finish segment to save.
+                </p>
+              )}
             </div>
           </div>
 
