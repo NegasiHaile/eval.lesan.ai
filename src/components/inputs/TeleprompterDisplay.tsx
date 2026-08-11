@@ -25,11 +25,11 @@ export default function TeleprompterDisplay({
 }: TeleprompterDisplayProps) {
   return (
     <div
-      className={`relative flex items-center justify-center px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
+      className={`relative flex flex-1 items-center justify-center min-h-0 px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
     >
       <p
         aria-hidden={isCountingDown}
-        className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 w-full max-w-3xl ${
+        className={`${fontSizeClass[fontSize]} text-center leading-snug sm:leading-relaxed whitespace-pre-wrap font-medium text-neutral-900 dark:text-neutral-50 w-full max-w-4xl md:max-w-5xl ${
           isCountingDown ? "invisible" : ""
         }`}
       >

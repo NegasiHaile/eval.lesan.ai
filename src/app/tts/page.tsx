@@ -622,7 +622,7 @@ export default function TTSPage() {
     <Container
       className={
         isAnnotationMode
-          ? "!p-3 sm:!p-6 md:!px-12 md:!py-8 flex flex-col min-h-[100dvh] sm:min-h-[calc(100vh-1.5rem)]"
+          ? "!p-3 sm:!p-4 md:!px-12 md:!py-4 flex flex-col min-h-0 overflow-hidden !justify-start h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-8rem)]"
           : undefined
       }
     >

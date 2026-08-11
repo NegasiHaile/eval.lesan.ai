@@ -516,13 +516,13 @@ export default function TTSAnnotationPanel({
       : undefined;
 
   return (
-    <div className="w-full flex-1 flex items-center justify-center min-h-0 py-3 sm:py-4 md:py-6 overflow-y-auto overflow-x-hidden">
-      <div className="w-full max-w-6xl flex flex-col gap-5 sm:gap-6 md:gap-8 px-1 sm:px-0">
-        <div className="w-full flex flex-col md:flex-row md:items-center gap-3 md:gap-2">
-          <div className="hidden md:block flex-1 min-w-0" aria-hidden />
+    <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden pt-4 sm:pt-6 md:pt-8">
+      <div className="w-full max-w-7xl mx-auto flex flex-col flex-1 min-h-0 gap-4 sm:gap-5 px-1 sm:px-0">
+        <div className="w-full flex flex-col md:flex-row flex-1 min-h-0 gap-3 md:gap-2">
+          <div className="hidden md:block flex-1 min-w-0 max-w-[8rem] lg:max-w-[10rem]" aria-hidden />
 
-          <div className="w-full md:max-w-3xl md:shrink-0 mx-auto md:mx-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
-            <div className="flex justify-end px-3 pt-3 sm:px-4">
+          <div className="w-full md:flex-1 md:max-w-5xl md:shrink-0 mx-auto md:mx-0 flex flex-col flex-1 min-h-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+            <div className="flex justify-end shrink-0 px-3 pt-3 sm:px-4">
               <TeleprompterFontSizeControl
                 value={fontSize}
                 disabled={isAdvancing}
@@ -538,10 +538,10 @@ export default function TTSAnnotationPanel({
               fontSize={fontSize}
               isCountingDown={isAdvancing}
               secondsLeft={secondsLeft}
-              className="!min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
+              className="flex-1 min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
             />
 
-            <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-4 sm:pb-5 text-center space-y-1">
+            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 text-center space-y-1">
               <span className="text-xs sm:text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
                 {segmentLabel}
               </span>
@@ -568,11 +568,11 @@ export default function TTSAnnotationPanel({
           )}
 
           {!savedPlaybackSrc && (
-            <div className="hidden md:block flex-1 min-w-0" aria-hidden />
+            <div className="hidden md:block flex-1 min-w-0 max-w-[8rem] lg:max-w-[10rem]" aria-hidden />
           )}
         </div>
 
-        <div className="w-full flex items-center justify-center gap-0 px-1 sm:px-0">
+        <div className="w-full shrink-0 flex items-center justify-center gap-0 px-1 sm:px-0 pb-2">
           <ReferenceVoiceArea
             inCaptureMode={inCaptureMode}
             levels={levels}
