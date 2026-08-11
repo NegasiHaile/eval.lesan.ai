@@ -572,7 +572,7 @@ export default function TTSAnnotationPanel({
           )}
         </div>
 
-        <div className="w-full flex justify-center px-1 sm:px-0">
+        <div className="w-full flex items-center justify-center gap-0 px-1 sm:px-0">
           <ReferenceVoiceArea
             inCaptureMode={inCaptureMode}
             levels={levels}
@@ -583,9 +583,6 @@ export default function TTSAnnotationPanel({
             onStart={() => void startSession()}
             onStop={() => void finishSession()}
           />
-        </div>
-
-        <div className="w-full flex justify-end min-h-[2.5rem] px-1 sm:px-0">
           {!isLastTask && (
             <button
               type="button"
