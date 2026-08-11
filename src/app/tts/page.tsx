@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -147,25 +147,36 @@ export default function TTSPage() {
   };
 
   const handleSelectedBatchUpdate = async (batch: BatchDetailTypes) => {
-    setCurrentTaskIndex(0);
     if (batch.batch_name.toLowerCase().includes("realtime")) {
+      setCurrentTaskIndex(0);
       handleResetEvalTask(modelsToEval);
     } else {
       const this_batchTasks = await FetchBatchTasks(batch);
       if (this_batchTasks?.tasks.length > 0) {
-        setEvalTask({ ...this_batchTasks.tasks[0] });
-        setBatchTasks([...this_batchTasks.tasks]);
-        setReviewerComment(this_batchTasks.tasks[0]?.reviewer_comment ?? "");
+        const tasks = this_batchTasks.tasks as EvalTaskTypes[];
+        let resumeIndex = 0;
+        try {
+          const storedIdx = localStorage.getItem(`tts_position_${batch.batch_id}`);
+          if (storedIdx !== null) {
+            resumeIndex = Math.min(Math.max(0, parseInt(storedIdx, 10) || 0), tasks.length - 1);
+          }
+        } catch { /* ignore */ }
+        setCurrentTaskIndex(resumeIndex);
+        currentTaskIndexRef.current = resumeIndex;
+        setEvalTask({ ...tasks[resumeIndex] });
+        setBatchTasks([...tasks]);
+        setReviewerComment(tasks[resumeIndex]?.reviewer_comment ?? "");
         localStorage.setItem(
           "tts_active_batch",
           JSON.stringify({
             ...this_batchTasks,
             batch_id: batch.batch_id,
             dataset_type: batch.dataset_type,
-            currentTaskIndex: 0,
+            currentTaskIndex: resumeIndex,
           })
         );
       } else {
+        setCurrentTaskIndex(0);
         handleResetEvalTask(modelsToEval);
       }
     }
@@ -230,6 +241,9 @@ export default function TTSPage() {
 
   const syncActiveBatchToStorage = (tasks: EvalTaskTypes[]) => {
     if (IsRealtime()) return;
+    try {
+      localStorage.setItem(`tts_position_${selectedBatchDetail.batch_id}`, String(currentTaskIndex));
+    } catch { /* ignore */ }
     localStorage.setItem(
       "tts_active_batch",
       JSON.stringify({
@@ -340,6 +354,9 @@ export default function TTSPage() {
     setCurrentTaskIndex(index);
     setEvalTask({ ...task });
     setReviewerComment(task.reviewer_comment ?? "");
+    try {
+      localStorage.setItem(`tts_position_${selectedBatchDetail.batch_id}`, String(index));
+    } catch { /* ignore */ }
     localStorage.setItem(
       "tts_active_batch",
       JSON.stringify({
