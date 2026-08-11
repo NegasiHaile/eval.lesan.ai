@@ -317,17 +317,8 @@ export default function TTSAnnotationPanel({
     mediaRecorderRef.current = null;
     releaseStream();
 
-    try {
-      await onTaskPersistRef.current(evalTaskRef.current);
-      onNotice(
-        "Session ended",
-        "Your segment was saved. Start again when you're ready to continue.",
-        "info"
-      );
-    } finally {
-      sessionEndingRef.current = false;
-    }
-  }, [clearSessionLimit, onNotice, releaseStream]);
+    sessionEndingRef.current = false;
+  }, [clearSessionLimit, releaseStream]);
 
   const finishSession = useCallback(
     async () => {
@@ -412,11 +403,6 @@ export default function TTSAnnotationPanel({
       sessionLimitTimerRef.current = setTimeout(() => {
         sessionLimitPendingRef.current = true;
         setSessionLimitPending(true);
-        onNotice(
-          "Session limit",
-          "15 min limit — finish this segment to save.",
-          "info"
-        );
       }, MAX_SESSION_MS);
 
       setPreparingSession(false);
@@ -465,12 +451,33 @@ export default function TTSAnnotationPanel({
       const index = currentTaskIndexRef.current;
       const limitPending = sessionLimitPendingRef.current;
 
+      if (limitPending) {
+        try {
+          await finalizeCurrentSegment(index, { awaitUpload: true });
+        } catch {
+          onNotice(
+            "Upload failed",
+            `Could not save segment ${index + 1}. Please try Next again.`,
+            "error"
+          );
+          setIsAdvancing(false);
+          return;
+        }
+        if (generation !== advanceGenerationRef.current) return;
+
+        onNavigateRef.current(index + 1);
+        await endSessionAfterGracePeriod();
+        setIsAdvancing(false);
+        setSecondsLeft(0);
+        return;
+      }
+
       const gapsDone = (async () => {
         await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
         if (generation !== advanceGenerationRef.current) return;
 
         try {
-          await finalizeCurrentSegment(index, { awaitUpload: limitPending });
+          await finalizeCurrentSegment(index, { awaitUpload: false });
         } catch {
           onNotice(
             "Upload failed",
@@ -495,23 +502,17 @@ export default function TTSAnnotationPanel({
 
       clearAdvance();
 
-      if (limitPending) {
-        await advanceAfterCountdown();
-        await endSessionAfterGracePeriod();
-        setIsAdvancing(false);
-        setSecondsLeft(0);
-        return;
-      }
-
       await advanceAfterCountdown();
       setIsAdvancing(false);
       setSecondsLeft(0);
     })();
   };
 
+  const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
+
   const savedPlaybackSrc =
-    evalTask.reference && !inCaptureMode && !saving
-      ? audioPlaybackSrc(evalTask.reference)
+    displayedTask.reference && !inCaptureMode && !saving
+      ? audioPlaybackSrc(displayedTask.reference)
       : undefined;
 
   return (
@@ -533,7 +534,7 @@ export default function TTSAnnotationPanel({
             </div>
 
             <TeleprompterDisplay
-              text={evalTask.input}
+              text={displayedTask.input}
               fontSize={fontSize}
               isCountingDown={isAdvancing}
               secondsLeft={secondsLeft}
@@ -545,8 +546,8 @@ export default function TTSAnnotationPanel({
                 {segmentLabel}
               </span>
               {sessionLimitPending && (
-                <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400">
-                  15 min limit — finish segment to save.
+                <p className="text-[10px] sm:text-xs text-amber-600/90 dark:text-amber-400/90">
+                  15 min limit
                 </p>
               )}
             </div>

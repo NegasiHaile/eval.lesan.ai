@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -325,13 +325,14 @@ export default function TTSPage() {
 
     const updatedTasks = [...tasks];
     updatedTasks[index] = task;
+    batchTasksRef.current = updatedTasks;
     setBatchTasks(updatedTasks);
-    setEvalTask(task);
     await handleSaveTaskChanges(task);
     syncActiveBatchToStorage(updatedTasks);
   };
 
   const handleAnnotationNavigate = (index: number) => {
+    currentTaskIndexRef.current = index;
     const tasks = batchTasksRef.current;
     const task = tasks[index];
     if (!task) return;
@@ -394,6 +395,7 @@ export default function TTSPage() {
         ...base,
         reference: body.file_id!,
       };
+      batchTasksRef.current = nextTasks;
       syncActiveBatchToStorage(nextTasks);
       return nextTasks;
     });
@@ -401,9 +403,6 @@ export default function TTSPage() {
     const savedTask = nextTasks[taskIndex];
     if (!savedTask) return;
 
-    setEvalTask((prev) =>
-      prev?.id === savedTask.id ? { ...prev, reference: savedTask.reference } : prev
-    );
     await handleSaveTaskChanges(savedTask);
     await updateBatchDetail({
       ...selectedBatchDetail,
