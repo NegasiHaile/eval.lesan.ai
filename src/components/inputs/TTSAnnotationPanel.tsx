@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronsRight } from "lucide-react";
+import { ChevronsRight, Upload } from "lucide-react";
 
 import TeleprompterDisplay, {
   TeleprompterFontSize,
@@ -241,14 +241,12 @@ export default function TTSAnnotationPanel({
     async (blob: Blob, taskIndex: number) => {
       pendingBlobsRef.current.set(taskIndex, blob);
 
-      let lastError: unknown;
       for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
         try {
           await onSegmentUpload(blob, taskIndex);
           clearFailedUpload(taskIndex);
           return;
-        } catch (err) {
-          lastError = err;
+        } catch {
           if (attempt < UPLOAD_MAX_ATTEMPTS) {
             await sleep(UPLOAD_RETRY_BASE_MS * 2 ** (attempt - 1));
           }
@@ -256,10 +254,6 @@ export default function TTSAnnotationPanel({
       }
 
       markFailedUpload(taskIndex, blob);
-      console.error(
-        `TTS annotation upload failed for segment ${taskIndex + 1}`,
-        lastError
-      );
     },
     [clearFailedUpload, markFailedUpload, onSegmentUpload]
   );
@@ -269,12 +263,8 @@ export default function TTSAnnotationPanel({
       pendingBlobsRef.current.set(taskIndex, blob);
       uploadQueueRef.current = uploadQueueRef.current
         .then(() => uploadWithRetry(blob, taskIndex))
-        .catch((err) => {
+        .catch(() => {
           markFailedUpload(taskIndex, blob);
-          console.error(
-            `TTS annotation upload queue error for segment ${taskIndex + 1}`,
-            err
-          );
         });
     },
     [markFailedUpload, uploadWithRetry]
@@ -304,18 +294,14 @@ export default function TTSAnnotationPanel({
 
         if (failedIndexesRef.current.size > 0) {
           onNotice(
-            "Upload failed",
-            `Still could not upload segment(s) ${formatSegmentList(
+            "Upload incomplete",
+            `Still pending: ${formatSegmentList(
               Array.from(failedIndexesRef.current).sort((a, b) => a - b)
-            )}. Try Upload failed segments again.`,
+            )}. Try again.`,
             "error"
           );
         } else {
-          onNotice(
-            "Uploads complete",
-            "All failed segments uploaded successfully.",
-            "success"
-          );
+          onNotice("Uploaded", "All pending segments are saved.", "success");
         }
       } finally {
         setRetryingUploads(false);
@@ -417,9 +403,7 @@ export default function TTSAnnotationPanel({
         if (opts?.forced && failed.length > 0) {
           onNotice(
             "Session limit",
-            `Recording stopped after 15 minutes. Segment(s) ${formatSegmentList(
-              failed
-            )} still need uploading — use Upload failed segments below.`,
+            `Stopped at 15 minutes. Pending upload: ${formatSegmentList(failed)}.`,
             "error"
           );
         } else if (opts?.forced) {
@@ -430,10 +414,8 @@ export default function TTSAnnotationPanel({
           );
         } else if (failed.length > 0) {
           onNotice(
-            "Upload incomplete",
-            `Segment(s) ${formatSegmentList(
-              failed
-            )} still need uploading. Use Upload failed segments below.`,
+            "Upload pending",
+            `Segments ${formatSegmentList(failed)} still need upload.`,
             "error"
           );
         }
@@ -629,41 +611,33 @@ export default function TTSAnnotationPanel({
         </div>
 
         {failedSegments.length > 0 && (
-          <div
-            className="w-full max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-300/80 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 sm:px-4"
-            role="status"
-          >
-            <p className="flex-1 text-sm text-amber-950 dark:text-amber-100">
-              {sessionActive || inCaptureMode || saving ? (
-                <>
-                  Could not upload segment
-                  {failedSegments.length > 1 ? "s" : ""}{" "}
-                  <span className="font-medium tabular-nums">
-                    {formatSegmentList(failedSegments)}
-                  </span>
-                  . Session continues — you&apos;ll upload them when you finish.
-                </>
-              ) : (
-                <>
-                  Upload failed for segment
-                  {failedSegments.length > 1 ? "s" : ""}{" "}
-                  <span className="font-medium tabular-nums">
-                    {formatSegmentList(failedSegments)}
-                  </span>
-                  . Upload them now to finish this session.
-                </>
+          <div className="w-full flex justify-center px-1 sm:px-0">
+            <div
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 pl-2.5 pr-1.5 py-1 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+              role="status"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="inline-flex items-center justify-center h-5 px-1.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[11px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-100">
+                  [{formatSegmentList(failedSegments)}]
+                </span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                  {sessionActive || inCaptureMode || saving
+                    ? "pending"
+                    : "pending upload"}
+                </span>
+              </div>
+              {!sessionActive && !inCaptureMode && !saving && (
+                <button
+                  type="button"
+                  onClick={() => void retryFailedUploads()}
+                  disabled={retryingUploads}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 dark:bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Upload className="size-3" aria-hidden />
+                  {retryingUploads ? "Uploading…" : "Upload"}
+                </button>
               )}
-            </p>
-            {!sessionActive && !inCaptureMode && !saving && (
-              <button
-                type="button"
-                onClick={() => void retryFailedUploads()}
-                disabled={retryingUploads}
-                className="shrink-0 self-start sm:self-auto rounded-md border border-amber-400/80 dark:border-amber-600 bg-white dark:bg-amber-900/50 px-3 py-1.5 text-sm font-medium text-amber-950 dark:text-amber-50 hover:bg-amber-100/80 dark:hover:bg-amber-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {retryingUploads ? "Uploading…" : "Upload failed segments"}
-              </button>
-            )}
+            </div>
           </div>
         )}
 

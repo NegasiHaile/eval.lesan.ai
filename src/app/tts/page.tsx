@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -228,7 +228,10 @@ export default function TTSPage() {
     );
   };
 
-  const syncActiveBatchToStorage = (tasks: EvalTaskTypes[]) => {
+  const syncActiveBatchToStorage = (
+    tasks: EvalTaskTypes[],
+    taskIndex = currentTaskIndexRef.current
+  ) => {
     if (IsRealtime()) return;
     localStorage.setItem(
       "tts_active_batch",
@@ -237,7 +240,7 @@ export default function TTSPage() {
         batch_id: selectedBatchDetail.batch_id,
         dataset_type: selectedBatchDetail.dataset_type,
         tasks,
-        currentTaskIndex,
+        currentTaskIndex: taskIndex,
       })
     );
   };
@@ -325,10 +328,11 @@ export default function TTSPage() {
 
     const updatedTasks = [...tasks];
     updatedTasks[index] = task;
+    batchTasksRef.current = updatedTasks;
     setBatchTasks(updatedTasks);
     setEvalTask(task);
     await handleSaveTaskChanges(task);
-    syncActiveBatchToStorage(updatedTasks);
+    syncActiveBatchToStorage(updatedTasks, index);
   };
 
   const handleAnnotationNavigate = (index: number) => {
@@ -337,18 +341,10 @@ export default function TTSPage() {
     if (!task) return;
 
     setCurrentTaskIndex(index);
+    currentTaskIndexRef.current = index;
     setEvalTask({ ...task });
     setReviewerComment(task.reviewer_comment ?? "");
-    localStorage.setItem(
-      "tts_active_batch",
-      JSON.stringify({
-        ...selectedBatchDetail,
-        batch_id: selectedBatchDetail.batch_id,
-        dataset_type: selectedBatchDetail.dataset_type,
-        tasks,
-        currentTaskIndex: index,
-      })
-    );
+    syncActiveBatchToStorage(tasks, index);
   };
 
   const handleSegmentUpload = async (blob: Blob, taskIndex: number) => {
@@ -377,33 +373,35 @@ export default function TTSPage() {
       );
     }
 
-    let nextTasks: EvalTaskTypes[] = [];
-    setBatchTasks((prev) => {
-      if (taskIndex < 0 || taskIndex >= prev.length) {
-        nextTasks = prev;
-        return prev;
-      }
-      const existing = prev[taskIndex];
-      const base =
-        taskIndex === currentTaskIndexRef.current &&
-        evalTaskRef.current?.id === existing?.id
-          ? evalTaskRef.current
-          : existing;
-      nextTasks = [...prev];
-      nextTasks[taskIndex] = {
-        ...base,
-        reference: body.file_id!,
-      };
-      syncActiveBatchToStorage(nextTasks);
-      return nextTasks;
-    });
+    const prev = batchTasksRef.current;
+    if (taskIndex < 0 || taskIndex >= prev.length) {
+      throw new Error(`Invalid segment index ${taskIndex + 1} for upload.`);
+    }
 
-    const savedTask = nextTasks[taskIndex];
-    if (!savedTask) return;
+    const existing = prev[taskIndex];
+    const base =
+      taskIndex === currentTaskIndexRef.current &&
+      evalTaskRef.current?.id === existing?.id
+        ? evalTaskRef.current
+        : existing;
 
-    setEvalTask((prev) =>
-      prev?.id === savedTask.id ? { ...prev, reference: savedTask.reference } : prev
+    const savedTask: EvalTaskTypes = {
+      ...base,
+      reference: body.file_id,
+    };
+    const nextTasks = [...prev];
+    nextTasks[taskIndex] = savedTask;
+
+    // Keep ref in sync immediately so later queued segment uploads see prior references.
+    batchTasksRef.current = nextTasks;
+    setBatchTasks(nextTasks);
+    setEvalTask((current) =>
+      current?.id === savedTask.id
+        ? { ...current, reference: savedTask.reference }
+        : current
     );
+    syncActiveBatchToStorage(nextTasks, taskIndex);
+
     await handleSaveTaskChanges(savedTask);
     await updateBatchDetail({
       ...selectedBatchDetail,
