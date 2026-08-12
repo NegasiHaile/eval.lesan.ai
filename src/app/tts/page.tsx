@@ -713,7 +713,7 @@ export default function TTSPage() {
               selectClass="pl-14"
               className={
                 isAnnotationMode
-                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0"
+                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0 mt-2 sm:mt-3"
                   : undefined
               }
             />
