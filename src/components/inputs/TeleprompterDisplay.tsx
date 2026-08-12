@@ -25,7 +25,7 @@ export default function TeleprompterDisplay({
 }: TeleprompterDisplayProps) {
   return (
     <div
-      className={`relative flex flex-1 items-center justify-center min-h-0 px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
+      className={`relative flex flex-1 items-center justify-center min-h-0 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4 md:px-6 md:py-5 ${className}`}
     >
       <p
         aria-hidden={isCountingDown}

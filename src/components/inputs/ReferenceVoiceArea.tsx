@@ -11,6 +11,7 @@ type SessionReferenceVoiceAreaProps = {
   saving?: boolean;
   preparingSession?: boolean;
   disabled?: boolean;
+  className?: string;
   onStart: () => void;
   onStop: () => void;
 };
@@ -52,6 +53,7 @@ export default function ReferenceVoiceArea({
   saving = false,
   preparingSession = false,
   disabled = false,
+  className = "",
   onStart,
   onStop,
 }: SessionReferenceVoiceAreaProps) {
@@ -60,7 +62,7 @@ export default function ReferenceVoiceArea({
   const rightLevels = levels.slice(half);
 
   return (
-    <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6 w-full max-w-md sm:max-w-xl mx-auto px-2 sm:px-0 py-1">
+    <div className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 w-full max-w-md sm:max-w-xl mx-auto px-2 sm:px-0 py-1 ${className}`}>
       <WaveformSide bars={leftLevels} active={inCaptureMode} align="left" />
 
       {!inCaptureMode ? (

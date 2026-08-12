@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -627,7 +627,7 @@ export default function TTSPage() {
       }
     >
       <div
-        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "space-y-5"}`}
+        className={`w-full ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "max-w-6xl space-y-5"}`}
       >
         <div
           className={`w-full flex gap-2 shrink-0 ${
