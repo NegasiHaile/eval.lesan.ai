@@ -12,6 +12,7 @@ const OPTIONS: {
   { value: "sm", label: "S", previewClass: "text-xs" },
   { value: "md", label: "M", previewClass: "text-sm" },
   { value: "lg", label: "L", previewClass: "text-base" },
+  { value: "xl", label: "XL", previewClass: "text-lg" },
 ];
 
 type TeleprompterFontSizeControlProps = {

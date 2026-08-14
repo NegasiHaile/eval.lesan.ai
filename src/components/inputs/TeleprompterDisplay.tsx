@@ -1,11 +1,12 @@
 "use client";
 
-export type TeleprompterFontSize = "sm" | "md" | "lg";
+export type TeleprompterFontSize = "sm" | "md" | "lg" | "xl";
 
 const fontSizeClass: Record<TeleprompterFontSize, string> = {
   sm: "text-sm sm:text-base md:text-lg",
   md: "text-base sm:text-xl md:text-2xl lg:text-3xl",
   lg: "text-lg sm:text-2xl md:text-3xl lg:text-4xl",
+  xl: "text-xl sm:text-3xl md:text-4xl lg:text-5xl",
 };
 
 type TeleprompterDisplayProps = {
@@ -45,7 +46,7 @@ export default function TeleprompterDisplay({
       {isCountingDown && secondsLeft > 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
           <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400">
-            {secondsLeft}
+            {Number.isInteger(secondsLeft) ? secondsLeft : secondsLeft.toFixed(1)}
           </span>
         </div>
       )}

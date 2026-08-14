@@ -12,6 +12,8 @@ type SessionReferenceVoiceAreaProps = {
   preparingSession?: boolean;
   disabled?: boolean;
   className?: string;
+  startTitle?: string;
+  canStop?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -54,15 +56,20 @@ export default function ReferenceVoiceArea({
   preparingSession = false,
   disabled = false,
   className = "",
+  startTitle = "Start recording",
+  canStop = false,
   onStart,
   onStop,
 }: SessionReferenceVoiceAreaProps) {
   const half = Math.floor(levels.length / 2);
   const leftLevels = levels.slice(0, half).reverse();
   const rightLevels = levels.slice(half);
+  const allowStop = canStop || isLastTask;
 
   return (
-    <div className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 w-full max-w-md sm:max-w-xl mx-auto px-2 sm:px-0 py-1 ${className}`}>
+    <div
+      className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 w-full max-w-md sm:max-w-xl mx-auto px-2 sm:px-0 py-1 ${className}`}
+    >
       <WaveformSide bars={leftLevels} active={inCaptureMode} align="left" />
 
       {!inCaptureMode ? (
@@ -71,8 +78,8 @@ export default function ReferenceVoiceArea({
           onClick={onStart}
           disabled={disabled || saving}
           className="relative shrink-0 size-12 sm:size-14 md:size-16 rounded-full bg-white dark:bg-neutral-900 text-red-500 shadow-[0_4px_20px_rgba(0,0,0,0.12)] ring-1 ring-neutral-200/80 dark:ring-neutral-700 transition hover:shadow-[0_6px_24px_rgba(0,0,0,0.16)] disabled:cursor-not-allowed disabled:opacity-60"
-          title={saving ? "Saving…" : "Start recording"}
-          aria-label={saving ? "Saving recording" : "Start recording"}
+          title={saving ? "Saving…" : startTitle}
+          aria-label={saving ? "Saving recording" : startTitle}
         >
           {saving && (
             <span
@@ -89,24 +96,26 @@ export default function ReferenceVoiceArea({
       ) : (
         <button
           type="button"
-          onClick={isLastTask ? onStop : undefined}
-          disabled={!isLastTask || saving || preparingSession || disabled}
+          onClick={allowStop ? onStop : undefined}
+          disabled={!allowStop || saving || preparingSession || disabled}
           className={`relative shrink-0 size-12 sm:size-14 md:size-16 rounded-full transition shadow-[0_0_0_6px_rgba(244,63,94,0.2)] sm:shadow-[0_0_0_8px_rgba(244,63,94,0.2)] disabled:cursor-not-allowed ${
-            isLastTask
+            allowStop
               ? "bg-red-500 hover:bg-red-600 cursor-pointer disabled:opacity-100"
               : "bg-red-500/80 cursor-default"
           }`}
           title={
             saving
               ? "Saving…"
-              : isLastTask
-                ? "Stop and finish"
+              : allowStop
+                ? isLastTask
+                  ? "Stop and finish"
+                  : "Stop session"
                 : "Recording in progress"
           }
           aria-label={
             saving
               ? "Saving recording"
-              : isLastTask
+              : allowStop
                 ? "Stop recording"
                 : "Recording in progress"
           }
@@ -119,7 +128,7 @@ export default function ReferenceVoiceArea({
           )}
           <Square
             className={`size-5 sm:size-6 text-white fill-white mx-auto relative z-10 ${
-              saving || !isLastTask ? "opacity-60" : ""
+              saving || !allowStop ? "opacity-60" : ""
             }`}
           />
         </button>
