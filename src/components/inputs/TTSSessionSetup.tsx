@@ -6,7 +6,7 @@ import type { TeleprompterFontSize } from "@/components/inputs/TeleprompterDispl
 
 const PREFS_KEY = "tts_session_prefs";
 const FONT_KEY = "tts_teleprompter_font_size";
-const LENGTHS = [1, 5, 10, 15] as const;
+const LENGTHS = [0, 5, 10, 15] as const;
 const GAPS = [500, 1000, 2000] as const;
 const FONTS: { value: TeleprompterFontSize; label: string }[] = [
   { value: "sm", label: "S" },
@@ -21,6 +21,7 @@ export type TTSSessionPrefs = {
   segmentGapMs: (typeof GAPS)[number];
   showPrev: boolean;
   showNext: boolean;
+  showPlayer: boolean;
   fontSize: TeleprompterFontSize;
 };
 
@@ -30,13 +31,16 @@ const DEFAULTS: TTSSessionPrefs = {
   segmentGapMs: 1000,
   showPrev: true,
   showNext: true,
+  showPlayer: true,
   fontSize: "md",
 };
+
+type StoredPrefs = Partial<TTSSessionPrefs> & { stopPerClip?: boolean };
 
 function readPrefs(): TTSSessionPrefs {
   try {
     const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "null") as
-      | Partial<TTSSessionPrefs>
+      | StoredPrefs
       | null;
     const legacy = localStorage.getItem(FONT_KEY);
     const font =
@@ -46,14 +50,22 @@ function readPrefs(): TTSSessionPrefs {
           ? (legacy as TeleprompterFontSize)
           : DEFAULTS.fontSize;
     const minutes = Number(raw?.durationMinutes);
+    const stopAnytime = raw?.stopPerClip === true || minutes === 0;
     return {
-      durationMinutes: [1, 5, 10, 15].includes(minutes) ? minutes : 15,
+      durationMinutes: stopAnytime
+        ? 0
+        : [5, 10, 15].includes(minutes)
+          ? minutes
+          : minutes === 1
+            ? 5
+            : 15,
       skipRecorded: raw?.skipRecorded !== false,
       segmentGapMs: GAPS.includes(raw?.segmentGapMs as (typeof GAPS)[number])
         ? (raw!.segmentGapMs as TTSSessionPrefs["segmentGapMs"])
         : 1000,
       showPrev: raw?.showPrev !== false,
       showNext: raw?.showNext !== false,
+      showPlayer: raw?.showPlayer !== false,
       fontSize: font,
     };
   } catch {
@@ -195,7 +207,7 @@ export default function TTSSessionSetup({
                 disabled={disabled}
                 items={LENGTHS.map((minutes) => ({
                   key: String(minutes),
-                  label: `${minutes}m`,
+                  label: minutes === 0 ? "Off" : `${minutes}m`,
                   selected: prefs.durationMinutes === minutes,
                   onSelect: () => patch({ durationMinutes: minutes }),
                 }))}
@@ -223,6 +235,12 @@ export default function TTSSessionSetup({
                     selected: prefs.skipRecorded,
                     onSelect: () =>
                       patch({ skipRecorded: !prefs.skipRecorded }),
+                  },
+                  {
+                    key: "player",
+                    label: "Player",
+                    selected: prefs.showPlayer,
+                    onSelect: () => patch({ showPlayer: !prefs.showPlayer }),
                   },
                 ]}
               />

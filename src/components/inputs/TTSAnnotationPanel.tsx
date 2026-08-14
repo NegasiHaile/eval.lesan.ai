@@ -400,10 +400,12 @@ export default function TTSAnnotationPanel({
       sessionStartedAtRef.current = Date.now();
       sessionMinutesRef.current = prefs.durationMinutes;
       clearSessionLimit();
-      sessionLimitTimerRef.current = setTimeout(() => {
-        sessionLimitPendingRef.current = true;
-        setSessionLimitPending(true);
-      }, prefs.durationMinutes * 60_000);
+      if (prefs.durationMinutes > 0) {
+        sessionLimitTimerRef.current = setTimeout(() => {
+          sessionLimitPendingRef.current = true;
+          setSessionLimitPending(true);
+        }, prefs.durationMinutes * 60_000);
+      }
 
       setPreparingSession(false);
       setSessionActive(true);
@@ -563,7 +565,7 @@ export default function TTSAnnotationPanel({
           </div>
 
           <div className="hidden md:flex md:col-start-3 md:row-start-1 self-center min-w-0 items-center justify-end pl-3 pr-0 min-h-9">
-            {savedPlaybackSrc && (
+            {prefs.showPlayer && savedPlaybackSrc && (
               <audio
                 key={savedPlaybackSrc}
                 controls
@@ -599,8 +601,12 @@ export default function TTSAnnotationPanel({
               preparingSession={preparingSession}
               disabled={isAdvancing}
               className="!w-auto !max-w-xl !mx-0 !px-0"
-              startTitle={`Start ${prefs.durationMinutes}-min session`}
-              canStop={sessionLimitPending}
+              startTitle={
+                prefs.durationMinutes > 0
+                  ? `Start ${prefs.durationMinutes}-min session`
+                  : "Start recording"
+              }
+              canStop={sessionLimitPending || prefs.durationMinutes === 0}
               onStart={() => void startSession()}
               onStop={() => void finishSession()}
             />
@@ -651,7 +657,7 @@ export default function TTSAnnotationPanel({
             </div>
           )}
 
-          {savedPlaybackSrc && (
+          {prefs.showPlayer && savedPlaybackSrc && (
             <div className="md:hidden w-full flex justify-end pr-0">
               <audio
                 key={savedPlaybackSrc}
