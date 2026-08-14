@@ -18,16 +18,8 @@ const IDLE_LEVELS = Array.from({ length: WAVEFORM_BARS }, () => 0.12);
 const NAV_BTN =
   "shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
-function nextTaskIndex(
-  from: number,
-  tasks: EvalTaskTypes[],
-  skipRecorded: boolean
-) {
-  if (!skipRecorded) return from + 1 < tasks.length ? from + 1 : null;
-  for (let i = from + 1; i < tasks.length; i++) {
-    if (!tasks[i]?.reference?.trim()) return i;
-  }
-  return null;
+function nextTaskIndex(from: number, tasks: EvalTaskTypes[]) {
+  return from + 1 < tasks.length ? from + 1 : null;
 }
 
 type TTSAnnotationPanelProps = {
@@ -95,7 +87,7 @@ export default function TTSAnnotationPanel({
 
   const inCaptureMode = sessionActive || preparingSession;
   const isLastTask =
-    nextTaskIndex(currentTaskIndex, batchTasks, prefs.skipRecorded) == null;
+    nextTaskIndex(currentTaskIndex, batchTasks) == null;
   const isFirstTask = currentTaskIndex <= 0;
   const segmentLabel = `${currentTaskIndex + 1} / ${batchTasks.length}`;
   const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
@@ -510,8 +502,7 @@ export default function TTSAnnotationPanel({
     if (isLastTask) return;
     const nextIndex = nextTaskIndex(
       currentTaskIndexRef.current,
-      batchTasks,
-      prefs.skipRecorded
+      batchTasks
     );
     if (nextIndex == null) return;
     advanceTo(nextIndex);

@@ -7,7 +7,7 @@ import type { TeleprompterFontSize } from "@/components/inputs/TeleprompterDispl
 const PREFS_KEY = "tts_session_prefs";
 const FONT_KEY = "tts_teleprompter_font_size";
 const LENGTHS = [0, 5, 10, 15] as const;
-const GAPS = [500, 1000, 2000] as const;
+const GAPS = [2000, 3000, 4000] as const;
 const FONTS: { value: TeleprompterFontSize; label: string }[] = [
   { value: "sm", label: "S" },
   { value: "md", label: "M" },
@@ -17,7 +17,6 @@ const FONTS: { value: TeleprompterFontSize; label: string }[] = [
 
 export type TTSSessionPrefs = {
   durationMinutes: number;
-  skipRecorded: boolean;
   segmentGapMs: (typeof GAPS)[number];
   showPrev: boolean;
   showNext: boolean;
@@ -27,8 +26,7 @@ export type TTSSessionPrefs = {
 
 const DEFAULTS: TTSSessionPrefs = {
   durationMinutes: 15,
-  skipRecorded: true,
-  segmentGapMs: 1000,
+  segmentGapMs: 2000,
   showPrev: true,
   showNext: true,
   showPlayer: true,
@@ -59,10 +57,9 @@ function readPrefs(): TTSSessionPrefs {
           : minutes === 1
             ? 5
             : 15,
-      skipRecorded: raw?.skipRecorded !== false,
       segmentGapMs: GAPS.includes(raw?.segmentGapMs as (typeof GAPS)[number])
         ? (raw!.segmentGapMs as TTSSessionPrefs["segmentGapMs"])
-        : 1000,
+        : 2000,
       showPrev: raw?.showPrev !== false,
       showNext: raw?.showNext !== false,
       showPlayer: raw?.showPlayer !== false,
@@ -230,13 +227,6 @@ export default function TTSSessionSetup({
                     onSelect: () => patch({ showNext: !prefs.showNext }),
                   },
                   {
-                    key: "skip",
-                    label: "Skip",
-                    selected: prefs.skipRecorded,
-                    onSelect: () =>
-                      patch({ skipRecorded: !prefs.skipRecorded }),
-                  },
-                  {
                     key: "player",
                     label: "Player",
                     selected: prefs.showPlayer,
@@ -245,7 +235,7 @@ export default function TTSSessionSetup({
                 ]}
               />
             </Section>
-            <Section title="Countdown">
+            <Section title="Between segments">
               <ChipRow
                 disabled={disabled}
                 items={GAPS.map((ms) => ({
