@@ -21,7 +21,9 @@ import { ttsRealtimeBatch, ttsBatchTemplate } from "@/constants/initial_values";
 import { generate_realtime_tts_batch } from "@/scripts/generat_eval_data";
 import { ttsModels } from "@/constants/models";
 import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
-import TTSAnnotationPanel from "@/components/inputs/TTSAnnotationPanel";
+import TTSAnnotationPanel, {
+  UploadPermanentError,
+} from "@/components/inputs/TTSAnnotationPanel";
 import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
 import { normalizeAudioContentType } from "@/constants/transcription";
 import {
@@ -56,9 +58,11 @@ export default function TTSPage() {
   const batchTasksRef = useRef(batchTasks);
   const currentTaskIndexRef = useRef(currentTaskIndex);
   const evalTaskRef = useRef(evalTask);
+  const selectedBatchDetailRef = useRef(selectedBatchDetail);
   batchTasksRef.current = batchTasks;
   currentTaskIndexRef.current = currentTaskIndex;
   evalTaskRef.current = evalTask;
+  selectedBatchDetailRef.current = selectedBatchDetail;
 
   const {
     isReviewerMode,
@@ -347,7 +351,11 @@ export default function TTSPage() {
     syncActiveBatchToStorage(tasks, index);
   };
 
-  const handleSegmentUpload = async (blob: Blob, taskIndex: number) => {
+  const handleSegmentUpload = async (
+    blob: Blob,
+    taskIndex: number,
+    task: EvalTaskTypes
+  ) => {
     if (IsRealtime()) return;
 
     const contentType = normalizeAudioContentType(blob.type || "audio/webm");
@@ -368,20 +376,33 @@ export default function TTSPage() {
       error?: string;
     };
     if (!uploadRes.ok || !body.file_id) {
-      throw new Error(
-        typeof body.error === "string" ? body.error : "Failed to upload audio."
-      );
+      const message =
+        typeof body.error === "string" ? body.error : "Failed to upload audio.";
+      // 4xx responses (too large, invalid file, unauthorized upload) won't
+      // succeed on retry — fail fast instead of queueing them as pending.
+      if (uploadRes.status >= 400 && uploadRes.status < 500) {
+        throw new UploadPermanentError(message);
+      }
+      throw new Error(message);
     }
 
+    // Queued uploads outlive navigation: this closure was created while its
+    // batch was selected, but shared refs always describe the batch selected
+    // NOW. If the user switched batches mid-upload, only persist the captured
+    // task snapshot to this closure's batch — never touch the live state.
+    const batchChanged =
+      selectedBatchDetailRef.current?.batch_id !== selectedBatchDetail.batch_id;
     const prev = batchTasksRef.current;
-    if (taskIndex < 0 || taskIndex >= prev.length) {
-      throw new Error(`Invalid segment index ${taskIndex + 1} for upload.`);
+    const existing = prev[taskIndex];
+
+    if (batchChanged || !existing || existing.id !== task.id) {
+      await handleSaveTaskChanges({ ...task, reference: body.file_id });
+      return;
     }
 
-    const existing = prev[taskIndex];
     const base =
       taskIndex === currentTaskIndexRef.current &&
-      evalTaskRef.current?.id === existing?.id
+      evalTaskRef.current?.id === existing.id
         ? evalTaskRef.current
         : existing;
 
@@ -400,7 +421,7 @@ export default function TTSPage() {
         ? { ...current, reference: savedTask.reference }
         : current
     );
-    syncActiveBatchToStorage(nextTasks, taskIndex);
+    syncActiveBatchToStorage(nextTasks);
 
     await handleSaveTaskChanges(savedTask);
     await updateBatchDetail({
@@ -709,6 +730,7 @@ export default function TTSPage() {
         ) : isAnnotationMode ? (
           <div className="flex flex-col flex-1 w-full min-h-0">
             <TTSAnnotationPanel
+              key={selectedBatchDetail.batch_id}
               evalTask={evalTask}
               batchTasks={batchTasks}
               currentTaskIndex={currentTaskIndex}
