@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronsRight } from "lucide-react";
+import { ChevronsRight, Upload } from "lucide-react";
 
 import TeleprompterDisplay, {
   TeleprompterFontSize,
@@ -18,7 +18,15 @@ const SEGMENT_GAP_TAIL_MS = 1000;
 const SEGMENT_GAP_HEAD_MS = 1000;
 const SEGMENT_GAP_TOTAL_MS = SEGMENT_GAP_TAIL_MS + SEGMENT_GAP_HEAD_MS;
 const MAX_SESSION_MS = 15 * 60 * 1000;
+const UPLOAD_MAX_ATTEMPTS = 3;
+const UPLOAD_RETRY_BASE_MS = 800;
+const FINISH_FLUSH_TIMEOUT_MS = 8000;
 const FONT_STORAGE_KEY = "tts_teleprompter_font_size";
+
+// Thrown by the upload handler for errors that retrying cannot fix (4xx,
+// oversized file, unknown task) so the retry loop fails fast instead of
+// parking the segment in the pending banner forever.
+export class UploadPermanentError extends Error {}
 
 function readStoredFontSize(): TeleprompterFontSize {
   if (typeof window === "undefined") return "md";
@@ -31,13 +39,21 @@ function idleLevels(): number[] {
   return Array.from({ length: WAVEFORM_BARS }, () => 0.12);
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const formatSegmentList = (indexes: number[]) =>
+  indexes.map((i) => i + 1).join(", ");
+
 type TTSAnnotationPanelProps = {
   evalTask: EvalTaskTypes;
   batchTasks: EvalTaskTypes[];
   currentTaskIndex: number;
   onTaskPersist: (task: EvalTaskTypes) => Promise<void>;
   onNavigate: (index: number) => void;
-  onSegmentUpload: (blob: Blob, taskIndex: number) => Promise<void>;
+  onSegmentUpload: (
+    blob: Blob,
+    taskIndex: number,
+    task: EvalTaskTypes
+  ) => Promise<void>;
   onNotice: (
     title: string,
     message: string,
@@ -72,6 +88,13 @@ export default function TTSAnnotationPanel({
   );
   const sessionEndingRef = useRef(false);
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingBlobsRef = useRef<Map<number, { blob: Blob; task: EvalTaskTypes }>>(
+    new Map()
+  );
+  const failedIndexesRef = useRef<Set<number>>(new Set());
+  const enqueueSegmentUploadRef = useRef<
+    (blob: Blob, taskIndex: number, task: EvalTaskTypes) => void
+  >(() => {});
   const finishSessionRef = useRef<
     (opts?: { forced?: boolean }) => Promise<void>
   >(async () => {});
@@ -79,11 +102,13 @@ export default function TTSAnnotationPanel({
   const evalTaskRef = useRef(evalTask);
   const onNavigateRef = useRef(onNavigate);
   const onTaskPersistRef = useRef(onTaskPersist);
+  const onNoticeRef = useRef(onNotice);
 
   currentTaskIndexRef.current = currentTaskIndex;
   evalTaskRef.current = evalTask;
   onNavigateRef.current = onNavigate;
   onTaskPersistRef.current = onTaskPersist;
+  onNoticeRef.current = onNotice;
 
   const [fontSize, setFontSize] = useState<TeleprompterFontSize>(readStoredFontSize);
   const [sessionActive, setSessionActive] = useState(false);
@@ -92,6 +117,8 @@ export default function TTSAnnotationPanel({
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [saving, setSaving] = useState(false);
   const [levels, setLevels] = useState<number[]>(idleLevels);
+  const [failedSegments, setFailedSegments] = useState<number[]>([]);
+  const [retryingUploads, setRetryingUploads] = useState(false);
 
   const inCaptureMode = sessionActive || preparingSession;
   const isLastTask = currentTaskIndex >= batchTasks.length - 1;
@@ -202,27 +229,111 @@ export default function TTSAnnotationPanel({
     return blob.size > 0 ? blob : null;
   }, []);
 
-  const uploadSegment = useCallback(
-    async (blob: Blob, taskIndex: number) => {
-      await onSegmentUpload(blob, taskIndex);
+  const syncFailedSegments = useCallback(() => {
+    setFailedSegments(
+      Array.from(failedIndexesRef.current).sort((a, b) => a - b)
+    );
+  }, []);
+
+  const clearFailedUpload = useCallback(
+    (taskIndex: number) => {
+      pendingBlobsRef.current.delete(taskIndex);
+      if (failedIndexesRef.current.delete(taskIndex)) {
+        syncFailedSegments();
+      }
     },
-    [onSegmentUpload]
+    [syncFailedSegments]
+  );
+
+  const markFailedUpload = useCallback(
+    (taskIndex: number, blob: Blob, task: EvalTaskTypes) => {
+      pendingBlobsRef.current.set(taskIndex, { blob, task });
+      failedIndexesRef.current.add(taskIndex);
+      syncFailedSegments();
+    },
+    [syncFailedSegments]
+  );
+
+  const uploadWithRetry = useCallback(
+    async (blob: Blob, taskIndex: number, task: EvalTaskTypes) => {
+      pendingBlobsRef.current.set(taskIndex, { blob, task });
+
+      for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+        try {
+          await onSegmentUpload(blob, taskIndex, task);
+          clearFailedUpload(taskIndex);
+          return;
+        } catch (err) {
+          if (err instanceof UploadPermanentError) {
+            clearFailedUpload(taskIndex);
+            onNoticeRef.current(
+              "Upload failed",
+              `Segment ${taskIndex + 1}: ${err.message}`,
+              "error"
+            );
+            return;
+          }
+          if (attempt < UPLOAD_MAX_ATTEMPTS) {
+            await sleep(UPLOAD_RETRY_BASE_MS * 2 ** (attempt - 1));
+          }
+        }
+      }
+
+      markFailedUpload(taskIndex, blob, task);
+    },
+    [clearFailedUpload, markFailedUpload, onSegmentUpload]
   );
 
   const enqueueSegmentUpload = useCallback(
-    (blob: Blob, taskIndex: number) => {
+    (blob: Blob, taskIndex: number, task: EvalTaskTypes) => {
+      pendingBlobsRef.current.set(taskIndex, { blob, task });
       uploadQueueRef.current = uploadQueueRef.current
-        .then(() => uploadSegment(blob, taskIndex))
+        .then(() => uploadWithRetry(blob, taskIndex, task))
         .catch(() => {
-          onNotice(
-            "Upload failed",
-            `Could not upload audio for segment ${taskIndex + 1}. Please try again.`,
-            "error"
-          );
+          markFailedUpload(taskIndex, blob, task);
         });
     },
-    [onNotice, uploadSegment]
+    [markFailedUpload, uploadWithRetry]
   );
+
+  enqueueSegmentUploadRef.current = enqueueSegmentUpload;
+
+  const flushUploadQueue = useCallback(async () => {
+    await uploadQueueRef.current;
+  }, []);
+
+  const retryFailedUploads = useCallback(async () => {
+    const targets = Array.from(failedIndexesRef.current)
+      .filter((taskIndex) => pendingBlobsRef.current.has(taskIndex))
+      .sort((a, b) => a - b);
+    if (targets.length === 0) return;
+
+    setRetryingUploads(true);
+    try {
+      // Indexes stay in the failed set until their upload succeeds
+      // (clearFailedUpload), so the banner reflects live progress.
+      for (const taskIndex of targets) {
+        const entry = pendingBlobsRef.current.get(taskIndex);
+        if (!entry) continue;
+        enqueueSegmentUpload(entry.blob, taskIndex, entry.task);
+      }
+      await flushUploadQueue();
+
+      if (failedIndexesRef.current.size > 0) {
+        onNotice(
+          "Upload incomplete",
+          `Still pending: ${formatSegmentList(
+            Array.from(failedIndexesRef.current).sort((a, b) => a - b)
+          )}. Try again.`,
+          "error"
+        );
+      } else {
+        onNotice("Uploaded", "All pending segments are saved.", "success");
+      }
+    } finally {
+      setRetryingUploads(false);
+    }
+  }, [enqueueSegmentUpload, flushUploadQueue, onNotice]);
 
   const attachRecorderHandlers = useCallback(
     (mediaRecorder: MediaRecorder) => {
@@ -283,7 +394,7 @@ export default function TTSAnnotationPanel({
         startSegmentRecorder();
       }
 
-      enqueueSegmentUpload(blob, taskIndex);
+      enqueueSegmentUpload(blob, taskIndex, evalTaskRef.current);
       return blob;
     },
     [enqueueSegmentUpload, startSegmentRecorder, stopCurrentSegmentRecording]
@@ -308,22 +419,43 @@ export default function TTSAnnotationPanel({
         await onTaskPersistRef.current(evalTaskRef.current);
 
         if (blob) {
-          try {
-            await uploadSegment(blob, taskIndex);
-          } catch {
-            onNotice(
-              "Upload failed",
-              "Could not save the last segment. Please try again.",
-              "error"
-            );
-          }
+          enqueueSegmentUpload(blob, taskIndex, evalTaskRef.current);
         }
 
-        if (opts?.forced) {
+        // Don't hold "saving" hostage to retry backoff: give the queue a
+        // bounded window, then let it drain in the background — failures
+        // surface in the pending banner when they resolve.
+        const flushed = await Promise.race([
+          flushUploadQueue().then(() => true),
+          sleep(FINISH_FLUSH_TIMEOUT_MS).then(() => false),
+        ]);
+
+        const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
+        if (!flushed) {
+          onNotice(
+            opts?.forced ? "Session limit" : "Uploads in progress",
+            opts?.forced
+              ? "Recording stopped after 15 minutes. Uploads are finishing in the background."
+              : "Uploads are finishing in the background.",
+            "info"
+          );
+        } else if (opts?.forced && failed.length > 0) {
+          onNotice(
+            "Session limit",
+            `Stopped at 15 minutes. Pending upload: ${formatSegmentList(failed)}.`,
+            "error"
+          );
+        } else if (opts?.forced) {
           onNotice(
             "Session limit",
             "Recording stopped after 15 minutes.",
             "info"
+          );
+        } else if (failed.length > 0) {
+          onNotice(
+            "Upload pending",
+            `Segments ${formatSegmentList(failed)} still need upload.`,
+            "error"
           );
         }
       } finally {
@@ -333,17 +465,57 @@ export default function TTSAnnotationPanel({
     },
     [
       clearSessionLimit,
+      enqueueSegmentUpload,
+      flushUploadQueue,
       onNotice,
       saving,
       sessionActive,
       stopCurrentSegmentRecording,
-      uploadSegment,
     ]
   );
 
   useEffect(() => {
     finishSessionRef.current = finishSession;
   }, [finishSession]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (
+        !sessionActive &&
+        pendingBlobsRef.current.size === 0 &&
+        failedIndexesRef.current.size === 0
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [sessionActive]);
+
+  // The panel is keyed by batch, so switching batches unmounts it. Give any
+  // segments that exhausted their retries one last background attempt (their
+  // enqueued closures still target the batch they were recorded in) and tell
+  // the user, instead of discarding the audio silently.
+  useEffect(
+    () => () => {
+      const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
+      if (failed.length === 0) return;
+      for (const taskIndex of failed) {
+        const entry = pendingBlobsRef.current.get(taskIndex);
+        if (!entry) continue;
+        enqueueSegmentUploadRef.current(entry.blob, taskIndex, entry.task);
+      }
+      onNoticeRef.current(
+        "Pending uploads",
+        `Segments ${formatSegmentList(failed)} were still pending — retrying in the background. Re-open the batch to verify they saved.`,
+        "info"
+      );
+    },
+    []
+  );
 
   useEffect(
     () => () => {
@@ -374,11 +546,6 @@ export default function TTSAnnotationPanel({
       sessionStartedAtRef.current = Date.now();
       clearSessionLimit();
       sessionLimitTimerRef.current = setTimeout(() => {
-        onNotice(
-          "Session limit",
-          "Recording reached the 15-minute limit.",
-          "info"
-        );
         void finishSessionRef.current({ forced: true });
       }, MAX_SESSION_MS);
 
@@ -504,12 +671,47 @@ export default function TTSAnnotationPanel({
           )}
         </div>
 
+        {(failedSegments.length > 0 || retryingUploads) && (
+          <div className="w-full flex justify-center px-1 sm:px-0">
+            <div
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 pl-2.5 pr-1.5 py-1 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+              role="status"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                {failedSegments.length > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 px-1.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[11px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-100">
+                    [{formatSegmentList(failedSegments)}]
+                  </span>
+                )}
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                  {retryingUploads
+                    ? "uploading…"
+                    : sessionActive || inCaptureMode || saving
+                      ? "pending"
+                      : "pending upload"}
+                </span>
+              </div>
+              {!sessionActive && !inCaptureMode && !saving && (
+                <button
+                  type="button"
+                  onClick={() => void retryFailedUploads()}
+                  disabled={retryingUploads}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 dark:bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Upload className="size-3" aria-hidden />
+                  {retryingUploads ? "Uploading…" : "Upload"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="w-full flex justify-center px-1 sm:px-0">
           <ReferenceVoiceArea
             inCaptureMode={inCaptureMode}
             levels={levels}
             isLastTask={isLastTask}
-            saving={saving}
+            saving={saving || retryingUploads}
             preparingSession={preparingSession}
             disabled={isAdvancing}
             onStart={() => void startSession()}
