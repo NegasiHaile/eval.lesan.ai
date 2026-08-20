@@ -6,13 +6,7 @@ import getClientPromise from "@/lib/mongodb";
 import { resolveLesanMedia, uploadLesanMedia } from "@/lib/lesanMedia";
 import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
 import { languages } from "@/constants/languages";
-import {
-  ASR_REALTIME_COLLECTION,
-  ASR_RECORDING_MAX_MESSAGE,
-  ASR_RECORDING_MAX_MS,
-  ASR_RECORDING_MIN_MESSAGE,
-  ASR_RECORDING_MIN_MS,
-} from "@/constants/asr_recording";
+import { ASR_REALTIME_COLLECTION } from "@/constants/asr_recording";
 import {
   MAX_AUDIO_SIZE_BYTES,
   MAX_AUDIO_SIZE_MB,
@@ -31,19 +25,8 @@ function findSelectedLanguage(languageCode: string): LanguageTypes | undefined {
   );
 }
 
-function validateDuration(durationMs: number): NextResponse | null {
-  if (!Number.isFinite(durationMs) || durationMs < ASR_RECORDING_MIN_MS) {
-    return NextResponse.json({ error: ASR_RECORDING_MIN_MESSAGE }, { status: 400 });
-  }
-  if (durationMs > ASR_RECORDING_MAX_MS + 1000) {
-    return NextResponse.json({ error: ASR_RECORDING_MAX_MESSAGE }, { status: 400 });
-  }
-  return null;
-}
-
 async function hostRecording(formData: FormData) {
   const file = formData.get("file");
-  const durationMs = Number(formData.get("duration_ms"));
 
   if (!file || !(file instanceof Blob)) {
     return NextResponse.json(
@@ -51,9 +34,6 @@ async function hostRecording(formData: FormData) {
       { status: 400 }
     );
   }
-
-  const durationError = validateDuration(durationMs);
-  if (durationError) return durationError;
 
   const rawType = file.type || "application/octet-stream";
   const contentType = normalizeAudioContentType(rawType);
@@ -110,8 +90,12 @@ async function saveRecording(
     );
   }
 
-  const durationError = validateDuration(durationMs);
-  if (durationError) return durationError;
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return NextResponse.json(
+      { error: "Missing or invalid duration_ms." },
+      { status: 400 }
+    );
+  }
 
   const language = findSelectedLanguage(String(body.language ?? ""));
   if (!language) {

@@ -6,12 +6,7 @@ import {
   pickRecordingMimeType,
 } from "@/constants/transcription";
 
-type UseAudioRecorderOptions = {
-  maxDurationMs?: number;
-};
-
-export function useAudioRecorder(options?: UseAudioRecorderOptions) {
-  const maxDurationMs = options?.maxDurationMs;
+export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordedBlobRef = useRef<Blob | null>(null);
@@ -19,13 +14,10 @@ export function useAudioRecorder(options?: UseAudioRecorderOptions) {
   const draftUrlRef = useRef<string | undefined>(undefined);
   const startedAtRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const maxDurationMsRef = useRef(maxDurationMs);
 
   const [recording, setRecording] = useState(false);
   const [draftUrl, setDraftUrl] = useState<string | undefined>(undefined);
   const [elapsedMs, setElapsedMs] = useState(0);
-
-  maxDurationMsRef.current = maxDurationMs;
 
   const stopActiveStream = () => {
     activeStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -41,9 +33,7 @@ export function useAudioRecorder(options?: UseAudioRecorderOptions) {
 
   const freezeElapsed = () => {
     if (!startedAtRef.current) return;
-    const elapsed = Date.now() - startedAtRef.current;
-    const max = maxDurationMsRef.current;
-    setElapsedMs(max ? Math.min(elapsed, max) : elapsed);
+    setElapsedMs(Date.now() - startedAtRef.current);
   };
 
   const clearDraft = useCallback(() => {
@@ -109,17 +99,7 @@ export function useAudioRecorder(options?: UseAudioRecorderOptions) {
       stopTimer();
       timerRef.current = setInterval(() => {
         if (!startedAtRef.current) return;
-        const elapsed = Date.now() - startedAtRef.current;
-        const max = maxDurationMsRef.current;
-        const capped = max ? Math.min(elapsed, max) : elapsed;
-        setElapsedMs(capped);
-        if (max && elapsed >= max) {
-          const recorder = mediaRecorderRef.current;
-          if (recorder && recorder.state === "recording") {
-            recorder.stop();
-          }
-          stopTimer();
-        }
+        setElapsedMs(Date.now() - startedAtRef.current);
       }, 200);
       return true;
     } catch (err) {

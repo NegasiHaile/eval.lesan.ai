@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Loader2, Mic, RotateCcw, Square } from "lucide-react";
 
@@ -14,10 +14,6 @@ import { languages } from "@/constants/languages";
 import {
   ASR_RECORDING_HOSTING_LABEL,
   ASR_RECORDING_LANGUAGE_KEY,
-  ASR_RECORDING_MAX_MS,
-  ASR_RECORDING_MAX_WARNING_MS,
-  ASR_RECORDING_MIN_MS,
-  ASR_RECORDING_RANGE_LABEL,
   ASR_RECORDING_SAVING_LABEL,
   ASR_RECORDING_SUBMIT_LABEL,
   formatRecordingDuration,
@@ -89,7 +85,7 @@ export default function AsrRecordingPage() {
     startRecording,
     stopRecording,
     clearDraft,
-  } = useAudioRecorder({ maxDurationMs: ASR_RECORDING_MAX_MS });
+  } = useAudioRecorder();
 
   useEffect(() => {
     try {
@@ -100,30 +96,6 @@ export default function AsrRecordingPage() {
       // ignore
     }
   }, []);
-
-  const durationOk =
-    elapsedMs >= ASR_RECORDING_MIN_MS && elapsedMs <= ASR_RECORDING_MAX_MS;
-  const approachingMax =
-    elapsedMs >= ASR_RECORDING_MAX_MS - ASR_RECORDING_MAX_WARNING_MS;
-  const progressPct = Math.min(100, (elapsedMs / ASR_RECORDING_MAX_MS) * 100);
-  const rangeTone = useMemo(() => {
-    if (elapsedMs <= 0) return "neutral";
-    if (approachingMax) return "red";
-    if (elapsedMs >= ASR_RECORDING_MIN_MS) return "green";
-    return "yellow";
-  }, [elapsedMs, approachingMax]);
-  const rangeColorClass = {
-    yellow: "bg-yellow-400",
-    green: "bg-emerald-500",
-    red: "bg-red-500",
-    neutral: "bg-neutral-400 dark:bg-neutral-500",
-  }[rangeTone];
-  const timerClass = {
-    yellow: "text-yellow-500",
-    green: "text-emerald-600 dark:text-emerald-400",
-    red: "text-red-500",
-    neutral: "text-neutral-800 dark:text-neutral-100",
-  }[rangeTone];
 
   const isSubmitting = submitStage !== "idle";
   const submitLabel =
@@ -152,7 +124,7 @@ export default function AsrRecordingPage() {
   const handleSubmit = async () => {
     if (submittingRef.current) return;
     const blob = recordedBlobRef.current;
-    if (!blob || !durationOk) return;
+    if (!blob || !hasDraft) return;
 
     if (!user?.username) {
       setIsSigninOpen(true);
@@ -172,7 +144,6 @@ export default function AsrRecordingPage() {
           type: contentType,
         })
       );
-      formData.append("duration_ms", String(elapsedMs));
 
       const hosted = await postFormData("/api/asr-recording", formData);
 
@@ -285,44 +256,25 @@ export default function AsrRecordingPage() {
             }
           />
 
-          <div className="px-4 pb-4 space-y-2">
-            <div className="flex items-center justify-between gap-3 text-sm font-mono">
-              <p className={`tabular-nums ${timerClass}`} aria-live="polite">
-                {formatRecordingDuration(elapsedMs)}
-                <span className="text-neutral-400 dark:text-neutral-500">
-                  {" "}
-                  / {formatRecordingDuration(ASR_RECORDING_MAX_MS)}
-                </span>
-              </p>
-              <p className="text-neutral-500 dark:text-neutral-400">
-                {ASR_RECORDING_RANGE_LABEL}
-              </p>
-            </div>
-            <div className="relative h-2.5 w-full rounded-full bg-neutral-300/80 dark:bg-neutral-700">
-              <div
-                className="absolute inset-y-0 w-px bg-neutral-500/80"
-                style={{
-                  left: `${(ASR_RECORDING_MIN_MS / ASR_RECORDING_MAX_MS) * 100}%`,
-                }}
-                aria-hidden
-              />
-              <div
-                className={`h-full rounded-full transition-[width,background-color] duration-200 ${rangeColorClass}`}
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+          <div className="px-4 pb-4">
+            <p
+              className="text-sm font-mono tabular-nums text-neutral-800 dark:text-neutral-100"
+              aria-live="polite"
+            >
+              {formatRecordingDuration(elapsedMs)}
+            </p>
           </div>
         </div>
 
         <div className="flex justify-end">
           <button
             type="button"
-            disabled={!hasDraft || recording || !durationOk || isSubmitting}
+            disabled={!hasDraft || recording || isSubmitting}
             onClick={() => void handleSubmit()}
             className={`relative overflow-hidden flex items-center justify-center gap-2 w-auto min-w-44 px-8 py-2 rounded-md text-sm font-semibold border transition ${
               isSubmitting
                 ? "opacity-50 cursor-not-allowed pointer-events-none border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 bg-neutral-200/80 dark:bg-neutral-800/80"
-                : !hasDraft || recording || !durationOk
+                : !hasDraft || recording
                   ? "opacity-50 cursor-not-allowed border-neutral-300 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200"
                   : "cursor-pointer border-neutral-300 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-800"
             }`}
