@@ -19,7 +19,6 @@ export type TTSSessionPrefs = {
   durationMinutes: number;
   segmentGapMs: (typeof GAPS)[number];
   showPrev: boolean;
-  showNext: boolean;
   showPlayer: boolean;
   fontSize: TeleprompterFontSize;
 };
@@ -28,7 +27,6 @@ const DEFAULTS: TTSSessionPrefs = {
   durationMinutes: 15,
   segmentGapMs: 2000,
   showPrev: true,
-  showNext: true,
   showPlayer: true,
   fontSize: "md",
 };
@@ -61,7 +59,6 @@ function readPrefs(): TTSSessionPrefs {
         ? (raw!.segmentGapMs as TTSSessionPrefs["segmentGapMs"])
         : 2000,
       showPrev: raw?.showPrev !== false,
-      showNext: raw?.showNext !== false,
       showPlayer: raw?.showPlayer !== false,
       fontSize: font,
     };
@@ -219,12 +216,6 @@ export default function TTSSessionSetup({
                     label: "Prev",
                     selected: prefs.showPrev,
                     onSelect: () => patch({ showPrev: !prefs.showPrev }),
-                  },
-                  {
-                    key: "next",
-                    label: "Next",
-                    selected: prefs.showNext,
-                    onSelect: () => patch({ showNext: !prefs.showNext }),
                   },
                   {
                     key: "player",

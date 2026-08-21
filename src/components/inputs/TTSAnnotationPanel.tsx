@@ -649,10 +649,10 @@ export default function TTSAnnotationPanel({
       </div>
 
       <div className="w-full flex flex-col flex-1 min-h-0 gap-4 sm:gap-5 px-1 sm:px-0">
-        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[1fr_auto] gap-3 md:gap-x-4 md:gap-y-2">
+        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[minmax(0,1fr)_auto] gap-3 md:gap-x-4 md:gap-y-2">
           <div className="hidden md:block md:col-start-1 md:row-start-1 min-w-0" aria-hidden />
 
-          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col flex-1 min-h-[22rem] sm:min-h-[24rem] md:min-h-[28rem] bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col min-h-0 h-full bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
             <TeleprompterDisplay
               text={displayedTask.input}
               fontSize={prefs.fontSize}
@@ -687,21 +687,20 @@ export default function TTSAnnotationPanel({
             )}
           </div>
 
-          <div className="hidden md:flex md:col-start-1 md:row-start-2 items-center justify-end self-center pr-0 min-h-9 pb-2">
-            {prefs.showPrev && (
-              <button
-                type="button"
-                onClick={handlePrev}
-                disabled={isFirstTask || busy}
-                className={NAV_BTN}
-              >
-                <ChevronsLeft className="size-4" aria-hidden />
-                Prev
-              </button>
-            )}
-          </div>
-
-          <div className="md:col-start-2 md:row-start-2 flex items-center justify-center pb-2">
+          <div className="md:col-span-3 md:row-start-2 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-2">
+            <div className="flex justify-start pl-4 sm:pl-8 md:pl-12">
+              {prefs.showPrev && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={isFirstTask || busy}
+                  className={NAV_BTN}
+                >
+                  <ChevronsLeft className="size-4" aria-hidden />
+                  Prev
+                </button>
+              )}
+            </div>
             <ReferenceVoiceArea
               inCaptureMode={inCaptureMode}
               levels={levels}
@@ -719,10 +718,7 @@ export default function TTSAnnotationPanel({
               onStart={() => void startSession()}
               onStop={() => void finishSession()}
             />
-          </div>
-
-          <div className="hidden md:flex md:col-start-3 md:row-start-2 items-center justify-start self-center pl-0 min-h-9 pb-2">
-            {prefs.showNext && (
+            <div className="flex justify-end pr-4 sm:pr-8 md:pr-12">
               <button
                 type="button"
                 onClick={handleNext}
@@ -732,39 +728,8 @@ export default function TTSAnnotationPanel({
                 Next
                 <ChevronsRight className="size-4" aria-hidden />
               </button>
-            )}
-          </div>
-
-          {(prefs.showPrev || prefs.showNext) && (
-            <div className="md:hidden flex justify-between pb-2">
-              <div className="min-w-[5.5rem]">
-                {prefs.showPrev && (
-                  <button
-                    type="button"
-                    onClick={handlePrev}
-                    disabled={isFirstTask || busy}
-                    className={NAV_BTN}
-                  >
-                    <ChevronsLeft className="size-4" aria-hidden />
-                    Prev
-                  </button>
-                )}
-              </div>
-              <div className="min-w-[5.5rem] flex justify-end">
-                {prefs.showNext && (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={isLastTask || busy}
-                    className={NAV_BTN}
-                  >
-                    Next
-                    <ChevronsRight className="size-4" aria-hidden />
-                  </button>
-                )}
-              </div>
             </div>
-          )}
+          </div>
 
           {prefs.showPlayer && savedPlaybackSrc && (
             <div className="md:hidden w-full flex justify-end pr-0">
