@@ -21,7 +21,9 @@ import { ttsRealtimeBatch, ttsBatchTemplate } from "@/constants/initial_values";
 import { generate_realtime_tts_batch } from "@/scripts/generat_eval_data";
 import { ttsModels } from "@/constants/models";
 import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
-import TTSAnnotationPanel from "@/components/inputs/TTSAnnotationPanel";
+import TTSAnnotationPanel, {
+  UploadPermanentError,
+} from "@/components/inputs/TTSAnnotationPanel";
 import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
 import { normalizeAudioContentType } from "@/constants/transcription";
 import {
@@ -56,9 +58,11 @@ export default function TTSPage() {
   const batchTasksRef = useRef(batchTasks);
   const currentTaskIndexRef = useRef(currentTaskIndex);
   const evalTaskRef = useRef(evalTask);
+  const selectedBatchDetailRef = useRef(selectedBatchDetail);
   batchTasksRef.current = batchTasks;
   currentTaskIndexRef.current = currentTaskIndex;
   evalTaskRef.current = evalTask;
+  selectedBatchDetailRef.current = selectedBatchDetail;
 
   const {
     isReviewerMode,
@@ -239,10 +243,16 @@ export default function TTSPage() {
     );
   };
 
-  const syncActiveBatchToStorage = (tasks: EvalTaskTypes[]) => {
+  const syncActiveBatchToStorage = (
+    tasks: EvalTaskTypes[],
+    taskIndex = currentTaskIndexRef.current
+  ) => {
     if (IsRealtime()) return;
     try {
-      localStorage.setItem(`tts_position_${selectedBatchDetail.batch_id}`, String(currentTaskIndex));
+      localStorage.setItem(
+        `tts_position_${selectedBatchDetail.batch_id}`,
+        String(taskIndex)
+      );
     } catch { /* ignore */ }
     localStorage.setItem(
       "tts_active_batch",
@@ -251,7 +261,7 @@ export default function TTSPage() {
         batch_id: selectedBatchDetail.batch_id,
         dataset_type: selectedBatchDetail.dataset_type,
         tasks,
-        currentTaskIndex,
+        currentTaskIndex: taskIndex,
       })
     );
   };
@@ -342,7 +352,7 @@ export default function TTSPage() {
     batchTasksRef.current = updatedTasks;
     setBatchTasks(updatedTasks);
     await handleSaveTaskChanges(task);
-    syncActiveBatchToStorage(updatedTasks);
+    syncActiveBatchToStorage(updatedTasks, index);
   };
 
   const handleAnnotationNavigate = (index: number) => {
@@ -352,24 +362,17 @@ export default function TTSPage() {
     if (!task) return;
 
     setCurrentTaskIndex(index);
+    currentTaskIndexRef.current = index;
     setEvalTask({ ...task });
     setReviewerComment(task.reviewer_comment ?? "");
-    try {
-      localStorage.setItem(`tts_position_${selectedBatchDetail.batch_id}`, String(index));
-    } catch { /* ignore */ }
-    localStorage.setItem(
-      "tts_active_batch",
-      JSON.stringify({
-        ...selectedBatchDetail,
-        batch_id: selectedBatchDetail.batch_id,
-        dataset_type: selectedBatchDetail.dataset_type,
-        tasks,
-        currentTaskIndex: index,
-      })
-    );
+    syncActiveBatchToStorage(tasks, index);
   };
 
-  const handleSegmentUpload = async (blob: Blob, taskIndex: number) => {
+  const handleSegmentUpload = async (
+    blob: Blob,
+    taskIndex: number,
+    task: EvalTaskTypes
+  ) => {
     if (IsRealtime()) return;
 
     const contentType = normalizeAudioContentType(blob.type || "audio/webm");
@@ -390,35 +393,51 @@ export default function TTSPage() {
       error?: string;
     };
     if (!uploadRes.ok || !body.file_id) {
-      throw new Error(
-        typeof body.error === "string" ? body.error : "Failed to upload audio."
-      );
+      const message =
+        typeof body.error === "string" ? body.error : "Failed to upload audio.";
+      // 4xx responses (too large, invalid file, unauthorized upload) won't
+      // succeed on retry — fail fast instead of queueing them as pending.
+      if (uploadRes.status >= 400 && uploadRes.status < 500) {
+        throw new UploadPermanentError(message);
+      }
+      throw new Error(message);
     }
 
-    let nextTasks: EvalTaskTypes[] = [];
-    setBatchTasks((prev) => {
-      if (taskIndex < 0 || taskIndex >= prev.length) {
-        nextTasks = prev;
-        return prev;
-      }
-      const existing = prev[taskIndex];
-      const base =
-        taskIndex === currentTaskIndexRef.current &&
-        evalTaskRef.current?.id === existing?.id
-          ? evalTaskRef.current
-          : existing;
-      nextTasks = [...prev];
-      nextTasks[taskIndex] = {
-        ...base,
-        reference: body.file_id!,
-      };
-      batchTasksRef.current = nextTasks;
-      syncActiveBatchToStorage(nextTasks);
-      return nextTasks;
-    });
+    // Queued uploads outlive navigation: this closure was created while its
+    // batch was selected, but shared refs always describe the batch selected
+    // NOW. If the user switched batches mid-upload, only persist the captured
+    // task snapshot to this closure's batch — never touch the live state.
+    const batchChanged =
+      selectedBatchDetailRef.current?.batch_id !== selectedBatchDetail.batch_id;
+    const prev = batchTasksRef.current;
+    const existing = prev[taskIndex];
 
-    const savedTask = nextTasks[taskIndex];
-    if (!savedTask) return;
+    if (batchChanged || !existing || existing.id !== task.id) {
+      await handleSaveTaskChanges({ ...task, reference: body.file_id });
+      return;
+    }
+
+    const base =
+      taskIndex === currentTaskIndexRef.current &&
+      evalTaskRef.current?.id === existing.id
+        ? evalTaskRef.current
+        : existing;
+
+    const savedTask: EvalTaskTypes = {
+      ...base,
+      reference: body.file_id,
+    };
+    const nextTasks = [...prev];
+    nextTasks[taskIndex] = savedTask;
+
+    batchTasksRef.current = nextTasks;
+    setBatchTasks(nextTasks);
+    setEvalTask((current) =>
+      current?.id === savedTask.id
+        ? { ...current, reference: savedTask.reference }
+        : current
+    );
+    syncActiveBatchToStorage(nextTasks, currentTaskIndexRef.current);
 
     await handleSaveTaskChanges(savedTask);
     await updateBatchDetail({
@@ -727,6 +746,7 @@ export default function TTSPage() {
         ) : isAnnotationMode ? (
           <div className="flex flex-col flex-1 w-full min-h-0">
             <TTSAnnotationPanel
+              key={selectedBatchDetail.batch_id}
               evalTask={evalTask}
               batchTasks={batchTasks}
               currentTaskIndex={currentTaskIndex}
