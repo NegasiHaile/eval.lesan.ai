@@ -151,25 +151,36 @@ export default function TTSPage() {
   };
 
   const handleSelectedBatchUpdate = async (batch: BatchDetailTypes) => {
-    setCurrentTaskIndex(0);
     if (batch.batch_name.toLowerCase().includes("realtime")) {
+      setCurrentTaskIndex(0);
       handleResetEvalTask(modelsToEval);
     } else {
       const this_batchTasks = await FetchBatchTasks(batch);
       if (this_batchTasks?.tasks.length > 0) {
-        setEvalTask({ ...this_batchTasks.tasks[0] });
-        setBatchTasks([...this_batchTasks.tasks]);
-        setReviewerComment(this_batchTasks.tasks[0]?.reviewer_comment ?? "");
+        const tasks = this_batchTasks.tasks as EvalTaskTypes[];
+        let resumeIndex = 0;
+        try {
+          const storedIdx = localStorage.getItem(`tts_position_${batch.batch_id}`);
+          if (storedIdx !== null) {
+            resumeIndex = Math.min(Math.max(0, parseInt(storedIdx, 10) || 0), tasks.length - 1);
+          }
+        } catch { /* ignore */ }
+        setCurrentTaskIndex(resumeIndex);
+        currentTaskIndexRef.current = resumeIndex;
+        setEvalTask({ ...tasks[resumeIndex] });
+        setBatchTasks([...tasks]);
+        setReviewerComment(tasks[resumeIndex]?.reviewer_comment ?? "");
         localStorage.setItem(
           "tts_active_batch",
           JSON.stringify({
             ...this_batchTasks,
             batch_id: batch.batch_id,
             dataset_type: batch.dataset_type,
-            currentTaskIndex: 0,
+            currentTaskIndex: resumeIndex,
           })
         );
       } else {
+        setCurrentTaskIndex(0);
         handleResetEvalTask(modelsToEval);
       }
     }
@@ -237,6 +248,12 @@ export default function TTSPage() {
     taskIndex = currentTaskIndexRef.current
   ) => {
     if (IsRealtime()) return;
+    try {
+      localStorage.setItem(
+        `tts_position_${selectedBatchDetail.batch_id}`,
+        String(taskIndex)
+      );
+    } catch { /* ignore */ }
     localStorage.setItem(
       "tts_active_batch",
       JSON.stringify({
@@ -334,7 +351,6 @@ export default function TTSPage() {
     updatedTasks[index] = task;
     batchTasksRef.current = updatedTasks;
     setBatchTasks(updatedTasks);
-    setEvalTask(task);
     await handleSaveTaskChanges(task);
     syncActiveBatchToStorage(updatedTasks, index);
   };
@@ -625,12 +641,12 @@ export default function TTSPage() {
     <Container
       className={
         isAnnotationMode
-          ? "!p-3 sm:!p-6 md:!px-12 md:!py-8 flex flex-col min-h-[100dvh] sm:min-h-[calc(100vh-1.5rem)]"
+          ? "!p-3 sm:!p-4 md:!px-12 md:!py-4 flex flex-col min-h-0 overflow-hidden !justify-start h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-8rem)]"
           : undefined
       }
     >
       <div
-        className={`w-full max-w-6xl ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "space-y-5"}`}
+        className={`w-full ${isAnnotationMode ? "flex flex-col flex-1 min-h-0" : "max-w-6xl space-y-5"}`}
       >
         <div
           className={`w-full flex gap-2 shrink-0 ${
@@ -716,7 +732,7 @@ export default function TTSPage() {
               selectClass="pl-14"
               className={
                 isAnnotationMode
-                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0"
+                  ? "w-full sm:w-auto sm:min-w-[12rem] sm:max-w-xs ml-0 sm:ml-auto shrink-0 mt-2 sm:mt-3"
                   : undefined
               }
             />
