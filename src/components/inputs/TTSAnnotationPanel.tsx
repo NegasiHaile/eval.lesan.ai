@@ -87,6 +87,7 @@ export default function TTSAnnotationPanel({
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const sessionLimitPendingRef = useRef(false);
   const sessionEndingRef = useRef(false);
   const minDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -99,9 +100,7 @@ export default function TTSAnnotationPanel({
   const enqueueSegmentUploadRef = useRef<
     (blob: Blob, taskIndex: number, task: EvalTaskTypes) => void
   >(() => {});
-  const finishSessionRef = useRef<
-    (opts?: { forced?: boolean }) => Promise<void>
-  >(async () => {});
+  const finishSessionRef = useRef<() => Promise<void>>(async () => {});
   const currentTaskIndexRef = useRef(currentTaskIndex);
   const evalTaskRef = useRef(evalTask);
   const onNavigateRef = useRef(onNavigate);
@@ -120,6 +119,7 @@ export default function TTSAnnotationPanel({
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [sessionLimitPending, setSessionLimitPending] = useState(false);
   const [levels, setLevels] = useState<number[]>(idleLevels);
   const [hasMinSegmentDuration, setHasMinSegmentDuration] = useState(false);
   const [failedSegments, setFailedSegments] = useState<number[]>([]);
@@ -413,7 +413,12 @@ export default function TTSAnnotationPanel({
       const blob = await stopCurrentSegmentRecording();
       if (!blob) return null;
 
-      if (streamRef.current && !sessionEndingRef.current) {
+      const mayContinueRecording =
+        streamRef.current &&
+        !sessionEndingRef.current &&
+        !sessionLimitPendingRef.current;
+
+      if (mayContinueRecording) {
         startSegmentRecorder();
       }
 
@@ -423,11 +428,24 @@ export default function TTSAnnotationPanel({
     [enqueueSegmentUpload, startSegmentRecorder, stopCurrentSegmentRecording]
   );
 
+  const endSessionAfterGracePeriod = useCallback(() => {
+    sessionLimitPendingRef.current = false;
+    setSessionLimitPending(false);
+    clearSessionLimit();
+
+    setSessionActive(false);
+    sessionStartedAtRef.current = null;
+    mediaRecorderRef.current = null;
+    releaseStream();
+  }, [clearSessionLimit, releaseStream]);
+
   const finishSession = useCallback(
-    async (opts?: { forced?: boolean }) => {
+    async () => {
       if (!sessionActive || saving) return;
 
       clearSessionLimit();
+      sessionLimitPendingRef.current = false;
+      setSessionLimitPending(false);
       setSaving(true);
       const taskIndex = currentTaskIndexRef.current;
 
@@ -457,22 +475,8 @@ export default function TTSAnnotationPanel({
         const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
         if (!flushed) {
           onNotice(
-            opts?.forced ? "Session limit" : "Uploads in progress",
-            opts?.forced
-              ? "Recording stopped after 15 minutes. Uploads are finishing in the background."
-              : "Uploads are finishing in the background.",
-            "info"
-          );
-        } else if (opts?.forced && failed.length > 0) {
-          onNotice(
-            "Session limit",
-            `Stopped at 15 minutes. Pending upload: ${formatSegmentList(failed)}.`,
-            "error"
-          );
-        } else if (opts?.forced) {
-          onNotice(
-            "Session limit",
-            "Recording stopped after 15 minutes.",
+            "Uploads in progress",
+            "Uploads are finishing in the background.",
             "info"
           );
         } else if (failed.length > 0) {
@@ -561,6 +565,8 @@ export default function TTSAnnotationPanel({
     if (inCaptureMode || saving) return;
     setPreparingSession(true);
     sessionEndingRef.current = false;
+    sessionLimitPendingRef.current = false;
+    setSessionLimitPending(false);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -573,7 +579,8 @@ export default function TTSAnnotationPanel({
       sessionStartedAtRef.current = Date.now();
       clearSessionLimit();
       sessionLimitTimerRef.current = setTimeout(() => {
-        void finishSessionRef.current({ forced: true });
+        sessionLimitPendingRef.current = true;
+        setSessionLimitPending(true);
       }, MAX_SESSION_MS);
 
       setPreparingSession(false);
@@ -617,6 +624,22 @@ export default function TTSAnnotationPanel({
     void (async () => {
       const index = currentTaskIndexRef.current;
 
+      // After the 15-min limit fires, this Next both saves the segment and
+      // ends the session. The upload goes through the retry queue like any
+      // other segment — a failure lands in the pending banner instead of
+      // blocking here, so no audio is lost and nothing hangs.
+      if (sessionLimitPendingRef.current) {
+        await finalizeCurrentSegment(index);
+        if (generation !== advanceGenerationRef.current) return;
+
+        clearAdvance();
+        await advanceAfterCountdown();
+        endSessionAfterGracePeriod();
+        setIsAdvancing(false);
+        setSecondsLeft(0);
+        return;
+      }
+
       const gapsDone = (async () => {
         await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
         if (generation !== advanceGenerationRef.current) return;
@@ -638,19 +661,21 @@ export default function TTSAnnotationPanel({
     })();
   };
 
+  const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
+
   const savedPlaybackSrc =
-    evalTask.reference && !inCaptureMode && !saving
-      ? audioPlaybackSrc(evalTask.reference)
+    displayedTask.reference && !inCaptureMode && !saving
+      ? audioPlaybackSrc(displayedTask.reference)
       : undefined;
 
   return (
-    <div className="w-full flex-1 flex items-center justify-center min-h-0 py-3 sm:py-4 md:py-6 overflow-y-auto overflow-x-hidden">
-      <div className="w-full max-w-6xl flex flex-col gap-5 sm:gap-6 md:gap-8 px-1 sm:px-0">
-        <div className="w-full flex flex-col md:flex-row md:items-center gap-3 md:gap-2">
-          <div className="hidden md:block flex-1 min-w-0" aria-hidden />
+    <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden pt-4 sm:pt-6 md:pt-8">
+      <div className="w-full flex flex-col flex-1 min-h-0 gap-4 sm:gap-5 px-1 sm:px-0">
+        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[1fr_auto] gap-3 md:gap-x-4 md:gap-y-2">
+          <div className="hidden md:block md:row-span-2 min-w-0" aria-hidden />
 
-          <div className="w-full md:max-w-3xl md:shrink-0 mx-auto md:mx-0 bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
-            <div className="flex justify-end px-3 pt-3 sm:px-4">
+          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col flex-1 min-h-[22rem] sm:min-h-[24rem] md:min-h-[28rem] bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+            <div className="flex justify-end shrink-0 px-3 pt-3 sm:px-4">
               <TeleprompterFontSizeControl
                 value={fontSize}
                 disabled={isAdvancing}
@@ -662,41 +687,122 @@ export default function TTSAnnotationPanel({
             </div>
 
             <TeleprompterDisplay
-              text={evalTask.input}
+              text={displayedTask.input}
               fontSize={fontSize}
               isCountingDown={isAdvancing}
               secondsLeft={secondsLeft}
-              className="!min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
+              className="flex-1 min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
             />
 
-            <div className="px-3 sm:px-4 pt-4 sm:pt-6 pb-4 sm:pb-5 text-center">
+            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 text-center space-y-1">
               <span className="text-xs sm:text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
                 {segmentLabel}
               </span>
+              {sessionLimitPending && (
+                <p className="text-[10px] sm:text-xs text-amber-600/90 dark:text-amber-400/90">
+                  15 min limit
+                </p>
+              )}
             </div>
           </div>
 
-          {savedPlaybackSrc && (
-            <div className="w-full md:flex-1 md:min-w-0 flex items-center justify-end md:justify-end shrink-0">
+          <div className="hidden md:flex md:col-start-3 md:row-start-1 self-center min-w-0 items-center justify-end pl-3 pr-0 min-h-9">
+            {savedPlaybackSrc && (
               <audio
                 key={savedPlaybackSrc}
                 controls
                 src={savedPlaybackSrc}
-                className="w-full max-w-xs sm:max-w-sm md:w-48 md:max-w-none h-9 shrink-0"
+                className="w-full max-w-48 h-9 shrink-0"
+                title="Segment recording"
+              >
+                Your browser does not support the audio element.
+              </audio>
+            )}
+          </div>
+
+          <div className="md:col-start-2 md:row-start-2 flex items-center justify-center pb-2">
+            <ReferenceVoiceArea
+              inCaptureMode={inCaptureMode}
+              levels={levels}
+              isLastTask={isLastTask}
+              saving={saving || retryingUploads}
+              preparingSession={preparingSession}
+              disabled={isAdvancing}
+              className="!w-auto !max-w-xl !mx-0 !px-0"
+              onStart={() => void startSession()}
+              onStop={() => void finishSession()}
+            />
+          </div>
+
+          <div className="hidden md:flex md:col-start-3 md:row-start-2 items-center justify-start self-center pl-0 min-h-9 pb-2">
+            {!isLastTask && (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={
+                  isAdvancing ||
+                  saving ||
+                  !sessionActive ||
+                  !hasMinSegmentDuration
+                }
+                title={
+                  !sessionActive
+                    ? "Start recording before continuing"
+                    : !hasMinSegmentDuration
+                      ? "Wait at least 3 seconds before continuing"
+                      : undefined
+                }
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronsRight className="size-4" aria-hidden />
+              </button>
+            )}
+          </div>
+
+          {!isLastTask && (
+            <div className="md:hidden flex justify-center pb-2">
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={
+                  isAdvancing ||
+                  saving ||
+                  !sessionActive ||
+                  !hasMinSegmentDuration
+                }
+                title={
+                  !sessionActive
+                    ? "Start recording before continuing"
+                    : !hasMinSegmentDuration
+                      ? "Wait at least 3 seconds before continuing"
+                      : undefined
+                }
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronsRight className="size-4" aria-hidden />
+              </button>
+            </div>
+          )}
+
+          {savedPlaybackSrc && (
+            <div className="md:hidden w-full flex justify-end pr-0">
+              <audio
+                key={savedPlaybackSrc}
+                controls
+                src={savedPlaybackSrc}
+                className="w-full max-w-xs h-9 shrink-0"
                 title="Segment recording"
               >
                 Your browser does not support the audio element.
               </audio>
             </div>
           )}
-
-          {!savedPlaybackSrc && (
-            <div className="hidden md:block flex-1 min-w-0" aria-hidden />
-          )}
         </div>
 
         {(failedSegments.length > 0 || retryingUploads) && (
-          <div className="w-full flex justify-center px-1 sm:px-0">
+          <div className="w-full flex justify-center shrink-0 px-1 sm:px-0 pb-2">
             <div
               className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 pl-2.5 pr-1.5 py-1 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
               role="status"
@@ -729,45 +835,6 @@ export default function TTSAnnotationPanel({
             </div>
           </div>
         )}
-
-        <div className="w-full flex justify-center px-1 sm:px-0">
-          <ReferenceVoiceArea
-            inCaptureMode={inCaptureMode}
-            levels={levels}
-            isLastTask={isLastTask}
-            saving={saving || retryingUploads}
-            preparingSession={preparingSession}
-            disabled={isAdvancing}
-            onStart={() => void startSession()}
-            onStop={() => void finishSession()}
-          />
-        </div>
-
-        <div className="w-full flex justify-end min-h-[2.5rem] px-1 sm:px-0">
-          {!isLastTask && (
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={
-                isAdvancing ||
-                saving ||
-                !sessionActive ||
-                !hasMinSegmentDuration
-              }
-              title={
-                !sessionActive
-                  ? "Start recording before continuing"
-                  : !hasMinSegmentDuration
-                    ? "Wait at least 3 seconds before continuing"
-                    : undefined
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-              <ChevronsRight className="size-4" aria-hidden />
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );
