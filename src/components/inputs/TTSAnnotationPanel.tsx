@@ -432,12 +432,13 @@ export default function TTSAnnotationPanel({
     sessionLimitPendingRef.current = false;
     setSessionLimitPending(false);
     clearSessionLimit();
+    clearSegmentDurationGate();
 
     setSessionActive(false);
     sessionStartedAtRef.current = null;
     mediaRecorderRef.current = null;
     releaseStream();
-  }, [clearSessionLimit, releaseStream]);
+  }, [clearSegmentDurationGate, clearSessionLimit, releaseStream]);
 
   const finishSession = useCallback(
     async () => {
