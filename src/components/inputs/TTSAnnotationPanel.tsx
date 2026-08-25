@@ -615,7 +615,15 @@ export default function TTSAnnotationPanel({
   }, [onNotice]);
 
   const handleNext = () => {
-    if (isAdvancing || isLastTask || saving || !sessionActive) return;
+    if (isAdvancing || isLastTask || saving) return;
+
+    // Not recording: Next just browses to the next segment (no upload, no
+    // gate) — needed to move past already-recorded segments after a resume.
+    if (!sessionActive) {
+      onNavigateRef.current(currentTaskIndexRef.current + 1);
+      return;
+    }
+
     if (!hasMinSegmentDuration) return;
 
     clearAdvance();
@@ -743,15 +751,12 @@ export default function TTSAnnotationPanel({
                 disabled={
                   isAdvancing ||
                   saving ||
-                  !sessionActive ||
-                  !hasMinSegmentDuration
+                  (sessionActive && !hasMinSegmentDuration)
                 }
                 title={
-                  !sessionActive
-                    ? "Start recording before continuing"
-                    : !hasMinSegmentDuration
-                      ? "Wait at least 3 seconds before continuing"
-                      : undefined
+                  sessionActive && !hasMinSegmentDuration
+                    ? "Wait at least 3 seconds before continuing"
+                    : undefined
                 }
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
@@ -769,15 +774,12 @@ export default function TTSAnnotationPanel({
                 disabled={
                   isAdvancing ||
                   saving ||
-                  !sessionActive ||
-                  !hasMinSegmentDuration
+                  (sessionActive && !hasMinSegmentDuration)
                 }
                 title={
-                  !sessionActive
-                    ? "Start recording before continuing"
-                    : !hasMinSegmentDuration
-                      ? "Wait at least 3 seconds before continuing"
-                      : undefined
+                  sessionActive && !hasMinSegmentDuration
+                    ? "Wait at least 3 seconds before continuing"
+                    : undefined
                 }
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
