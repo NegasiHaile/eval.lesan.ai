@@ -18,6 +18,7 @@ const SEGMENT_GAP_TAIL_MS = 1000;
 const SEGMENT_GAP_HEAD_MS = 1000;
 const SEGMENT_GAP_TOTAL_MS = SEGMENT_GAP_TAIL_MS + SEGMENT_GAP_HEAD_MS;
 const MAX_SESSION_MS = 15 * 60 * 1000;
+const MIN_SEGMENT_MS = 3000;
 const UPLOAD_MAX_ATTEMPTS = 3;
 const UPLOAD_RETRY_BASE_MS = 800;
 const FINISH_FLUSH_TIMEOUT_MS = 8000;
@@ -88,6 +89,9 @@ export default function TTSAnnotationPanel({
   );
   const sessionLimitPendingRef = useRef(false);
   const sessionEndingRef = useRef(false);
+  const minDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingBlobsRef = useRef<Map<number, { blob: Blob; task: EvalTaskTypes }>>(
     new Map()
@@ -117,6 +121,7 @@ export default function TTSAnnotationPanel({
   const [saving, setSaving] = useState(false);
   const [sessionLimitPending, setSessionLimitPending] = useState(false);
   const [levels, setLevels] = useState<number[]>(idleLevels);
+  const [hasMinSegmentDuration, setHasMinSegmentDuration] = useState(false);
   const [failedSegments, setFailedSegments] = useState<number[]>([]);
   const [retryingUploads, setRetryingUploads] = useState(false);
 
@@ -130,6 +135,24 @@ export default function TTSAnnotationPanel({
     advanceRef.current = null;
     if (countdownRef.current) clearTimeout(countdownRef.current);
     countdownRef.current = null;
+  }, []);
+
+  const resetSegmentDurationGate = useCallback(() => {
+    setHasMinSegmentDuration(false);
+    if (minDurationTimerRef.current) {
+      clearTimeout(minDurationTimerRef.current);
+    }
+    minDurationTimerRef.current = setTimeout(() => {
+      setHasMinSegmentDuration(true);
+    }, MIN_SEGMENT_MS);
+  }, []);
+
+  const clearSegmentDurationGate = useCallback(() => {
+    setHasMinSegmentDuration(false);
+    if (minDurationTimerRef.current) {
+      clearTimeout(minDurationTimerRef.current);
+      minDurationTimerRef.current = null;
+    }
   }, []);
 
   const runSegmentGapCountdown = useCallback(
@@ -409,12 +432,13 @@ export default function TTSAnnotationPanel({
     sessionLimitPendingRef.current = false;
     setSessionLimitPending(false);
     clearSessionLimit();
+    clearSegmentDurationGate();
 
     setSessionActive(false);
     sessionStartedAtRef.current = null;
     mediaRecorderRef.current = null;
     releaseStream();
-  }, [clearSessionLimit, releaseStream]);
+  }, [clearSegmentDurationGate, clearSessionLimit, releaseStream]);
 
   const finishSession = useCallback(
     async () => {
@@ -433,6 +457,7 @@ export default function TTSAnnotationPanel({
         setSessionActive(false);
         sessionStartedAtRef.current = null;
         mediaRecorderRef.current = null;
+        clearSegmentDurationGate();
 
         await onTaskPersistRef.current(evalTaskRef.current);
 
@@ -468,6 +493,7 @@ export default function TTSAnnotationPanel({
       }
     },
     [
+      clearSegmentDurationGate,
       clearSessionLimit,
       enqueueSegmentUpload,
       flushUploadQueue,
@@ -525,6 +551,7 @@ export default function TTSAnnotationPanel({
     () => () => {
       clearAdvance();
       clearSessionLimit();
+      clearSegmentDurationGate();
       sessionEndingRef.current = true;
       if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
@@ -532,7 +559,7 @@ export default function TTSAnnotationPanel({
       releaseStream();
       sessionEndingRef.current = false;
     },
-    [clearAdvance, clearSessionLimit, releaseStream]
+    [clearAdvance, clearSegmentDurationGate, clearSessionLimit, releaseStream]
   );
 
   const startSession = async () => {
@@ -548,6 +575,7 @@ export default function TTSAnnotationPanel({
 
       startSegmentRecorder();
       startVisualizer(stream);
+      resetSegmentDurationGate();
 
       sessionStartedAtRef.current = Date.now();
       clearSessionLimit();
@@ -589,10 +617,14 @@ export default function TTSAnnotationPanel({
   const handleNext = () => {
     if (isAdvancing || isLastTask || saving) return;
 
+    // Not recording: Next just browses to the next segment (no upload, no
+    // gate) — needed to move past already-recorded segments after a resume.
     if (!sessionActive) {
       onNavigateRef.current(currentTaskIndexRef.current + 1);
       return;
     }
+
+    if (!hasMinSegmentDuration) return;
 
     clearAdvance();
     const generation = advanceGenerationRef.current;
@@ -634,6 +666,7 @@ export default function TTSAnnotationPanel({
       await advanceAfterCountdown();
       setIsAdvancing(false);
       setSecondsLeft(0);
+      resetSegmentDurationGate();
     })();
   };
 
@@ -715,7 +748,16 @@ export default function TTSAnnotationPanel({
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={isAdvancing || saving}
+                disabled={
+                  isAdvancing ||
+                  saving ||
+                  (sessionActive && !hasMinSegmentDuration)
+                }
+                title={
+                  sessionActive && !hasMinSegmentDuration
+                    ? "Wait at least 3 seconds before continuing"
+                    : undefined
+                }
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
@@ -729,7 +771,16 @@ export default function TTSAnnotationPanel({
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={isAdvancing || saving}
+                disabled={
+                  isAdvancing ||
+                  saving ||
+                  (sessionActive && !hasMinSegmentDuration)
+                }
+                title={
+                  sessionActive && !hasMinSegmentDuration
+                    ? "Wait at least 3 seconds before continuing"
+                    : undefined
+                }
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
