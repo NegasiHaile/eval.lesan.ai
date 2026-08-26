@@ -356,7 +356,6 @@ export default function TTSPage() {
   };
 
   const handleAnnotationNavigate = (index: number) => {
-    currentTaskIndexRef.current = index;
     const tasks = batchTasksRef.current;
     const task = tasks[index];
     if (!task) return;
