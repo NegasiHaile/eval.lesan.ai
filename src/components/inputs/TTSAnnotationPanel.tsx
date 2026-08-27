@@ -22,6 +22,9 @@ const UPLOAD_MAX_ATTEMPTS = 3;
 const UPLOAD_RETRY_BASE_MS = 800;
 const FINISH_FLUSH_TIMEOUT_MS = 8000;
 
+// Thrown by the upload handler for errors that retrying cannot fix (4xx,
+// oversized file, unknown task) so the retry loop fails fast instead of
+// parking the segment in the pending banner forever.
 export class UploadPermanentError extends Error {}
 
 function nextTaskIndex(from: number, tasks: EvalTaskTypes[]) {
@@ -156,15 +159,6 @@ export default function TTSAnnotationPanel({
       new Promise<void>((resolve) => {
         const totalSeconds = totalMs / 1000;
         setSecondsLeft(totalSeconds);
-
-        if (totalSeconds <= 1) {
-          countdownRef.current = setTimeout(() => {
-            if (generation !== advanceGenerationRef.current) return;
-            setSecondsLeft(0);
-            resolve();
-          }, totalMs);
-          return;
-        }
 
         const scheduleTick = (remaining: number) => {
           countdownRef.current = setTimeout(() => {
@@ -338,6 +332,8 @@ export default function TTSAnnotationPanel({
 
     setRetryingUploads(true);
     try {
+      // Indexes stay in the failed set until their upload succeeds
+      // (clearFailedUpload), so the banner reflects live progress.
       for (const taskIndex of targets) {
         const entry = pendingBlobsRef.current.get(taskIndex);
         if (!entry) continue;
@@ -457,6 +453,9 @@ export default function TTSAnnotationPanel({
         enqueueSegmentUpload(blob, taskIndex, evalTaskRef.current);
       }
 
+      // Don't hold "saving" hostage to retry backoff: give the queue a
+      // bounded window, then let it drain in the background — failures
+      // surface in the pending banner when they resolve.
       const flushed = await Promise.race([
         flushUploadQueue().then(() => true),
         sleep(FINISH_FLUSH_TIMEOUT_MS).then(() => false),
@@ -508,6 +507,10 @@ export default function TTSAnnotationPanel({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [sessionActive]);
 
+  // The panel is keyed by batch, so switching batches unmounts it. Give any
+  // segments that exhausted their retries one last background attempt (their
+  // enqueued closures still target the batch they were recorded in) and tell
+  // the user, instead of discarding the audio silently.
   useEffect(
     () => () => {
       const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
@@ -678,7 +681,10 @@ export default function TTSAnnotationPanel({
 
   return (
     <div className="relative w-full flex-1 flex flex-col min-h-0 overflow-hidden pt-4 sm:pt-6 md:pt-8">
-      <div className="fixed left-8 sm:left-10 md:left-14 top-24 z-30">
+      {/* Anchored inside the panel (not the viewport) so it tracks the
+          annotation layout on small screens instead of floating over the
+          batch selector or teleprompter. */}
+      <div className="absolute left-1 sm:left-2 md:left-4 top-0 z-30">
         <TTSSessionSetup
           prefs={prefs}
           onChange={setPrefs}
@@ -708,6 +714,11 @@ export default function TTSAnnotationPanel({
                   {sessionMinutesRef.current} min limit
                 </p>
               )}
+              {sessionActive && Boolean(displayedTask.reference?.trim()) && (
+                <p className="text-[10px] sm:text-xs text-amber-600/90 dark:text-amber-400/90">
+                  Re-recording — replaces this prompt&apos;s saved take
+                </p>
+              )}
             </div>
           </div>
 
@@ -732,7 +743,12 @@ export default function TTSAnnotationPanel({
                   type="button"
                   onClick={handlePrev}
                   disabled={isFirstTask || navDisabled}
-                  title={minDurationTitle}
+                  title={
+                    minDurationTitle ??
+                    (sessionActive
+                      ? "Saves this take, then re-records the previous prompt"
+                      : undefined)
+                  }
                   className={NAV_BTN}
                 >
                   <ChevronsLeft className="size-4" aria-hidden />

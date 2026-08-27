@@ -429,6 +429,7 @@ export default function TTSPage() {
     const nextTasks = [...prev];
     nextTasks[taskIndex] = savedTask;
 
+    // Keep ref in sync immediately so later queued segment uploads see prior references.
     batchTasksRef.current = nextTasks;
     setBatchTasks(nextTasks);
     setEvalTask((current) =>
@@ -436,7 +437,7 @@ export default function TTSPage() {
         ? { ...current, reference: savedTask.reference }
         : current
     );
-    syncActiveBatchToStorage(nextTasks, currentTaskIndexRef.current);
+    syncActiveBatchToStorage(nextTasks);
 
     await handleSaveTaskChanges(savedTask);
     await updateBatchDetail({

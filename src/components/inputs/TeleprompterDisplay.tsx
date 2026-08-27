@@ -46,7 +46,7 @@ export default function TeleprompterDisplay({
       {isCountingDown && secondsLeft > 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
           <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400">
-            {Number.isInteger(secondsLeft) ? secondsLeft : secondsLeft.toFixed(1)}
+            {secondsLeft}
           </span>
         </div>
       )}
