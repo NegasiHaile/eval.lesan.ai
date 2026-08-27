@@ -210,6 +210,19 @@ button:disabled {
   transform-origin: center;
 }
 
+@keyframes slide-skeleton {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.animate-slide-skeleton {
+  animation: slide-skeleton 1.2s ease-in-out infinite;
+}
+
 @keyframes wave {
   0% {
     transform: scale(0);

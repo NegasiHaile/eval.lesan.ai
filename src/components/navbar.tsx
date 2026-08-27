@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 
 import {
+  AudioLines,
   BookOpen,
   Check,
   FolderOpen,
@@ -88,6 +89,16 @@ const NavBar = () => {
         </span>
       ),
       href: "/asr",
+      public: true,
+    },
+    {
+      id: 8,
+      title: (
+        <span className="flex items-center gap-1.5">
+          <AudioLines className="size-4 shrink-0" /> Speak
+        </span>
+      ),
+      href: "/asr-recording",
       public: true,
     },
     {
