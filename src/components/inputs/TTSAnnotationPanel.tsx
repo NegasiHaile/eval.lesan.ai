@@ -1,43 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronsRight, Upload } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Upload } from "lucide-react";
 
-import TeleprompterDisplay, {
-  TeleprompterFontSize,
-} from "@/components/inputs/TeleprompterDisplay";
-import TeleprompterFontSizeControl from "@/components/inputs/TeleprompterFontSizeControl";
+import TeleprompterDisplay from "@/components/inputs/TeleprompterDisplay";
 import ReferenceVoiceArea, {
   WAVEFORM_BARS,
 } from "@/components/inputs/ReferenceVoiceArea";
+import TTSSessionSetup, {
+  useTTSSessionPrefs,
+} from "@/components/inputs/TTSSessionSetup";
 import { normalizeAudioContentType } from "@/constants/transcription";
 import { audioPlaybackSrc } from "@/helpers/audio_playback_url";
 import { EvalTaskTypes } from "@/types/data";
 
-const SEGMENT_GAP_TAIL_MS = 1000;
-const SEGMENT_GAP_HEAD_MS = 1000;
-const SEGMENT_GAP_TOTAL_MS = SEGMENT_GAP_TAIL_MS + SEGMENT_GAP_HEAD_MS;
-const MAX_SESSION_MS = 15 * 60 * 1000;
+const IDLE_LEVELS = Array.from({ length: WAVEFORM_BARS }, () => 0.12);
+const NAV_BTN =
+  "shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 const MIN_SEGMENT_MS = 3000;
 const UPLOAD_MAX_ATTEMPTS = 3;
 const UPLOAD_RETRY_BASE_MS = 800;
 const FINISH_FLUSH_TIMEOUT_MS = 8000;
-const FONT_STORAGE_KEY = "tts_teleprompter_font_size";
 
 // Thrown by the upload handler for errors that retrying cannot fix (4xx,
 // oversized file, unknown task) so the retry loop fails fast instead of
 // parking the segment in the pending banner forever.
 export class UploadPermanentError extends Error {}
 
-function readStoredFontSize(): TeleprompterFontSize {
-  if (typeof window === "undefined") return "md";
-  const stored = localStorage.getItem(FONT_STORAGE_KEY);
-  if (stored === "sm" || stored === "md" || stored === "lg") return stored;
-  return "md";
-}
-
-function idleLevels(): number[] {
-  return Array.from({ length: WAVEFORM_BARS }, () => 0.12);
+function nextTaskIndex(from: number, tasks: EvalTaskTypes[]) {
+  return from + 1 < tasks.length ? from + 1 : null;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -83,7 +74,9 @@ export default function TTSAnnotationPanel({
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceGenerationRef = useRef(0);
+  const { prefs, setPrefs } = useTTSSessionPrefs();
   const sessionStartedAtRef = useRef<number | null>(null);
+  const sessionMinutesRef = useRef(prefs.durationMinutes);
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -100,7 +93,6 @@ export default function TTSAnnotationPanel({
   const enqueueSegmentUploadRef = useRef<
     (blob: Blob, taskIndex: number, task: EvalTaskTypes) => void
   >(() => {});
-  const finishSessionRef = useRef<() => Promise<void>>(async () => {});
   const currentTaskIndexRef = useRef(currentTaskIndex);
   const evalTaskRef = useRef(evalTask);
   const onNavigateRef = useRef(onNavigate);
@@ -113,21 +105,28 @@ export default function TTSAnnotationPanel({
   onTaskPersistRef.current = onTaskPersist;
   onNoticeRef.current = onNotice;
 
-  const [fontSize, setFontSize] = useState<TeleprompterFontSize>(readStoredFontSize);
   const [sessionActive, setSessionActive] = useState(false);
   const [preparingSession, setPreparingSession] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [saving, setSaving] = useState(false);
   const [sessionLimitPending, setSessionLimitPending] = useState(false);
-  const [levels, setLevels] = useState<number[]>(idleLevels);
+  const [levels, setLevels] = useState(() => IDLE_LEVELS.slice());
   const [hasMinSegmentDuration, setHasMinSegmentDuration] = useState(false);
   const [failedSegments, setFailedSegments] = useState<number[]>([]);
   const [retryingUploads, setRetryingUploads] = useState(false);
 
   const inCaptureMode = sessionActive || preparingSession;
-  const isLastTask = currentTaskIndex >= batchTasks.length - 1;
+  const isLastTask = nextTaskIndex(currentTaskIndex, batchTasks) == null;
+  const isFirstTask = currentTaskIndex <= 0;
   const segmentLabel = `${currentTaskIndex + 1} / ${batchTasks.length}`;
+  const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
+  const busy = isAdvancing || saving;
+  const waitingForMinDuration = sessionActive && !hasMinSegmentDuration;
+  const navDisabled = busy || waitingForMinDuration;
+  const minDurationTitle = waitingForMinDuration
+    ? "Wait at least 3 seconds before continuing"
+    : undefined;
 
   const clearAdvance = useCallback(() => {
     advanceGenerationRef.current += 1;
@@ -156,9 +155,9 @@ export default function TTSAnnotationPanel({
   }, []);
 
   const runSegmentGapCountdown = useCallback(
-    (generation: number) =>
+    (generation: number, totalMs: number) =>
       new Promise<void>((resolve) => {
-        const totalSeconds = SEGMENT_GAP_TOTAL_MS / 1000;
+        const totalSeconds = totalMs / 1000;
         setSecondsLeft(totalSeconds);
 
         const scheduleTick = (remaining: number) => {
@@ -214,7 +213,7 @@ export default function TTSAnnotationPanel({
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     stopVisualizer();
-    setLevels(idleLevels());
+    setLevels(IDLE_LEVELS.slice());
   }, [stopVisualizer]);
 
   const startVisualizer = useCallback((stream: MediaStream) => {
@@ -358,21 +357,6 @@ export default function TTSAnnotationPanel({
     }
   }, [enqueueSegmentUpload, flushUploadQueue, onNotice]);
 
-  const attachRecorderHandlers = useCallback(
-    (mediaRecorder: MediaRecorder) => {
-      mediaRecorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data.size > 0) segmentChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        if (sessionEndingRef.current) {
-          releaseStream();
-        }
-      };
-    },
-    [releaseStream]
-  );
-
   const startSegmentRecorder = useCallback(() => {
     const stream = streamRef.current;
     if (!stream) return;
@@ -383,9 +367,14 @@ export default function TTSAnnotationPanel({
     mimeTypeRef.current = normalizeAudioContentType(
       mediaRecorder.mimeType || mimeTypeRef.current || "audio/webm"
     );
-    attachRecorderHandlers(mediaRecorder);
+    mediaRecorder.ondataavailable = (event: BlobEvent) => {
+      if (event.data.size > 0) segmentChunksRef.current.push(event.data);
+    };
+    mediaRecorder.onstop = () => {
+      if (sessionEndingRef.current) releaseStream();
+    };
     mediaRecorder.start(1000);
-  }, [attachRecorderHandlers]);
+  }, [releaseStream]);
 
   const waitForRecorderStop = useCallback(async (recorder: MediaRecorder) => {
     await new Promise<void>((resolve) => {
@@ -440,73 +429,66 @@ export default function TTSAnnotationPanel({
     releaseStream();
   }, [clearSegmentDurationGate, clearSessionLimit, releaseStream]);
 
-  const finishSession = useCallback(
-    async () => {
-      if (!sessionActive || saving) return;
+  const finishSession = useCallback(async () => {
+    if (!sessionActive || saving) return;
 
-      clearSessionLimit();
-      sessionLimitPendingRef.current = false;
-      setSessionLimitPending(false);
-      setSaving(true);
-      const taskIndex = currentTaskIndexRef.current;
+    clearSessionLimit();
+    sessionLimitPendingRef.current = false;
+    setSessionLimitPending(false);
+    setSaving(true);
+    const taskIndex = currentTaskIndexRef.current;
 
-      try {
-        sessionEndingRef.current = true;
+    try {
+      sessionEndingRef.current = true;
 
-        const blob = await stopCurrentSegmentRecording();
-        setSessionActive(false);
-        sessionStartedAtRef.current = null;
-        mediaRecorderRef.current = null;
-        clearSegmentDurationGate();
+      const blob = await stopCurrentSegmentRecording();
+      setSessionActive(false);
+      sessionStartedAtRef.current = null;
+      mediaRecorderRef.current = null;
+      clearSegmentDurationGate();
 
-        await onTaskPersistRef.current(evalTaskRef.current);
+      await onTaskPersistRef.current(evalTaskRef.current);
 
-        if (blob) {
-          enqueueSegmentUpload(blob, taskIndex, evalTaskRef.current);
-        }
-
-        // Don't hold "saving" hostage to retry backoff: give the queue a
-        // bounded window, then let it drain in the background — failures
-        // surface in the pending banner when they resolve.
-        const flushed = await Promise.race([
-          flushUploadQueue().then(() => true),
-          sleep(FINISH_FLUSH_TIMEOUT_MS).then(() => false),
-        ]);
-
-        const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
-        if (!flushed) {
-          onNotice(
-            "Uploads in progress",
-            "Uploads are finishing in the background.",
-            "info"
-          );
-        } else if (failed.length > 0) {
-          onNotice(
-            "Upload pending",
-            `Segments ${formatSegmentList(failed)} still need upload.`,
-            "error"
-          );
-        }
-      } finally {
-        sessionEndingRef.current = false;
-        setSaving(false);
+      if (blob) {
+        enqueueSegmentUpload(blob, taskIndex, evalTaskRef.current);
       }
-    },
-    [
-      clearSegmentDurationGate,
-      clearSessionLimit,
-      enqueueSegmentUpload,
-      flushUploadQueue,
-      onNotice,
-      saving,
-      sessionActive,
-      stopCurrentSegmentRecording,
-    ]
-  );
 
-  useEffect(() => {
-    finishSessionRef.current = finishSession;
-  }, [finishSession]);
+      // Don't hold "saving" hostage to retry backoff: give the queue a
+      // bounded window, then let it drain in the background — failures
+      // surface in the pending banner when they resolve.
+      const flushed = await Promise.race([
+        flushUploadQueue().then(() => true),
+        sleep(FINISH_FLUSH_TIMEOUT_MS).then(() => false),
+      ]);
+
+      const failed = Array.from(failedIndexesRef.current).sort((a, b) => a - b);
+      if (!flushed) {
+        onNotice(
+          "Uploads in progress",
+          "Uploads are finishing in the background.",
+          "info"
+        );
+      } else if (failed.length > 0) {
+        onNotice(
+          "Upload pending",
+          `Segments ${formatSegmentList(failed)} still need upload.`,
+          "error"
+        );
+      }
+    } finally {
+      sessionEndingRef.current = false;
+      setSaving(false);
+    }
+  }, [
+    clearSegmentDurationGate,
+    clearSessionLimit,
+    enqueueSegmentUpload,
+    flushUploadQueue,
+    onNotice,
+    saving,
+    sessionActive,
+    stopCurrentSegmentRecording,
+  ]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -578,11 +560,14 @@ export default function TTSAnnotationPanel({
       resetSegmentDurationGate();
 
       sessionStartedAtRef.current = Date.now();
+      sessionMinutesRef.current = prefs.durationMinutes;
       clearSessionLimit();
-      sessionLimitTimerRef.current = setTimeout(() => {
-        sessionLimitPendingRef.current = true;
-        setSessionLimitPending(true);
-      }, MAX_SESSION_MS);
+      if (prefs.durationMinutes > 0) {
+        sessionLimitTimerRef.current = setTimeout(() => {
+          sessionLimitPendingRef.current = true;
+          setSessionLimitPending(true);
+        }, prefs.durationMinutes * 60_000);
+      }
 
       setPreparingSession(false);
       setSessionActive(true);
@@ -597,30 +582,29 @@ export default function TTSAnnotationPanel({
     }
   };
 
-  const advanceAfterCountdown = useCallback(async () => {
-    const index = currentTaskIndexRef.current;
-    const task = evalTaskRef.current;
+  const persistThenNavigate = useCallback(
+    async (nextIndex: number) => {
+      try {
+        await onTaskPersistRef.current(evalTaskRef.current);
+      } catch {
+        onNotice(
+          "Save failed",
+          "Could not save task progress. Continuing to the next segment.",
+          "error"
+        );
+      }
+      onNavigateRef.current(nextIndex);
+    },
+    [onNotice]
+  );
 
-    try {
-      await onTaskPersistRef.current(task);
-    } catch {
-      onNotice(
-        "Save failed",
-        "Could not save task progress. Continuing to the next segment.",
-        "error"
-      );
-    }
-
-    onNavigateRef.current(index + 1);
-  }, [onNotice]);
-
-  const handleNext = () => {
-    if (isAdvancing || isLastTask || saving) return;
+  const advanceTo = (nextIndex: number) => {
+    if (isAdvancing || saving) return;
 
     // Not recording: Next just browses to the next segment (no upload, no
     // gate) — needed to move past already-recorded segments after a resume.
     if (!sessionActive) {
-      onNavigateRef.current(currentTaskIndexRef.current + 1);
+      onNavigateRef.current(nextIndex);
       return;
     }
 
@@ -628,12 +612,14 @@ export default function TTSAnnotationPanel({
 
     clearAdvance();
     const generation = advanceGenerationRef.current;
+    const gapMs = prefs.segmentGapMs;
+    const sideGapMs = gapMs / 2;
     setIsAdvancing(true);
 
     void (async () => {
       const index = currentTaskIndexRef.current;
 
-      // After the 15-min limit fires, this Next both saves the segment and
+      // After the session limit fires, this Next both saves the segment and
       // ends the session. The upload goes through the retry queue like any
       // other segment — a failure lands in the pending banner instead of
       // blocking here, so no audio is lost and nothing hangs.
@@ -642,7 +628,7 @@ export default function TTSAnnotationPanel({
         if (generation !== advanceGenerationRef.current) return;
 
         clearAdvance();
-        await advanceAfterCountdown();
+        await persistThenNavigate(nextIndex);
         endSessionAfterGracePeriod();
         setIsAdvancing(false);
         setSecondsLeft(0);
@@ -650,27 +636,43 @@ export default function TTSAnnotationPanel({
       }
 
       const gapsDone = (async () => {
-        await waitForGap(SEGMENT_GAP_TAIL_MS, generation);
+        await waitForGap(sideGapMs, generation);
         if (generation !== advanceGenerationRef.current) return;
 
         await finalizeCurrentSegment(index);
         if (generation !== advanceGenerationRef.current) return;
 
-        await waitForGap(SEGMENT_GAP_HEAD_MS, generation);
+        await waitForGap(sideGapMs, generation);
       })();
 
-      await Promise.all([gapsDone, runSegmentGapCountdown(generation)]);
+      await Promise.all([
+        gapsDone,
+        runSegmentGapCountdown(generation, gapMs),
+      ]);
       if (generation !== advanceGenerationRef.current) return;
 
       clearAdvance();
-      await advanceAfterCountdown();
+      await persistThenNavigate(nextIndex);
       setIsAdvancing(false);
       setSecondsLeft(0);
       resetSegmentDurationGate();
     })();
   };
 
-  const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
+  const handleNext = () => {
+    if (isLastTask) return;
+    const nextIndex = nextTaskIndex(
+      currentTaskIndexRef.current,
+      batchTasks
+    );
+    if (nextIndex == null) return;
+    advanceTo(nextIndex);
+  };
+
+  const handlePrev = () => {
+    if (isFirstTask) return;
+    advanceTo(currentTaskIndexRef.current - 1);
+  };
 
   const savedPlaybackSrc =
     displayedTask.reference && !inCaptureMode && !saving
@@ -678,29 +680,29 @@ export default function TTSAnnotationPanel({
       : undefined;
 
   return (
-    <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden pt-4 sm:pt-6 md:pt-8">
+    <div className="relative w-full flex-1 flex flex-col min-h-0 overflow-hidden pt-4 sm:pt-6 md:pt-8">
+      {/* Anchored inside the panel (not the viewport) so it tracks the
+          annotation layout on small screens instead of floating over the
+          batch selector or teleprompter. */}
+      <div className="absolute left-1 sm:left-2 md:left-4 top-0 z-30">
+        <TTSSessionSetup
+          prefs={prefs}
+          onChange={setPrefs}
+          disabled={inCaptureMode || busy}
+        />
+      </div>
+
       <div className="w-full flex flex-col flex-1 min-h-0 gap-4 sm:gap-5 px-1 sm:px-0">
-        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[1fr_auto] gap-3 md:gap-x-4 md:gap-y-2">
-          <div className="hidden md:block md:row-span-2 min-w-0" aria-hidden />
+        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[minmax(0,1fr)_auto] gap-3 md:gap-x-4 md:gap-y-2">
+          <div className="hidden md:block md:col-start-1 md:row-start-1 min-w-0" aria-hidden />
 
-          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col flex-1 min-h-[22rem] sm:min-h-[24rem] md:min-h-[28rem] bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
-            <div className="flex justify-end shrink-0 px-3 pt-3 sm:px-4">
-              <TeleprompterFontSizeControl
-                value={fontSize}
-                disabled={isAdvancing}
-                onChange={(next) => {
-                  setFontSize(next);
-                  localStorage.setItem(FONT_STORAGE_KEY, next);
-                }}
-              />
-            </div>
-
+          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col min-h-0 h-full bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
             <TeleprompterDisplay
               text={displayedTask.input}
-              fontSize={fontSize}
+              fontSize={prefs.fontSize}
               isCountingDown={isAdvancing}
               secondsLeft={secondsLeft}
-              className="flex-1 min-h-0 !pt-1 !pb-2 sm:!pt-2 sm:!pb-4"
+              className="flex-1 min-h-0 !pt-4 !pb-2 sm:!pt-5 sm:!pb-4"
             />
 
             <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 text-center space-y-1">
@@ -709,14 +711,19 @@ export default function TTSAnnotationPanel({
               </span>
               {sessionLimitPending && (
                 <p className="text-[10px] sm:text-xs text-amber-600/90 dark:text-amber-400/90">
-                  15 min limit
+                  {sessionMinutesRef.current} min limit
+                </p>
+              )}
+              {sessionActive && Boolean(displayedTask.reference?.trim()) && (
+                <p className="text-[10px] sm:text-xs text-amber-600/90 dark:text-amber-400/90">
+                  Re-recording — replaces this prompt&apos;s saved take
                 </p>
               )}
             </div>
           </div>
 
           <div className="hidden md:flex md:col-start-3 md:row-start-1 self-center min-w-0 items-center justify-end pl-3 pr-0 min-h-9">
-            {savedPlaybackSrc && (
+            {prefs.showPlayer && savedPlaybackSrc && (
               <audio
                 key={savedPlaybackSrc}
                 controls
@@ -729,7 +736,26 @@ export default function TTSAnnotationPanel({
             )}
           </div>
 
-          <div className="md:col-start-2 md:row-start-2 flex items-center justify-center pb-2">
+          <div className="md:col-span-3 md:row-start-2 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-2">
+            <div className="flex justify-start pl-4 sm:pl-8 md:pl-12">
+              {prefs.showPrev && (
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={isFirstTask || navDisabled}
+                  title={
+                    minDurationTitle ??
+                    (sessionActive
+                      ? "Saves this take, then re-records the previous prompt"
+                      : undefined)
+                  }
+                  className={NAV_BTN}
+                >
+                  <ChevronsLeft className="size-4" aria-hidden />
+                  Prev
+                </button>
+              )}
+            </div>
             <ReferenceVoiceArea
               inCaptureMode={inCaptureMode}
               levels={levels}
@@ -738,58 +764,30 @@ export default function TTSAnnotationPanel({
               preparingSession={preparingSession}
               disabled={isAdvancing}
               className="!w-auto !max-w-xl !mx-0 !px-0"
+              startTitle={
+                prefs.durationMinutes > 0
+                  ? `Start ${prefs.durationMinutes}-min session`
+                  : "Start recording"
+              }
+              canStop={sessionLimitPending || prefs.durationMinutes === 0}
               onStart={() => void startSession()}
               onStop={() => void finishSession()}
             />
-          </div>
-
-          <div className="hidden md:flex md:col-start-3 md:row-start-2 items-center justify-start self-center pl-0 min-h-9 pb-2">
-            {!isLastTask && (
+            <div className="flex justify-end pr-4 sm:pr-8 md:pr-12">
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={
-                  isAdvancing ||
-                  saving ||
-                  (sessionActive && !hasMinSegmentDuration)
-                }
-                title={
-                  sessionActive && !hasMinSegmentDuration
-                    ? "Wait at least 3 seconds before continuing"
-                    : undefined
-                }
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-                <ChevronsRight className="size-4" aria-hidden />
-              </button>
-            )}
-          </div>
-
-          {!isLastTask && (
-            <div className="md:hidden flex justify-center pb-2">
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={
-                  isAdvancing ||
-                  saving ||
-                  (sessionActive && !hasMinSegmentDuration)
-                }
-                title={
-                  sessionActive && !hasMinSegmentDuration
-                    ? "Wait at least 3 seconds before continuing"
-                    : undefined
-                }
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-100 shadow-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={isLastTask || navDisabled}
+                title={minDurationTitle}
+                className={NAV_BTN}
               >
                 Next
                 <ChevronsRight className="size-4" aria-hidden />
               </button>
             </div>
-          )}
+          </div>
 
-          {savedPlaybackSrc && (
+          {prefs.showPlayer && savedPlaybackSrc && (
             <div className="md:hidden w-full flex justify-end pr-0">
               <audio
                 key={savedPlaybackSrc}

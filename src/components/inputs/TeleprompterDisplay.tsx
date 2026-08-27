@@ -1,11 +1,12 @@
 "use client";
 
-export type TeleprompterFontSize = "sm" | "md" | "lg";
+export type TeleprompterFontSize = "sm" | "md" | "lg" | "xl";
 
 const fontSizeClass: Record<TeleprompterFontSize, string> = {
   sm: "text-sm sm:text-base md:text-lg",
   md: "text-base sm:text-xl md:text-2xl lg:text-3xl",
   lg: "text-lg sm:text-2xl md:text-3xl lg:text-4xl",
+  xl: "text-xl sm:text-3xl md:text-4xl lg:text-5xl",
 };
 
 type TeleprompterDisplayProps = {
