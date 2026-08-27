@@ -72,6 +72,7 @@ export default function AsrRecordingPage() {
   const { user } = useUser();
   const [language, setLanguage] = useState<LanguageTypes>(languages[0]);
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
+  const [submitted, setSubmitted] = useState(false);
   const submittingRef = useRef(false);
   const [isSigninOpen, setIsSigninOpen] = useState(false);
   const [notice, setNotice] = useState<{
@@ -140,7 +141,9 @@ export default function AsrRecordingPage() {
     }
 
     const ok = await startRecording();
-    if (!ok) {
+    if (ok) {
+      setSubmitted(false);
+    } else {
       setNotice({
         title: "Microphone",
         message: "Allow microphone access to record.",
@@ -172,9 +175,8 @@ export default function AsrRecordingPage() {
           type: contentType,
         })
       );
-      formData.append("duration_ms", String(elapsedMs));
 
-      const hosted = await postFormData("/api/asr-recording", formData);
+      const hosted = await postFormData("/api/uploads", formData);
 
       if (hosted.status === 401) {
         setIsSigninOpen(true);
@@ -206,6 +208,7 @@ export default function AsrRecordingPage() {
       }
 
       clearDraft();
+      setSubmitted(true);
     } catch (error) {
       setNotice({
         title: "Submit failed",
@@ -314,7 +317,15 @@ export default function AsrRecordingPage() {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {submitted && (
+            <p
+              className="text-sm text-emerald-600 dark:text-emerald-400"
+              role="status"
+            >
+              Recording saved — thank you!
+            </p>
+          )}
           <button
             type="button"
             disabled={!hasDraft || recording || !durationOk || isSubmitting}

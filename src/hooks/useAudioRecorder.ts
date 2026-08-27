@@ -58,9 +58,11 @@ export function useAudioRecorder(options?: UseAudioRecorderOptions) {
   const startRecording = useCallback(async () => {
     if (mediaRecorderRef.current?.state === "recording") return true;
 
-    clearDraft();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Only discard the previous take once the mic is actually granted, so
+      // a denied permission on "record again" doesn't lose the existing draft.
+      clearDraft();
       activeStreamRef.current = stream;
 
       audioChunksRef.current = [];
