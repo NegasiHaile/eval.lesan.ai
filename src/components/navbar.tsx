@@ -22,7 +22,6 @@ import {
   Trophy,
   User,
   Users,
-  Video,
   Volume2,
   X,
 } from "lucide-react";
@@ -99,16 +98,6 @@ const NavBar = () => {
         </span>
       ),
       href: "/asr-recording",
-      public: true,
-    },
-    {
-      id: 3,
-      title: (
-        <span className="flex items-center gap-1.5">
-          <Video className="size-4 shrink-0" /> Speech
-        </span>
-      ),
-      href: "/speech",
       public: true,
     },
     {
