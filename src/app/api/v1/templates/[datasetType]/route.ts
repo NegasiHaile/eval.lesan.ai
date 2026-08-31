@@ -91,36 +91,65 @@ const schemas: Record<DatasetType, object> = {
       batch_name: "string",
       dataset_domain: "string",
       language: "{ iso_639_3: string, iso_name: string }",
+      workflow: '"annotation" | "evaluation" (required)',
       tasks: "array",
     },
+    workflows: {
+      annotation:
+        "Voice collection. Annotators read each `input` aloud and record it; the uploaded file_id is stored on the task's `reference`. Tasks carry no `models`.",
+      evaluation:
+        "Model comparison. Each task carries `models` with synthesized audio to be rated and ranked.",
+    },
     task_fields: {
-      id: "string | number",
-      input: "string (plain text to synthesize)",
-      models: [
-        {
-          output: "string (URL or file path to audio)",
-          model: "string",
-          rate: "number (0 = unrated)",
-          rank: "number (0 = unranked)",
-        },
-      ],
-      reference: "string (optional)",
-      domain: "string[] (optional)",
+      annotation: {
+        id: "string | number",
+        input: "string (plain text prompt to read aloud)",
+        reference: "string (filled in by the annotator with the recording's file_id)",
+      },
+      evaluation: {
+        id: "string | number",
+        input: "string (plain text to synthesize)",
+        models: [
+          {
+            output: "string (URL or file path to audio)",
+            model: "string",
+            rate: "number (0 = unrated)",
+            rank: "number (0 = unranked)",
+          },
+        ],
+        domain: "string[] (optional)",
+      },
     },
     example: {
-      batch_name: "tts-am-general-01",
-      dataset_domain: "general",
-      language: { iso_639_3: "amh", iso_name: "Amharic" },
-      tasks: [
-        {
-          id: "1",
-          input: "ዛሬ ጥሩ ቀን ነው።",
-          models: [
-            { output: "https://example.com/audio/tts_a.wav", model: "tacotron", rate: 0, rank: 0 },
-            { output: "https://example.com/audio/tts_b.wav", model: "vits", rate: 0, rank: 0 },
-          ],
-        },
-      ],
+      annotation: {
+        batch_name: "tts-am-voice-collection-01",
+        dataset_domain: "general",
+        language: { iso_639_3: "amh", iso_name: "Amharic" },
+        workflow: "annotation",
+        tasks: [
+          {
+            id: "1",
+            input: "ዛሬ ጥሩ ቀን ነው።",
+            reference: "",
+          },
+        ],
+      },
+      evaluation: {
+        batch_name: "tts-am-general-01",
+        dataset_domain: "general",
+        language: { iso_639_3: "amh", iso_name: "Amharic" },
+        workflow: "evaluation",
+        tasks: [
+          {
+            id: "1",
+            input: "ዛሬ ጥሩ ቀን ነው።",
+            models: [
+              { output: "https://example.com/audio/tts_a.wav", model: "tacotron", rate: 0, rank: 0 },
+              { output: "https://example.com/audio/tts_b.wav", model: "vits", rate: 0, rank: 0 },
+            ],
+          },
+        ],
+      },
     },
   },
 };

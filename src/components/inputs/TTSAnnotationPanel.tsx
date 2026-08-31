@@ -27,8 +27,25 @@ const FINISH_FLUSH_TIMEOUT_MS = 8000;
 // parking the segment in the pending banner forever.
 export class UploadPermanentError extends Error {}
 
+/**
+ * Next segment a reader should actually voice.
+ *
+ * Segments a reviewer excluded are stepped over rather than presented: they are
+ * not part of the dataset, so asking a reader to record one wastes booth time.
+ */
 function nextTaskIndex(from: number, tasks: EvalTaskTypes[]) {
-  return from + 1 < tasks.length ? from + 1 : null;
+  for (let i = from + 1; i < tasks.length; i++) {
+    if (!tasks[i]?.excluded) return i;
+  }
+  return null;
+}
+
+/** Previous recordable segment, skipping excluded ones the same way. */
+function prevTaskIndex(from: number, tasks: EvalTaskTypes[]) {
+  for (let i = from - 1; i >= 0; i--) {
+    if (!tasks[i]?.excluded) return i;
+  }
+  return null;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -118,7 +135,7 @@ export default function TTSAnnotationPanel({
 
   const inCaptureMode = sessionActive || preparingSession;
   const isLastTask = nextTaskIndex(currentTaskIndex, batchTasks) == null;
-  const isFirstTask = currentTaskIndex <= 0;
+  const isFirstTask = prevTaskIndex(currentTaskIndex, batchTasks) == null;
   const segmentLabel = `${currentTaskIndex + 1} / ${batchTasks.length}`;
   const displayedTask = batchTasks[currentTaskIndex] ?? evalTask;
   const busy = isAdvancing || saving;
@@ -670,8 +687,9 @@ export default function TTSAnnotationPanel({
   };
 
   const handlePrev = () => {
-    if (isFirstTask) return;
-    advanceTo(currentTaskIndexRef.current - 1);
+    const prevIndex = prevTaskIndex(currentTaskIndexRef.current, batchTasks);
+    if (prevIndex == null) return;
+    advanceTo(prevIndex);
   };
 
   const savedPlaybackSrc =
@@ -693,19 +711,19 @@ export default function TTSAnnotationPanel({
       </div>
 
       <div className="w-full flex flex-col flex-1 min-h-0 gap-4 sm:gap-5 px-1 sm:px-0">
-        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:grid-rows-[minmax(0,1fr)_auto] gap-3 md:gap-x-4 md:gap-y-2">
+        <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto] gap-3 md:gap-x-3 md:gap-y-1">
           <div className="hidden md:block md:col-start-1 md:row-start-1 min-w-0" aria-hidden />
 
-          <div className="w-full max-w-4xl md:w-[min(100%,56rem)] md:col-start-2 md:row-start-1 flex flex-col min-h-0 h-full bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
+          <div className="w-full max-w-6xl md:w-[min(100%,80rem)] md:col-start-2 md:row-start-1 flex flex-col min-h-0 h-full bg-white dark:bg-neutral-900 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-neutral-200/90 dark:border-neutral-700 rounded-lg overflow-hidden">
             <TeleprompterDisplay
               text={displayedTask.input}
               fontSize={prefs.fontSize}
               isCountingDown={isAdvancing}
               secondsLeft={secondsLeft}
-              className="flex-1 min-h-0 !pt-4 !pb-2 sm:!pt-5 sm:!pb-4"
+              className="flex-1 min-h-0 !pt-2 !pb-1 sm:!pt-3 sm:!pb-2"
             />
 
-            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-4 sm:pb-5 text-center space-y-1">
+            <div className="shrink-0 px-3 sm:px-4 pt-1.5 sm:pt-2 pb-2 sm:pb-2.5 text-center space-y-0.5">
               <span className="text-xs sm:text-sm font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
                 {segmentLabel}
               </span>
@@ -736,7 +754,7 @@ export default function TTSAnnotationPanel({
             )}
           </div>
 
-          <div className="md:col-span-3 md:row-start-2 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-2">
+          <div className="md:col-span-3 md:row-start-2 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-0.5">
             <div className="flex justify-start pl-4 sm:pl-8 md:pl-12">
               {prefs.showPrev && (
                 <button

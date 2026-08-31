@@ -128,6 +128,17 @@ curl http://localhost:3000/api/v1/templates/mt \
 
 Replace `mt` with `asr` or `tts` for other dataset types.
 
+**TTS batches additionally require `workflow`**, and its value changes the task
+shape, so fetch `GET /api/v1/templates/tts` rather than assuming the MT shape:
+
+- `workflow: "annotation"` — voice collection. Each task is `{id, input}` where
+  `input` is a prompt to read aloud, and carries **no `models`**. The annotator's
+  recording is stored as a hosted `file_id` on the task's `reference`.
+- `workflow: "evaluation"` — model comparison. Each task carries `models` with
+  synthesized audio to rate and rank, like MT and ASR.
+
+The template's `example` field holds one worked example per workflow.
+
 ---
 
 ## 3. Batch Lifecycle
@@ -175,6 +186,80 @@ curl -X POST http://localhost:3000/api/v1/batches \
   }
 }
 ```
+
+### Create a TTS voice-collection batch
+
+Requires scope `batches:write`. Annotation batches skip model shuffling — there
+are no models to anonymize.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/batches \
+  -H "Authorization: Bearer heval_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_type": "tts",
+    "batch_name": "tir-voices-2026-08",
+    "dataset_domain": "general",
+    "language": {"iso_639_3": "tir", "iso_name": "Tigrinya"},
+    "workflow": "annotation",
+    "tasks": [
+      {"id": "p1", "input": "ሰላም ከመይ ኣለኻ።"},
+      {"id": "p2", "input": "ጽቡቕ መዓልቲ።"}
+    ]
+  }'
+```
+
+### Append tasks to an existing batch
+
+Requires scope `tasks:write`. **Only the batch creator or a root user** — an
+assigned annotator cannot extend their own workload.
+
+This is the streaming counterpart to batch creation: an offline pipeline can push
+new work into a batch that annotators are already using, instead of building the
+whole batch up front.
+
+```bash
+curl -X POST http://localhost:3000/api/v1/batches/{batchId}/tasks \
+  -H "Authorization: Bearer heval_your_key" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: tir-voices-2026-08-chunk-3" \
+  -d '{
+    "tasks": [
+      {"id": "p3", "input": "ሓድሽ ምሳሌ ጽሑፍ።"}
+    ]
+  }'
+```
+
+**201 Created**
+```json
+{
+  "data": {
+    "batch_id": "a1b2c3d4-...",
+    "dataset_type": "tts",
+    "appended": 1,
+    "number_of_tasks": 3,
+    "task_ids": ["p3"]
+  }
+}
+```
+
+Tasks are validated with the same rules as batch creation, taking batch-level
+metadata (dataset type, workflow, language) from the stored batch. For
+evaluation batches the appended models are shuffled and anonymized on their own,
+leaving existing tasks' mappings untouched.
+
+**Appends are all-or-nothing.** If any task id already exists in the batch, or
+repeats within the payload, nothing is written and the call returns `409`:
+
+```json
+{"error": {"code": "CONFLICT", "message": "Task id(s) already present in batch '...' or repeated in the payload: p3."}}
+```
+
+Send an `Idempotency-Key` so a retry after a lost response replays the original
+result instead of appending the same tasks twice.
+
+> An annotator with the batch already open loads its tasks once on selection, so
+> appended tasks surface on their next load of the batch, not mid-session.
 
 ### List batches
 
@@ -262,6 +347,9 @@ curl "http://localhost:3000/api/v1/batches/{batchId}/tasks?limit=20&status=pendi
 
 **200 OK** — Paginated tasks. Status: `pending`, `completed`, `reviewed`.
 
+For TTS **annotation** batches, `completed` means the task has a recording
+(`reference` is set) rather than a rating.
+
 ### Get single task
 
 Requires scope `tasks:read`.
@@ -294,6 +382,67 @@ curl -X PATCH http://localhost:3000/api/v1/batches/{batchId}/tasks/{taskId} \
 ```json
 {"data": {"message": "Task updated.", "task_id": "1"}}
 ```
+
+### Submit a TTS recording (annotation batches)
+
+Requires scope `tasks:write`. In a `workflow: "annotation"` batch the recording
+**is** the submission, so the body carries `reference` and no `models`:
+
+```bash
+curl -X PATCH http://localhost:3000/api/v1/batches/{batchId}/tasks/{taskId} \
+  -H "Authorization: Bearer heval_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference": "file_abc123",
+    "active_duration_ms": 4200
+  }'
+```
+
+`reference` holds the hosted audio's `file_id` (as returned by `POST /api/uploads`),
+never a URL — signed URLs expire, so playback resolves the id through
+`/api/media/{file_id}` on demand. Omitting `reference` returns `400`.
+
+Batch progress (`annotated_tasks`, and therefore `status`) counts tasks with a
+recording for annotation batches, and rated tasks everywhere else.
+
+> `POST /api/uploads` currently accepts a session cookie only, not an API key, so
+> audio is uploaded from the browser. Programmatic callers set `reference` to a
+> `file_id` that already exists.
+
+### Reviewer pass on a TTS voice-collection batch
+
+Requires scope `tasks:write`. The assigned reviewer (`qa_id`) has two remedies,
+and they are the same before and after a take exists: **correct the prompt text**,
+or **exclude the segment**. Audio is never edited — when a recording and its text
+disagree, the text is corrected to match what was said, so an edit deliberately
+**keeps** the existing recording.
+
+```bash
+# Fix the transcript to match what the reader actually said (take is preserved)
+curl -X PATCH http://localhost:3000/api/v1/batches/{batchId}/tasks/{taskId} \
+  -H "Authorization: Bearer heval_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "corrected text", "reviewer_comment": "matched to audio"}'
+
+# Drop a segment that should not be in the dataset
+curl -X PATCH http://localhost:3000/api/v1/batches/{batchId}/tasks/{taskId} \
+  -H "Authorization: Bearer heval_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"excluded": true, "reviewer_comment": "scraped page furniture, not a passage"}'
+```
+
+Rules:
+
+- At least one of `reviewer_comment`, `input`, or `excluded` must be present.
+- `reviewer_comment` is **required** when changing `input` or setting `excluded: true` —
+  the corpus should never carry edits nobody can account for.
+- A reviewer cannot set `reference`, submit ratings, or otherwise write the task
+  wholesale; only these three fields are applied.
+- Excluding a segment marks it **resolved**: readers are not asked to record it,
+  and it counts toward batch completion so an excluded prompt cannot leave a batch
+  permanently short. Exports **report** exclusions rather than filtering them —
+  see the `export_action` field below.
+- Each save stamps `reviewed_at` and refreshes `reviewed_tasks` on the batch.
 
 ### Submit reviewer comment (assigned reviewer only)
 
@@ -331,6 +480,20 @@ curl "http://localhost:3000/api/v1/batches/{batchId}/results?include_original_mo
 ```
 
 ### Export batch data
+
+Every exported task carries an explicit `export_action` of `"keep"` or `"drop"`,
+derived from the reviewer's `excluded` flag. Excluded segments are **not** removed
+from the export: dropping them would make the file disagree with the batch and
+hide the reviewer's decisions. A corpus builder filters on `export_action` and can
+still audit what was dropped and why (`reviewer_comment` travels with the row).
+
+JSON exports also carry an `export_summary` of `{total_tasks, keep, drop}`.
+
+For TTS voice-collection batches, CSV is one row per prompt
+(`task_id, text, audio_file_id, export_action, excluded, reviewer_comment,
+reviewed_at, active_duration_ms`) rather than one row per task-model, since those
+tasks carry no model outputs.
+
 
 Requires scope `batches:read`.
 
@@ -455,7 +618,7 @@ curl -X POST http://localhost:3000/api/v1/webhooks \
 {"data": {"webhook_id": "a1b2c3d4-...", "url": "https://your-app.com/webhooks/horneval", "events": [...], "created_at": "..."}}
 ```
 
-Valid events: `batch.created`, `batch.assigned`, `batch.completed`, `task.evaluated`, `review.submitted`.
+Valid events: `batch.created`, `batch.assigned`, `batch.completed`, `tasks.appended`, `task.evaluated`, `review.submitted`.
 
 Payloads are signed with HMAC-SHA256. Verify via the `X-HornEval-Signature` header using your secret.
 

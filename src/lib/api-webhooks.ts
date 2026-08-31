@@ -10,6 +10,7 @@ export type WebhookEvent =
   | "batch.created"
   | "batch.assigned"
   | "batch.completed"
+  | "tasks.appended"
   | "task.evaluated"
   | "review.submitted";
 

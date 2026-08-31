@@ -34,6 +34,12 @@ describe("Templates", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.dataset_type).toBe("tts");
+    // workflow is required by the validator, so the template must advertise it
+    // or a client that follows it verbatim gets a 400.
+    expect(body.data.schema.required_fields).toHaveProperty("workflow");
+    expect(body.data.schema.example.annotation.workflow).toBe("annotation");
+    expect(body.data.schema.example.annotation.tasks[0]).not.toHaveProperty("models");
+    expect(body.data.schema.example.evaluation.workflow).toBe("evaluation");
   });
 
   it("handles case-insensitive dataset type", async () => {

@@ -15,6 +15,11 @@ export type EvalTaskTypes = {
   reference?: string;
   domain?: string[];
   reviewer_comment?: string;
+  /** Reviewer flagged this segment to be left out of the dataset — either unfit
+   *  to record, or recorded in a way that cannot be repaired by fixing the text. */
+  excluded?: boolean;
+  /** Set whenever a reviewer saves a decision on this task. */
+  reviewed_at?: string;
   started_at?: string;
   completed_at?: string;
   active_duration_ms?: number;

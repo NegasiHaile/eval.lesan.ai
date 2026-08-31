@@ -3,6 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import getClientPromise from "@/lib/mongodb";
 import { requireAuth } from "@/lib/auth";
+import {
+  countAnnotatedTasks,
+  countReviewedTasks,
+} from "@/helpers/annotation_progress";
+import type { EvalTaskTypes } from "@/types/data";
 
 export async function PATCH(
   req: NextRequest,
@@ -31,19 +36,51 @@ export async function PATCH(
     const isCreator = batchDetail?.created_by?.toLowerCase() === auth.username.toLowerCase();
     const isAnnotator = batchDetail?.annotator_id?.toLowerCase() === auth.username.toLowerCase();
 
-    // If the caller is the reviewer (and not also creator/annotator/admin), only allow reviewer_comment updates
+    // Reviewer (and not also creator/annotator/admin): may correct the prompt
+    // text, exclude the segment, and leave a remark — nothing else. The whole
+    // task object is NOT trusted here, so a reviewer cannot overwrite the
+    // recording on `reference`; correcting text keeps the existing audio, which
+    // is the point when audio and text disagree.
     if (isReviewer && !isAdminOrRoot && !isCreator && !isAnnotator) {
+      const set: Record<string, unknown> = {
+        "tasks.$.reviewer_comment": updatedTask.reviewer_comment ?? "",
+        "tasks.$.reviewed_at": new Date().toISOString(),
+      };
+      if (typeof updatedTask.input === "string" && updatedTask.input.trim()) {
+        set["tasks.$.input"] = updatedTask.input.trim();
+      }
+      if (typeof updatedTask.excluded === "boolean") {
+        set["tasks.$.excluded"] = updatedTask.excluded;
+      }
+
       const reviewResult = await db.collection(`${datasetType}_batches`).updateOne(
         {
           batch_id: batchId,
           $or: [{ "tasks.id": Number(taskId) }, { "tasks.id": String(taskId) }],
         },
-        { $set: { "tasks.$.reviewer_comment": updatedTask.reviewer_comment ?? "" } }
+        { $set: set }
       );
       if (reviewResult.matchedCount === 0) {
         return NextResponse.json({ message: "Task not found" }, { status: 404 });
       }
-      return NextResponse.json({ message: "Reviewer comment updated successfully" });
+
+      const reviewedBatch = await db
+        .collection(`${datasetType}_batches`)
+        .findOne({ batch_id: batchId });
+      if (reviewedBatch && Array.isArray(reviewedBatch.tasks)) {
+        const tasks = reviewedBatch.tasks as EvalTaskTypes[];
+        await db.collection("batches_details").updateOne(
+          { batch_id: batchId },
+          {
+            $set: {
+              reviewed_tasks: countReviewedTasks(tasks),
+              annotated_tasks: countAnnotatedTasks(tasks, batchDetail?.workflow),
+            },
+          }
+        );
+      }
+
+      return NextResponse.json({ message: "Review saved successfully" });
     }
 
     const result = await db.collection(`${datasetType}_batches`).updateOne(

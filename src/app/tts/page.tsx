@@ -24,6 +24,7 @@ import { validateEvaluationTask } from "@/helpers/validate_evaluation_task";
 import TTSAnnotationPanel, {
   UploadPermanentError,
 } from "@/components/inputs/TTSAnnotationPanel";
+import TTSReviewPanel from "@/components/inputs/TTSReviewPanel";
 import { referenceAudioFilename } from "@/helpers/reference_audio_filename";
 import { normalizeAudioContentType } from "@/constants/transcription";
 import {
@@ -353,6 +354,64 @@ export default function TTSPage() {
     setBatchTasks(updatedTasks);
     await handleSaveTaskChanges(task);
     syncActiveBatchToStorage(updatedTasks, index);
+  };
+
+  const [savingReview, setSavingReview] = useState(false);
+
+  /**
+   * Persist a reviewer's decision on a voice-collection segment.
+   *
+   * Only the reviewable fields are sent. `reference` is deliberately left
+   * alone: when a take and its text disagree, correcting the text is the
+   * repair, so the recording must survive the edit.
+   */
+  const handleSaveTtsReview = async (changes: {
+    input: string;
+    excluded: boolean;
+    reviewer_comment: string;
+  }) => {
+    if (!evalTask) return;
+    setSavingReview(true);
+    try {
+      const res = await fetch(
+        `/api/batches/${selectedBatchDetail.dataset_type}/${selectedBatchDetail.batch_id}/tasks/${evalTask.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(changes),
+        }
+      );
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+      const updated: EvalTaskTypes = {
+        ...evalTask,
+        ...changes,
+        reviewed_at: new Date().toISOString(),
+      };
+      const index = currentTaskIndexRef.current;
+      const updatedTasks = [...batchTasksRef.current];
+      updatedTasks[index] = updated;
+      batchTasksRef.current = updatedTasks;
+      setBatchTasks(updatedTasks);
+      setEvalTask(updated);
+      setReviewerComment(changes.reviewer_comment);
+      setNotice({
+        title: "Review saved",
+        message: changes.excluded
+          ? "Segment excluded from the dataset."
+          : "Your changes were saved.",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error(error);
+      setNotice({
+        title: "Save failed",
+        message: "Could not save your review. Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setSavingReview(false);
+    }
   };
 
   const handleAnnotationNavigate = (index: number) => {
@@ -743,6 +802,17 @@ export default function TTSPage() {
           <div className="w-full py-12 text-center text-neutral-500">
             Loading...
           </div>
+        ) : isAnnotationMode && isReviewerMode ? (
+          <TTSReviewPanel
+            key={`${selectedBatchDetail.batch_id}-${evalTask.id}`}
+            evalTask={evalTask}
+            currentTaskIndex={currentTaskIndex}
+            totalTasks={batchTasks.length}
+            saving={savingReview}
+            onSave={handleSaveTtsReview}
+            onNext={handleReviewerNext}
+            onPrev={handleReviewerPrev}
+          />
         ) : isAnnotationMode ? (
           <div className="flex flex-col flex-1 w-full min-h-0">
             <TTSAnnotationPanel

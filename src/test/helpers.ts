@@ -18,11 +18,12 @@ export function makeRequest(
 export function makeJsonRequest(
   url: string,
   method: string,
-  body: unknown
+  body: unknown,
+  headers?: Record<string, string>
 ): NextRequest {
   return makeRequest(url, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -186,6 +187,97 @@ export function makeEvaluatedTasks() {
       active_duration_ms: 3000,
     },
   ];
+}
+
+export function makeTtsAnnotationBatchDetail(overrides: Partial<{
+  batch_id: string;
+  batch_name: string;
+  annotator_id: string | null;
+  qa_id: string | null;
+  created_by: string;
+  number_of_tasks: number;
+  annotated_tasks: number;
+}> = {}) {
+  return {
+    batch_id: overrides.batch_id ?? "tts-batch-001",
+    batch_name: overrides.batch_name ?? "tts-annotation-batch",
+    dataset_type: "tts",
+    dataset_domain: "general",
+    workflow: "annotation",
+    source_language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    target_language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    models: [],
+    annotator_id: overrides.annotator_id ?? null,
+    qa_id: overrides.qa_id ?? null,
+    created_by: overrides.created_by ?? "root@example.com",
+    created_at: new Date().toISOString(),
+    number_of_tasks: overrides.number_of_tasks ?? 2,
+    annotated_tasks: overrides.annotated_tasks ?? 0,
+  };
+}
+
+export function makeTtsAnnotationBatchTasks(overrides: Partial<{
+  batch_id: string;
+  batch_name: string;
+  tasks: unknown[];
+}> = {}) {
+  return {
+    batch_id: overrides.batch_id ?? "tts-batch-001",
+    batch_name: overrides.batch_name ?? "tts-annotation-batch",
+    dataset_domain: "general",
+    workflow: "annotation",
+    language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    tasks: overrides.tasks ?? [
+      { id: "1", input: "ሰላም ከመይ ኣለኻ።", models: [], reference: "" },
+      { id: "2", input: "ጽቡቕ መዓልቲ።", models: [], reference: "" },
+    ],
+  };
+}
+
+export function makeTtsEvaluationBatchDetail(overrides: Partial<{
+  batch_id: string;
+  created_by: string;
+  annotator_id: string | null;
+}> = {}) {
+  return {
+    batch_id: overrides.batch_id ?? "tts-eval-001",
+    batch_name: "tts-evaluation-batch",
+    dataset_type: "tts",
+    dataset_domain: "general",
+    workflow: "evaluation",
+    source_language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    target_language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    models: ["model_a", "model_b"],
+    annotator_id: overrides.annotator_id ?? null,
+    qa_id: null,
+    created_by: overrides.created_by ?? "root@example.com",
+    created_at: new Date().toISOString(),
+    number_of_tasks: 1,
+    annotated_tasks: 0,
+  };
+}
+
+export function makeTtsEvaluationBatchTasks(overrides: Partial<{
+  batch_id: string;
+}> = {}) {
+  return {
+    batch_id: overrides.batch_id ?? "tts-eval-001",
+    batch_name: "tts-evaluation-batch",
+    dataset_domain: "general",
+    workflow: "evaluation",
+    language: { iso_639_3: "tir", iso_name: "Tigrinya" },
+    tasks: [
+      {
+        id: "1",
+        input: "ሰላም ከመይ ኣለኻ።",
+        models: [
+          { output: "https://example.com/a.wav", model: "A", rate: 0, rank: 0 },
+          { output: "https://example.com/b.wav", model: "B", rate: 0, rank: 0 },
+        ],
+      },
+    ],
+    task_models_shuffles: { "1": { A: "model_a", B: "model_b" } },
+  };
 }
 
 export function makeUser(overrides: Partial<{

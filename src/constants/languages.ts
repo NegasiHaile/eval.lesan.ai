@@ -14,6 +14,11 @@ export const languages = [
     iso_639_1: "ti",
     iso_639_3: "tir",
   },
+  {
+    iso_name: "Somali",
+    iso_639_1: "so",
+    iso_639_3: "som",
+  },
   // {
   //   iso_name: "Oromo",
   //   iso_639_1: "or",

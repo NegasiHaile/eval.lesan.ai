@@ -1,6 +1,6 @@
 {
   "title": "Task preparation",
-  "description": "Tasks are prepared as batches (JSON). Understanding who can prepare them, what types exist, and what to include ensures evaluations run smoothly.",
+  "description": "Tasks are prepared as batches (JSON) for MT, ASR, and TTS. Understanding who can prepare them, what types exist, and what to include ensures evaluations run smoothly. Batches can be uploaded from the Datasets page or created through the API.",
   "subsections": [
     {
       "id": "who-and-how",
@@ -32,7 +32,10 @@
       "id": "required-fields",
       "title": "Required fields",
       "blocks": [
-        { "type": "p", "text": "Top level:" },
+        {
+          "type": "p",
+          "text": "Top level:"
+        },
         {
           "type": "ul",
           "items": [
@@ -88,6 +91,75 @@
           "type": "code",
           "language": "json",
           "code": "{\n  \"dataset_name\": \"Amharic Read Speech\",\n  \"dataset_domain\": \"speech\",\n  \"batch_name\": \"ASR Batch 001\",\n  \"language\": \"am\",\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"input\": \"https://example.com/audio/sample1.wav\",\n      \"models\": [\n        { \"output\": \"Transcribed text from model A.\", \"model\": \"Model A\", \"rate\": 0, \"rank\": 0 },\n        { \"output\": \"Transcribed text from model B.\", \"model\": \"Model B\", \"rate\": 0, \"rank\": 0 }\n      ]\n    }\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "id": "types-tts",
+      "title": "Types of tasks: TTS",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "TTS batches must declare a workflow, and it decides what annotators do with the batch."
+        },
+        {
+          "type": "ul",
+          "items": [
+            "annotation (voice collection): each task is a text prompt for the annotator to read aloud. The recording is saved on the task, so tasks carry no model outputs.",
+            "evaluation (model comparison): each task has text to synthesize plus model outputs pointing at audio, rated and ranked like MT and ASR."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "A TTS batch without workflow is rejected at upload."
+        }
+      ]
+    },
+    {
+      "id": "tts-annotation-example",
+      "title": "TTS voice-collection batch example",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "input is the prompt to read aloud. Leave reference empty — it is filled in with the annotator's recording. Do not include models."
+        },
+        {
+          "type": "code",
+          "code": "{\n  \"dataset_name\": \"Tigrinya Voice Collection\",\n  \"dataset_domain\": \"general\",\n  \"batch_name\": \"TTS Batch 001\",\n  \"language\": {\n    \"iso_name\": \"Tigrinya\",\n    \"iso_639_1\": \"ti\",\n    \"iso_639_3\": \"tir\"\n  },\n  \"workflow\": \"annotation\",\n  \"tasks\": [\n    {\n      \"id\": \"1\",\n      \"input\": \"ሰላም ከመይ ኣለኻ።\",\n      \"reference\": \"\"\n    },\n    {\n      \"id\": \"2\",\n      \"input\": \"ጽቡቕ መዓልቲ።\",\n      \"reference\": \"\"\n    }\n  ]\n}",
+          "language": "json"
+        }
+      ]
+    },
+    {
+      "id": "programmatic-preparation",
+      "title": "Preparing tasks programmatically",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Batches do not have to be uploaded by hand. The API accepts the same batch JSON and applies the same validation, so an offline pipeline can create batches, assign them, and pull results without anyone touching the Datasets page."
+        },
+        {
+          "type": "ol",
+          "items": [
+            "Create an API key from your profile session, then send it as an Authorization: Bearer heval_... header.",
+            "Ask the server for the shape you need: GET /api/v1/templates/{mt|asr|tts} returns required fields and a worked example per workflow.",
+            "Create the batch with POST /api/v1/batches, then assign an annotator with POST /api/v1/batches/{batchId}/assign.",
+            "Append more tasks at any time with POST /api/v1/batches/{batchId}/tasks — the batch can grow while it is being worked on.",
+            "Collect results with GET /api/v1/batches/{batchId}/results, or the full data with .../export."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Appending is restricted to the batch creator (or an admin), and is all-or-nothing: if a task id already exists in the batch, nothing is added. Send an Idempotency-Key header so a retry after a dropped connection cannot add the same tasks twice. Tasks added to a batch someone already has open appear the next time they load that batch."
+        },
+        {
+          "type": "p",
+          "text": "A Python client wrapping these endpoints lives in clients/python; its README has a worked voice-collection example."
+        },
+        {
+          "type": "code",
+          "code": "from horneval import HornEval\n\nclient = HornEval()  # reads HORNEVAL_URL / HORNEVAL_API_KEY\n\nbatch = client.create_batch(\n    dataset_type=\"tts\",\n    batch_name=\"tir-voices-2026-08\",\n    dataset_domain=\"general\",\n    language={\"iso_639_3\": \"tir\", \"iso_name\": \"Tigrinya\"},\n    workflow=\"annotation\",\n    tasks=[{\"id\": \"p1\", \"input\": \"ሰላም ከመይ ኣለኻ።\"}],\n)\n\n# Feed the batch more prompts as they are produced\nclient.append_tasks(batch[\"batch_id\"], [{\"id\": \"p2\", \"input\": \"ጽቡቕ መዓልቲ።\"}])",
+          "language": "python"
         }
       ]
     }

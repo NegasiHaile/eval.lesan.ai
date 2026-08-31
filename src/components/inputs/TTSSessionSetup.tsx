@@ -137,8 +137,38 @@ export default function TTSSessionSetup({
 }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Anchored with fixed coordinates rather than absolute placement: the
+  // annotation panel clips its overflow, which cut the popover off partway
+  // down. A fixed element is positioned against the viewport, so it escapes
+  // that clip while staying in the same DOM subtree for click-outside.
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const patch = (next: Partial<TTSSessionPrefs>) =>
     onChange({ ...prefs, ...next });
+
+  useEffect(() => {
+    if (!open) {
+      setAnchor(null);
+      return;
+    }
+    const place = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = 280; // matches w-[17.5rem]
+      setAnchor({
+        top: rect.bottom + 8,
+        // Keep the panel on screen when the cog sits near the right edge.
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -166,6 +196,7 @@ export default function TTSSessionSetup({
   return (
     <div ref={panelRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center justify-center size-9 rounded-lg transition-colors ${
@@ -179,8 +210,13 @@ export default function TTSSessionSetup({
         <Settings className="size-5" aria-hidden />
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-11 z-30 w-[17.5rem] rounded-xl border border-neutral-200/90 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden">
+      {open && anchor && (
+        <div
+          style={{ top: anchor.top, left: anchor.left }}
+          // max-height + scroll so a short viewport shrinks the panel instead
+          // of hiding the sections at the bottom.
+          className="fixed z-50 w-[17.5rem] max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain rounded-xl border border-neutral-200/90 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
+        >
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-neutral-100 dark:border-neutral-800">
             <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Settings

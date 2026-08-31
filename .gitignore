@@ -48,3 +48,10 @@ dataset/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python client
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+clients/python/build/
