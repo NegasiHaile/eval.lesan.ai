@@ -803,16 +803,18 @@ export default function TTSPage() {
             Loading...
           </div>
         ) : isAnnotationMode && isReviewerMode ? (
-          <TTSReviewPanel
-            key={`${selectedBatchDetail.batch_id}-${evalTask.id}`}
-            evalTask={evalTask}
-            currentTaskIndex={currentTaskIndex}
-            totalTasks={batchTasks.length}
-            saving={savingReview}
-            onSave={handleSaveTtsReview}
-            onNext={handleReviewerNext}
-            onPrev={handleReviewerPrev}
-          />
+          <div className="flex flex-col flex-1 w-full min-h-0 overflow-y-auto overscroll-contain pb-6">
+            <TTSReviewPanel
+              key={`${selectedBatchDetail.batch_id}-${evalTask.id}`}
+              evalTask={evalTask}
+              currentTaskIndex={currentTaskIndex}
+              totalTasks={batchTasks.length}
+              saving={savingReview}
+              onSave={handleSaveTtsReview}
+              onNext={handleReviewerNext}
+              onPrev={handleReviewerPrev}
+            />
+          </div>
         ) : isAnnotationMode ? (
           <div className="flex flex-col flex-1 w-full min-h-0">
             <TTSAnnotationPanel
